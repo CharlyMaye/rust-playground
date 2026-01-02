@@ -19,10 +19,13 @@
 	// 👇 Configure tool-specific properties.
 	"customizations": {
 		"vscode": {
-			"extensions": ["rust-lang.rust-analyzer"]
+			"extensions": [
+				"rust-lang.rust-analyzer",
+				"usernamehw.errorlens"
+			]
 		}
-	}
+	},
 
 	// 👇 Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "root"
+	"remoteUser": "root"
 }
