@@ -21,7 +21,8 @@
 		"vscode": {
 			"extensions": [
 				"rust-lang.rust-analyzer",
-				"usernamehw.errorlens"
+				"usernamehw.errorlens",
+				"tamasfe.even-better-toml"
 			]
 		}
 	},

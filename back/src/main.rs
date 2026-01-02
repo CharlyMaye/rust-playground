@@ -1,15 +1,22 @@
 use std::sync::Mutex;
 
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware, post, web};
 
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    env_logger::init_from_env(
+        env_logger::Env::new().default_filter_or("info")
+    );
+
+    log::info!("Starting server at http://localhost:8080");
+
     let counter = web::Data::new(AppStareWithCounter {
         counter: Mutex::new(0),
     });
     HttpServer::new(move || {
         App::new()
+            .wrap(middleware::Logger::default())
             // création et ajout d'un état par worker (clone par thread)
             .app_data(web::Data::new(AppState {
                 app_name: String::from("My Actix Web App"),
