@@ -1,7 +1,25 @@
+// https://actix.rs/docs/application
+// https://redis.io/docs/latest/
+
 use std::sync::Mutex;
 
-use actix_web::{App, HttpResponse, HttpServer, Responder, get, middleware, post, web};
+use actix_session::{Session, SessionMiddleware, storage::RedisSessionStore};
+use actix_web::{
+    App, HttpResponse, HttpServer, Responder, Result, middleware, web::{self, get, post, resource}
+};
+use serde::{Deserialize, Serialize};
 
+use crate::shared::IndexResponse;
+
+mod authentication;
+mod shared;
+
+struct AppState {
+    app_name: String,
+}
+struct AppStareWithCounter {
+    counter: Mutex<i32>,
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
@@ -10,6 +28,16 @@ async fn main() -> std::io::Result<()> {
     );
 
     log::info!("Starting server at http://localhost:8080");
+
+    // Generate a random 32 byte key. Note that it is important to use a unique
+    // private key for every project. Anyone with access to the key can generate
+    // authentication cookies for any user!
+    let private_key = actix_web::cookie::Key::generate();
+
+    let redis_url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    let store = RedisSessionStore::new(&redis_url)
+        .await
+        .unwrap();
 
     let counter = web::Data::new(AppStareWithCounter {
         counter: Mutex::new(0),
@@ -23,14 +51,13 @@ async fn main() -> std::io::Result<()> {
             }))
             // ajout d'un état partagé contenant un compteur accessible à tous les workers (Arc + Mutex)
             .app_data(counter.clone())
-            .service(hello)
-            .service(echo)
+            .route("/", web::get().to(index))
+            .configure(authentication::authentication_config)
+            // TODO - à remplacer par un vrai scope
             .service(
-                web::scope("/app")
-                    .route("/", web::get().to(index))
+                web::scope("/do_something")
+                .route("/", web::get().to(do_something))
             )
-            .configure(config)
-            .route("/hey", web::get().to(manual_hello))
 
     })
     .workers(2)
@@ -41,49 +68,35 @@ async fn main() -> std::io::Result<()> {
     .await
 }
 
-// https://actix.rs/docs/application
-// this function could be located in a different module
-fn scoped_config(cfg: &mut web::ServiceConfig) {
-    cfg.service(
-        web::resource("/test")
-            .route(web::get().to(|| async { HttpResponse::Ok().body("test") }))
-            .route(web::head().to(HttpResponse::MethodNotAllowed)),
-    );
-}
 
-// this function could be located in a different module
-fn config(cfg: &mut web::ServiceConfig) {
-    cfg.service(
-        web::resource("/app")
-            .route(web::get().to(|| async { HttpResponse::Ok().body("app") }))
-            .route(web::head().to(HttpResponse::MethodNotAllowed)),
-    );
-}
-async fn index(app_state: web::Data<AppState>, app_state_with_counter: web::Data<AppStareWithCounter>) -> impl Responder {
+
+
+async fn index(
+    session: Session,
+    app_state: web::Data<AppState>,
+    app_state_with_counter: web::Data<AppStareWithCounter>) -> impl Responder {
+    let user_id: Option<String> = session.get::<String>("user_id").unwrap();
+    let session_counter: i32 = session
+        .get::<i32>("counter")
+        .unwrap_or(Some(0))
+        .unwrap_or(0);
     let app_name = &app_state.app_name;
-    let mut counter = app_state_with_counter.counter.lock().unwrap();
-    *counter += 1;
-    HttpResponse::Ok().body(format!("Welcome to {}! Request number: {}", app_name, counter))
+    let mut call_counter = app_state_with_counter.counter.lock().unwrap();
+    *call_counter += 1;
+    
+    HttpResponse::Ok().json(shared::IndexResponse {
+        user_id,
+        session_counter,
+    })
 }
 
-struct AppState {
-    app_name: String,
-}
-struct AppStareWithCounter {
-    counter: Mutex<i32>,
-}
+async fn do_something(session: Session) -> Result<HttpResponse> {
+    let user_id: Option<String> = session.get::<String>("user_id").unwrap();
+    let counter: i32 = session
+        .get::<i32>("counter")
+        .unwrap_or(Some(0))
+        .map_or(1, |inner| inner + 1);
+    session.insert("counter", counter)?;
 
-// https://actix.rs/docs/getting-started
-#[get("/")]
-async fn hello() -> impl Responder {
-    HttpResponse::Ok().body("Hello world!")
-}
-
-#[post("/echo")]
-async fn echo(req_body: String) -> impl Responder {
-    HttpResponse::Ok().body(req_body)
-}
-
-async fn manual_hello() -> impl Responder {
-    HttpResponse::Ok().body("Hey there!")
+    Ok(HttpResponse::Ok().json(shared::IndexResponse { user_id, session_counter: counter }))
 }
