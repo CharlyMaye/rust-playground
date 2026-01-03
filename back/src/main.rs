@@ -13,6 +13,7 @@ use crate::shared::IndexResponse;
 
 mod authentication;
 mod shared;
+mod protected_routes;
 
 struct AppState {
     app_name: String,
@@ -58,7 +59,15 @@ async fn main() -> std::io::Result<()> {
             .app_data(counter.clone())
             .route("/", web::get().to(index))
             .configure(authentication::authentication_config)
-            // TODO - à remplacer par un vrai scope
+            // Exemple avec extractor : route individuelle protégée
+            .route("/protected", web::get().to(protected_route))
+            // Exemple avec middleware : tout le scope /api est protégé
+            .service(
+                web::scope("/api")
+                    .wrap(authentication::AuthenticationMiddleware)
+                    .route("/data", web::get().to(api_data))
+            )
+            // Route sans protection (ancien do_something)
             .service(
                 web::scope("/do_something")
                 .route("/", web::get().to(do_something))
@@ -104,4 +113,19 @@ async fn do_something(session: Session) -> Result<HttpResponse> {
     session.insert("counter", counter)?;
 
     Ok(HttpResponse::Ok().json(shared::IndexResponse { user_id, session_counter: counter }))
+}
+// Route protégée avec extractor
+async fn protected_route(user: authentication::AuthenticatedUser) -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({
+        "message": "Route protégée par extractor",
+        "user_id": user.user_id
+    }))
+}
+
+// Route protégée par middleware
+async fn api_data() -> impl Responder {
+    HttpResponse::Ok().json(serde_json::json!({
+        "message": "Route protégée par middleware",
+        "data": "Données sécurisées"
+    }))
 }
