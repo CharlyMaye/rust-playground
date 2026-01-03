@@ -44,6 +44,11 @@ async fn main() -> std::io::Result<()> {
     });
     HttpServer::new(move || {
         App::new()
+            .wrap(
+                SessionMiddleware::builder(store.clone(), private_key.clone())
+                .cookie_secure(false)
+                .build()
+            )
             .wrap(middleware::Logger::default())
             // création et ajout d'un état par worker (clone par thread)
             .app_data(web::Data::new(AppState {
@@ -61,7 +66,7 @@ async fn main() -> std::io::Result<()> {
 
     })
     .workers(2)
-    .keep_alive(None)
+    .keep_alive(std::time::Duration::from_secs(75))
     .shutdown_timeout(30)
     .bind(("0.0.0.0", 8080))?
     .run()
