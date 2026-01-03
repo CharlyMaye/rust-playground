@@ -10,6 +10,18 @@ use serde::{Deserialize};
 
 use crate::shared::IndexResponse;
 
+// ============= FONCTION PARTAGÉE =============
+// Logique commune de vérification et renouvellement de session
+fn verify_and_renew_session(session: &Session) -> Result<String, Error> {
+    match session.get::<String>("user_id") {
+        Ok(Some(user_id)) => {
+            session.renew();
+            Ok(user_id)
+        }
+        _ => Err(actix_web::error::ErrorUnauthorized("Not authenticated"))
+    }
+}
+
 // ============= EXTRACTOR =============
 // Extractor pour extraire l'utilisateur authentifié de la session
 pub struct AuthenticatedUser {
@@ -23,13 +35,9 @@ impl FromRequest for AuthenticatedUser {
     fn from_request(req: &HttpRequest, _payload: &mut actix_web::dev::Payload) -> Self::Future {
         let session = Session::extract(req).into_inner().unwrap();
         
-        match session.get::<String>("user_id") {
-            Ok(Some(user_id)) => {
-                // Renew automatique de la session pour sécurité
-                session.renew();
-                ready(Ok(AuthenticatedUser { user_id }))
-            }
-            _ => ready(Err(actix_web::error::ErrorUnauthorized("Not authenticated")))
+        match verify_and_renew_session(&session) {
+            Ok(user_id) => ready(Ok(AuthenticatedUser { user_id })),
+            Err(e) => ready(Err(e))
         }
     }
 }
@@ -74,24 +82,24 @@ where
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let session = Session::extract(req.request()).into_inner().unwrap();
         
-        match session.get::<String>("user_id") {
-            Ok(Some(_)) => {
-                session.renew();
+        match verify_and_renew_session(&session) {
+            Ok(_) => {
                 let fut = self.service.call(req);
                 Box::pin(async move {
                     let res = fut.await?;
                     Ok(res)
                 })
             }
-            _ => {
+            Err(e) => {
                 Box::pin(async move {
-                    Err(actix_web::error::ErrorUnauthorized("Not authenticated"))
+                    Err(e)
                 })
             }
         }
     }
 }
 
+// ============= ROUTES DE LOGIN/LOGOUT =============
 #[derive(Deserialize)]
 struct Identity {
     user_id: String,
@@ -123,6 +131,7 @@ async fn logout(session: Session) -> Result<String> {
     }
 }
 
+// Configuration des routes d'authentification
 pub fn authentication_config(cfg: &mut web::ServiceConfig) {
     cfg.route("/login", web::post().to(login));
     cfg.route("/logout", web::post().to(logout));
