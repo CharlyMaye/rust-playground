@@ -9,16 +9,15 @@
 
     <script>
         async function call(callback) {
-            let data;
-            let error;
+            let dataResponse;
+            let errorResponse;
             try {
                 const serverResponse = await callback();
-                data = await serverResponse.json();
+                dataResponse = await serverResponse.json();
             } catch (error) {
-                console.error('Error during fetch:', error);
-                error = error;
+                errorResponse = error;
             }
-            const response = { data, error };
+            const response = { data: dataResponse, error: errorResponse };
             console.log('Response:', response);
             return response;
         }
