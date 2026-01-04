@@ -5,15 +5,13 @@ use std::sync::Mutex;
 
 use actix_session::{Session, SessionMiddleware, storage::RedisSessionStore};
 use actix_web::{
-    App, HttpResponse, HttpServer, Responder, Result, middleware, web::{self, get, post, resource}
+    App, HttpResponse, HttpServer, Responder, Result, middleware, web::{self}
 };
-use serde::{Deserialize, Serialize};
-
-use crate::shared::IndexResponse;
 
 mod authentication;
-mod shared;
 mod protected_routes;
+mod shared;
+mod static_files;
 
 struct AppState {
     app_name: String,
@@ -50,29 +48,30 @@ async fn main() -> std::io::Result<()> {
                 .cookie_secure(false)
                 .build()
             )
-            .wrap(middleware::Logger::default())
             // création et ajout d'un état par worker (clone par thread)
             .app_data(web::Data::new(AppState {
                 app_name: String::from("My Actix Web App"),
             }))
             // ajout d'un état partagé contenant un compteur accessible à tous les workers (Arc + Mutex)
             .app_data(counter.clone())
+            // Exemple avec middleware : toutes les routes sont protégées
+            // .configure(authentication::authentication_config)
+
             .route("/", web::get().to(index))
-            .configure(authentication::authentication_config)
+            .configure(static_files::static_files_config)
+
             // Exemple avec extractor : route individuelle protégée
             .route("/protected", web::get().to(protected_route))
+
             // Exemple avec middleware : tout le scope /api est protégé
             .service(
                 web::scope("/api")
-                    .wrap(authentication::AuthenticationMiddleware)
-                    .route("/data", web::get().to(api_data))
+                .wrap(authentication::AuthenticationMiddleware)
+                .route("/data", web::get().to(api_data))
             )
             // Route sans protection (ancien do_something)
-            .service(
-                web::scope("/do_something")
-                .route("/", web::get().to(do_something))
-            )
-
+            .route("/do_something", web::get().to(do_something))
+            .wrap(middleware::Logger::default())
     })
     .workers(2)
     .keep_alive(std::time::Duration::from_secs(75))

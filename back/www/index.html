@@ -1,0 +1,22 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    
+
+    <script>
+        const baseUrl = "http://localhost:8080";
+        fetch(baseUrl + '/do_something')
+            .then(response => response.text())
+            .then(data => {
+                console.log('Response from /do_something:', data);
+            })
+            .catch(error => {
+                console.error('Error fetching /do_something:', error);
+            });
+    </script>
+</body>
+</html>
