@@ -8,15 +8,42 @@
     
 
     <script>
-        const baseUrl = "http://localhost:8080";
-        fetch(baseUrl + '/do_something')
-            .then(response => response.text())
-            .then(data => {
-                console.log('Response from /do_something:', data);
-            })
-            .catch(error => {
-                console.error('Error fetching /do_something:', error);
+        async function call(callback) {
+            let data;
+            let error;
+            try {
+                const serverResponse = await callback();
+                data = await serverResponse.json();
+            } catch (error) {
+                error = error;
+            }
+            const response = { data, error };
+            console.log('Response:', response);
+            return response;
+        }
+        async function test() {
+            
+            const baseUrl = "http://localhost:8080";
+            const loginResult = await call( () => {
+                return fetch(baseUrl + "/login", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ user_id: 'user', password: 'password' })
+                });
             });
+
+            const doSomethingReult = await call(() => {
+                return fetch(baseUrl + '/do_something');
+            })
+
+            const apiDataResult = await call(() => {
+                return fetch(baseUrl + '/api/data');
+            })
+
+        }
+        test();
     </script>
 </body>
 </html>

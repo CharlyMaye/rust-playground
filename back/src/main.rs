@@ -3,9 +3,9 @@
 
 use std::sync::Mutex;
 
-use actix_session::{Session, SessionMiddleware, storage::RedisSessionStore};
+use actix_session::{SessionMiddleware, storage::RedisSessionStore};
 use actix_web::{
-    App, HttpResponse, HttpServer, Responder, Result, middleware, web::{self}
+    App, HttpServer, middleware, web::{self}
 };
 
 mod authentication;
@@ -14,10 +14,10 @@ mod shared;
 mod static_files;
 
 struct AppState {
-    app_name: String,
+    _app_name: String,
 }
 struct AppStareWithCounter {
-    counter: Mutex<i32>,
+    _counter: Mutex<i32>,
 }
 
 #[actix_web::main]
@@ -39,7 +39,7 @@ async fn main() -> std::io::Result<()> {
         .unwrap();
 
     let counter = web::Data::new(AppStareWithCounter {
-        counter: Mutex::new(0),
+        _counter: Mutex::new(0),
     });
     HttpServer::new(move || {
         App::new()
@@ -50,27 +50,25 @@ async fn main() -> std::io::Result<()> {
             )
             // création et ajout d'un état par worker (clone par thread)
             .app_data(web::Data::new(AppState {
-                app_name: String::from("My Actix Web App"),
+                _app_name: String::from("My Actix Web App"),
             }))
             // ajout d'un état partagé contenant un compteur accessible à tous les workers (Arc + Mutex)
             .app_data(counter.clone())
             // Exemple avec middleware : toutes les routes sont protégées
-            // .configure(authentication::authentication_config)
-
-            .route("/", web::get().to(index))
-            .configure(static_files::static_files_config)
+            .configure(authentication::authentication_config)
 
             // Exemple avec extractor : route individuelle protégée
-            .route("/protected", web::get().to(protected_route))
-
+            .route("/protected", web::get().to(protected_routes::protected_route))
+            
             // Exemple avec middleware : tout le scope /api est protégé
             .service(
                 web::scope("/api")
                 .wrap(authentication::AuthenticationMiddleware)
-                .route("/data", web::get().to(api_data))
+                .route("/data", web::get().to(protected_routes::api_data))
+                .route("/use", web::get().to(protected_routes::api_user_info))
             )
-            // Route sans protection (ancien do_something)
-            .route("/do_something", web::get().to(do_something))
+            // Fichiers static à la fin pour ne pas interférer avec les autres routes
+            .configure(static_files::static_files_config)
             .wrap(middleware::Logger::default())
     })
     .workers(2)
@@ -79,52 +77,4 @@ async fn main() -> std::io::Result<()> {
     .bind(("0.0.0.0", 8080))?
     .run()
     .await
-}
-
-
-
-
-async fn index(
-    session: Session,
-    app_state: web::Data<AppState>,
-    app_state_with_counter: web::Data<AppStareWithCounter>) -> impl Responder {
-    let user_id: Option<String> = session.get::<String>("user_id").unwrap();
-    let session_counter: i32 = session
-        .get::<i32>("counter")
-        .unwrap_or(Some(0))
-        .unwrap_or(0);
-    let app_name = &app_state.app_name;
-    let mut call_counter = app_state_with_counter.counter.lock().unwrap();
-    *call_counter += 1;
-    
-    HttpResponse::Ok().json(shared::IndexResponse {
-        user_id,
-        session_counter,
-    })
-}
-
-async fn do_something(session: Session) -> Result<HttpResponse> {
-    let user_id: Option<String> = session.get::<String>("user_id").unwrap();
-    let counter: i32 = session
-        .get::<i32>("counter")
-        .unwrap_or(Some(0))
-        .map_or(1, |inner| inner + 1);
-    session.insert("counter", counter)?;
-
-    Ok(HttpResponse::Ok().json(shared::IndexResponse { user_id, session_counter: counter }))
-}
-// Route protégée avec extractor
-async fn protected_route(user: authentication::AuthenticatedUser) -> impl Responder {
-    HttpResponse::Ok().json(serde_json::json!({
-        "message": "Route protégée par extractor",
-        "user_id": user.user_id
-    }))
-}
-
-// Route protégée par middleware
-async fn api_data() -> impl Responder {
-    HttpResponse::Ok().json(serde_json::json!({
-        "message": "Route protégée par middleware",
-        "data": "Données sécurisées"
-    }))
 }

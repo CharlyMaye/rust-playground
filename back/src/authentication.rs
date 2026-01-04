@@ -1,8 +1,7 @@
-use actix_session::{Session, SessionMiddleware, storage::RedisSessionStore};
+use actix_session::{Session};
 use actix_web::{
-    App, HttpResponse, HttpServer, Result, middleware, web,
-    web::{get, post, resource},
-    FromRequest, HttpRequest, Error, HttpMessage,
+    HttpResponse, Result, web,
+    FromRequest, HttpRequest, Error,
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
 };
 use std::future::{ready, Ready};
@@ -117,7 +116,7 @@ async fn login(user_id: web::Json<Identity>, session: Session) -> Result<HttpRes
 
     Ok(HttpResponse::Ok().json(IndexResponse {
         user_id: Some(id),
-        session_counter: counter,
+        counter,
     }))
 }
 
