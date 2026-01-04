@@ -15,6 +15,7 @@
                 const serverResponse = await callback();
                 data = await serverResponse.json();
             } catch (error) {
+                console.error('Error during fetch:', error);
                 error = error;
             }
             const response = { data, error };
@@ -34,12 +35,26 @@
                 });
             });
 
-            const doSomethingReult = await call(() => {
-                return fetch(baseUrl + '/do_something');
+            await call(() => {
+                return fetch(baseUrl + '/protected');
             })
 
-            const apiDataResult = await call(() => {
+            await call(() => {
                 return fetch(baseUrl + '/api/data');
+            })
+
+            await call(() => {
+                return fetch(baseUrl + '/api/user');
+            })
+
+            await call(() => {
+                return fetch(baseUrl + '/logout', {
+                    method: 'POST'
+                });
+            });
+
+            await call(() => {
+                return fetch(baseUrl + '/api/user');
             })
 
         }

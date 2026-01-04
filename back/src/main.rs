@@ -65,7 +65,7 @@ async fn main() -> std::io::Result<()> {
                 web::scope("/api")
                 .wrap(authentication::AuthenticationMiddleware)
                 .route("/data", web::get().to(protected_routes::api_data))
-                .route("/use", web::get().to(protected_routes::api_user_info))
+                .route("/user", web::get().to(protected_routes::api_user_info))
             )
             // Fichiers static à la fin pour ne pas interférer avec les autres routes
             .configure(static_files::static_files_config)
