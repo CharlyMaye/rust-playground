@@ -1,0 +1,10 @@
+FROM alpine:latest
+
+# Mise à jour des paquets
+RUN apk update && apk upgrade
+
+# Définir le répertoire de travail
+WORKDIR /app
+
+# Commande par défaut
+CMD ["/bin/sh"]
