@@ -48,6 +48,7 @@ async fn main() -> std::io::Result<()> {
                 .cookie_secure(false)
                 .build()
             )
+            .wrap(middleware::Logger::default())
             // création et ajout d'un état par worker (clone par thread)
             .app_data(web::Data::new(AppState {
                 _app_name: String::from("My Actix Web App"),
@@ -69,7 +70,6 @@ async fn main() -> std::io::Result<()> {
             )
             // Fichiers static à la fin pour ne pas interférer avec les autres routes
             .configure(static_files::static_files_config)
-            .wrap(middleware::Logger::default())
     })
     .workers(2)
     .keep_alive(std::time::Duration::from_secs(75))
