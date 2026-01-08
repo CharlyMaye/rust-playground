@@ -39,6 +39,15 @@ impl DockerManager {
         }
     }
 }
+// Info
+impl DockerManager {
+    pub async fn docker_info(&self) {
+        println!("\n🐳 Version Docker:");
+        let version = self.docker.version().await.unwrap();
+        println!("  Version: {}", version.version.unwrap_or_default());
+        println!("  API Version: {}", version.api_version.unwrap_or_default());
+    }
+}
 // Gestion des images
 impl DockerManager {
     pub async fn list_images(&self) {
