@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use bollard::Docker;
 use bollard::container::{Config, CreateContainerOptions, ListContainersOptions, RemoveContainerOptions, StartContainerOptions};
 use bollard::image::{CreateImageOptions, ListImagesOptions};
+use bollard::network::{CreateNetworkOptions, ListNetworksOptions};
 use futures::stream::StreamExt;
 
 // // Gestion des conteneurs
@@ -28,15 +29,30 @@ use futures::stream::StreamExt;
 // docker.logs(...)
 // docker.stats(...)
 
-pub struct DockerManager {
-    docker: Docker,
-}
-
 pub trait DockerImageManager {
     async fn list_images(&self);
     async fn create_image(&self, image_name: &str);
     async fn remove_all_images_by_name(&self, image_name: &str) ;
 }
+
+pub trait DockerContainerManager {
+    async fn list_containers(&self);
+    async fn create_container(&self, image_name: &str, container_name: &str) -> String;
+    async fn start_container(&self, container_id: &str);
+    async fn stop_container(&self, container_id: &str);
+    async fn remove_container(&self, container_id: &str);
+}
+
+pub trait DockerNetworkManager {
+    async fn list_networks(&self);
+    async fn create_network(&self, network_name: &str) -> String;
+    async fn remove_network(&self, network_id: &str);
+}
+
+pub struct DockerManager {
+    docker: Docker,
+}
+
 
 impl DockerManager {
     pub fn new() -> Self {
@@ -117,9 +133,10 @@ impl DockerImageManager for DockerManager {
         }
     }
 }
+
 // Gestion des conteneurs
-impl DockerManager {
-    pub async fn create_container(&self, image_name: &str, container_name: &str) -> String {
+impl DockerContainerManager for DockerManager {
+    async fn create_container(&self, image_name: &str, container_name: &str) -> String {
         let options = Some(CreateContainerOptions{
             name: container_name,
             platform: None,
@@ -135,7 +152,7 @@ impl DockerManager {
         println!("Container created with ID: {}", result.id);
         result.id
     }
-    pub async fn remove_container(&self, container_id: &str) {
+    async fn remove_container(&self, container_id: &str) {
         let options = Some(RemoveContainerOptions{
             force: true,
             ..Default::default()
@@ -143,7 +160,7 @@ impl DockerManager {
 
         self.docker.remove_container(container_id, options).await.unwrap();
     }
-    pub async fn list_containers(&self) {
+    async fn list_containers(&self) {
         println!("📦 Liste des conteneurs Docker:");
         let containers = self.docker.list_containers(Some(ListContainersOptions::<String> {
             all: true,
@@ -160,11 +177,54 @@ impl DockerManager {
         }
     }
 
-    pub async fn start_container(&self, container_id: &str) {
+    async fn start_container(&self, container_id: &str) {
         self.docker.start_container(container_id, None::<StartContainerOptions<String>>).await.unwrap();
     }
-    pub async fn stop_container(&self, container_id: &str) {
+    async fn stop_container(&self, container_id: &str) {
         self.docker.stop_container(container_id, None).await.unwrap();
+    }
+}
+
+// Gestion des réseaux
+impl DockerNetworkManager for DockerManager {
+    async fn list_networks(&self) {
+        let mut list_networks_filters = HashMap::new();
+        // list_networks_filters.insert("label", vec!["maintainer=some_maintainer"]);
+
+        let config: ListNetworksOptions<&str> = ListNetworksOptions {
+            filters: list_networks_filters,
+        };
+
+        let networls= self.docker.list_networks(Some(config));
+
+        match networls.await {
+            Ok(networks) => {
+                println!("\n🌐 Liste des réseaux Docker:");
+                for network in networks {
+                    println!("  • {} | {}", network.id.as_ref().map(|s| &s[..12]).unwrap_or("N/A"), network.name.unwrap_or_default());
+                }
+            },
+            Err(e) => eprintln!("Error listing networks: {}", e),
+        }
+
+    }
+
+    async fn create_network(&self, network_name: &str) -> String {
+        let config = CreateNetworkOptions {
+            name: network_name,
+            ..Default::default()
+        };
+
+        let created_network= self.docker.create_network(config).await.unwrap();
+        println!("Network created with ID: {}", created_network.id);
+        created_network.id
+    }
+
+    async  fn remove_network(&self, network_id: &str) {
+        match self.docker.remove_network(network_id).await {
+            Ok(_) => println!("Network {} removed successfully", network_id),
+            Err(e) => eprintln!("Error removing network {}: {}", network_id, e),
+        }
     }
 }
 
