@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use bollard::Docker;
-use bollard::container::{Config, CreateContainerOptions, ListContainersOptions, RemoveContainerOptions, StartContainerOptions};
+use bollard::container::{Config, CreateContainerOptions, ListContainersOptions, NetworkingConfig, RemoveContainerOptions, StartContainerOptions};
 use bollard::image::{CreateImageOptions, ListImagesOptions};
 use bollard::network::{CreateNetworkOptions, ListNetworksOptions};
+use bollard::models::EndpointSettings;
 use futures::stream::StreamExt;
 
 // // Gestion des conteneurs
@@ -37,7 +38,7 @@ pub trait DockerImageManager {
 
 pub trait DockerContainerManager {
     async fn list_containers(&self);
-    async fn create_container(&self, image_name: &str, container_name: &str) -> String;
+    async fn create_container(&self, image_name: &str, container_name: &str, network_name: Option<&str>) -> String;
     async fn start_container(&self, container_id: &str);
     async fn stop_container(&self, container_id: &str);
     async fn remove_container(&self, container_id: &str);
@@ -70,6 +71,7 @@ impl DockerManager {
         println!("  API Version: {}", version.api_version.unwrap_or_default());
     }
 }
+
 // Gestion des images
 impl DockerManager {
     async fn remove_image(&self, image_name: &str) {
@@ -136,30 +138,6 @@ impl DockerImageManager for DockerManager {
 
 // Gestion des conteneurs
 impl DockerContainerManager for DockerManager {
-    async fn create_container(&self, image_name: &str, container_name: &str) -> String {
-        let options = Some(CreateContainerOptions{
-            name: container_name,
-            platform: None,
-        });
-
-        let config = Config {
-            image: Some(image_name),
-            // cmd: Some(vec!["/hello"]),
-            ..Default::default()
-        };
-
-        let result = self.docker.create_container(options, config).await.unwrap();
-        println!("Container created with ID: {}", result.id);
-        result.id
-    }
-    async fn remove_container(&self, container_id: &str) {
-        let options = Some(RemoveContainerOptions{
-            force: true,
-            ..Default::default()
-        });
-
-        self.docker.remove_container(container_id, options).await.unwrap();
-    }
     async fn list_containers(&self) {
         println!("📦 Liste des conteneurs Docker:");
         let containers = self.docker.list_containers(Some(ListContainersOptions::<String> {
@@ -176,6 +154,43 @@ impl DockerContainerManager for DockerManager {
             println!("  • {} | {} | {} | {}", id, names, image, state);
         }
     }
+    async fn create_container(&self, image_name: &str, container_name: &str, network_name: Option<&str>) -> String {
+        let options = Some(CreateContainerOptions{
+            name: container_name,
+            platform: None,
+        });
+
+        let mut endpoints_config: HashMap<&str, EndpointSettings> = HashMap::new();
+        if let Some(network) = network_name {
+            endpoints_config.insert(
+                network,
+                EndpointSettings {
+                    ..Default::default()
+                }
+            );
+        }
+
+        let config = Config {
+            image: Some(image_name),
+            networking_config: Some(NetworkingConfig{
+                endpoints_config,
+            }),
+            ..Default::default()
+        };
+
+        let result = self.docker.create_container(options, config).await.unwrap();
+        println!("Container created with ID: {}", result.id);
+        result.id
+    }
+    async fn remove_container(&self, container_id: &str) {
+        let options = Some(RemoveContainerOptions{
+            force: true,
+            ..Default::default()
+        });
+
+        self.docker.remove_container(container_id, options).await.unwrap();
+    }
+
 
     async fn start_container(&self, container_id: &str) {
         self.docker.start_container(container_id, None::<StartContainerOptions<String>>).await.unwrap();

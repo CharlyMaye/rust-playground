@@ -19,9 +19,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     docker_manager.create_network(network_name).await;
     docker_manager.list_networks().await;
     
-    let container_id = docker_manager.create_container(image_name, "my_container").await;
+    let container_id = docker_manager.create_container(image_name, "my_container", None).await;
+    let container_id_with_network = docker_manager.create_container(image_name, "my_container_with_network", Some(network_name)).await;
     tokio::time::sleep(sleep_time).await;
     docker_manager.list_containers().await;
+
 
     docker_manager.start_container(&container_id).await;
     tokio::time::sleep(sleep_time).await;
@@ -30,6 +32,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tokio::time::sleep(sleep_time).await;
 
     docker_manager.remove_container(&container_id).await;
+    docker_manager.remove_container(&container_id_with_network).await;
     tokio::time::sleep(sleep_time).await;
 
     docker_manager.list_containers().await;
