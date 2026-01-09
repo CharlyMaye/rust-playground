@@ -20,7 +20,7 @@ fn main() {
     ];
  
     let learning_rate = 0.1;
-    let epochs = 10000;
+    let epochs = 100_000;
  
     for _ in 0..epochs {
         for (input, target) in inputs.iter().zip(targets.iter()) {
