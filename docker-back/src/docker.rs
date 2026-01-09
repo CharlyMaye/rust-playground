@@ -45,7 +45,7 @@ pub trait DockerContainerManager {
 
 pub trait DockerNetworkManager {
     async fn list_networks(&self);
-    async fn create_network(&self, network_name: &str) -> String;
+    async fn create_network(&self, network_name: &str);
     async fn remove_network(&self, network_id: &str);
 }
 
@@ -209,21 +209,28 @@ impl DockerNetworkManager for DockerManager {
 
     }
 
-    async fn create_network(&self, network_name: &str) -> String {
+    async fn create_network(&self, network_name: &str) {
         let config = CreateNetworkOptions {
             name: network_name,
             ..Default::default()
         };
 
-        let created_network= self.docker.create_network(config).await.unwrap();
-        println!("Network created with ID: {}", created_network.id);
-        created_network.id
+
+         match self.docker.create_network(config).await{
+            Ok(network) => {
+                println!("Network created with ID: {}", network.id);
+               
+            },
+            Err(e) => {
+                eprintln!("Error creating network {}: {}", network_name, e);
+            }
+        };
     }
 
-    async  fn remove_network(&self, network_id: &str) {
-        match self.docker.remove_network(network_id).await {
-            Ok(_) => println!("Network {} removed successfully", network_id),
-            Err(e) => eprintln!("Error removing network {}: {}", network_id, e),
+    async  fn remove_network(&self, network_name: &str) {
+        match self.docker.remove_network(network_name).await {
+            Ok(_) => println!("Network {} removed successfully", network_name),
+            Err(e) => eprintln!("Error removing network {}: {}", network_name, e),
         }
     }
 }
