@@ -32,6 +32,12 @@ pub struct DockerManager {
     docker: Docker,
 }
 
+pub trait DockerImageManager {
+    async fn list_images(&self);
+    async fn create_image(&self, image_name: &str);
+    async fn remove_all_images_by_name(&self, image_name: &str) ;
+}
+
 impl DockerManager {
     pub fn new() -> Self {
         DockerManager {
@@ -50,7 +56,15 @@ impl DockerManager {
 }
 // Gestion des images
 impl DockerManager {
-    pub async fn list_images(&self) {
+    async fn remove_image(&self, image_name: &str) {
+        match self.docker.remove_image(image_name, None, None).await {
+            Ok(_) => println!("Image {} removed successfully", image_name),
+            Err(e) => eprintln!("Error removing image {}: {}", image_name, e),
+        }
+    }
+}
+impl DockerImageManager for DockerManager {
+    async fn list_images(&self) {
         let filters: HashMap<&str, Vec<&str>> = HashMap::new();
         // filters.insert("dangling", vec!["true"]);
 
@@ -65,7 +79,8 @@ impl DockerManager {
             println!("Image ID: {}", image.id);
         }
     }
-    pub async fn create_image(&self, image_name: &str) {
+    
+    async fn create_image(&self, image_name: &str) {
         let options = Some(CreateImageOptions{
         from_image: image_name,
         ..Default::default()
@@ -85,13 +100,8 @@ impl DockerManager {
             }
         }
     }
-    async fn remove_image(&self, image_name: &str) {
-        match self.docker.remove_image(image_name, None, None).await {
-            Ok(_) => println!("Image {} removed successfully", image_name),
-            Err(e) => eprintln!("Error removing image {}: {}", image_name, e),
-        }
-    }
-    pub async fn remove_all_images_by_name(&self, image_name: &str) {
+
+    async fn remove_all_images_by_name(&self, image_name: &str) {
         // Lister toutes les images
         let images = self.docker.list_images(Some(ListImagesOptions::<String> {
             all: true,
