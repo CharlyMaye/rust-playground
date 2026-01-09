@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bollard::Docker;
-use bollard::container::{Config, CreateContainerOptions, ListContainersOptions, RemoveContainerOptions};
+use bollard::container::{Config, CreateContainerOptions, ListContainersOptions, RemoveContainerOptions, StartContainerOptions};
 use bollard::image::{CreateImageOptions, ListImagesOptions};
 use futures::stream::StreamExt;
 
@@ -107,7 +107,6 @@ impl DockerManager {
         }
     }
 }
-
 // Gestion des conteneurs
 impl DockerManager {
     pub async fn create_container(&self, image_name: &str, container_name: &str) -> String {
@@ -149,6 +148,13 @@ impl DockerManager {
             
             println!("  • {} | {} | {} | {}", id, names, image, state);
         }
+    }
+
+    pub async fn start_container(&self, container_id: &str) {
+        self.docker.start_container(container_id, None::<StartContainerOptions<String>>).await.unwrap();
+    }
+    pub async fn stop_container(&self, container_id: &str) {
+        self.docker.stop_container(container_id, None).await.unwrap();
     }
 }
 
