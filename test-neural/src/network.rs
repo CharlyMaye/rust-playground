@@ -10,10 +10,15 @@ pub enum Activation {
     ReLU,
     LeakyReLU,
     ELU,
+    SELU,
     Swish,
     GELU,
     Mish,
     Softplus,
+    Softsign,
+    HardSigmoid,
+    HardTanh,
+    Softmax,
     Linear,
 }
 
@@ -26,6 +31,11 @@ impl Activation {
             Activation::ReLU => x.mapv(|x| x.max(0.0)),
             Activation::LeakyReLU => x.mapv(|x| if x > 0.0 { x } else { 0.01 * x }),
             Activation::ELU => x.mapv(|x| if x > 0.0 { x } else { 1.0 * (x.exp() - 1.0) }),
+            Activation::SELU => {
+                let lambda = 1.0507;
+                let alpha = 1.6733;
+                x.mapv(|x| lambda * if x > 0.0 { x } else { alpha * (x.exp() - 1.0) })
+            },
             Activation::Swish => x.mapv(|x| x / (1.0 + (-x).exp())),
             Activation::GELU => x.mapv(|x| {
                 0.5 * x * (1.0 + ((2.0 / std::f64::consts::PI).sqrt() 
@@ -33,6 +43,16 @@ impl Activation {
             }),
             Activation::Mish => x.mapv(|x| x * ((1.0 + x.exp()).ln()).tanh()),
             Activation::Softplus => x.mapv(|x| (1.0 + x.exp()).ln()),
+            Activation::Softsign => x.mapv(|x| x / (1.0 + x.abs())),
+            Activation::HardSigmoid => x.mapv(|x| (0.2 * x + 0.5).max(0.0).min(1.0)),
+            Activation::HardTanh => x.mapv(|x| x.max(-1.0).min(1.0)),
+            Activation::Softmax => {
+                // Numerical stability: subtract max before exp
+                let max = x.fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+                let exp_x = x.mapv(|v| (v - max).exp());
+                let sum = exp_x.sum();
+                exp_x / sum
+            },
             Activation::Linear => x.clone(),
         }
     }
@@ -46,6 +66,10 @@ impl Activation {
             Activation::ReLU => x.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }),
             Activation::LeakyReLU => x.mapv(|x| if x > 0.0 { 1.0 } else { 0.01 }),
             Activation::ELU => x.mapv(|x| if x > 0.0 { 1.0 } else { x + 1.0 }),
+            Activation::SELU => {
+                let lambda = 1.0507;
+                x.mapv(|x| if x > 0.0 { lambda } else { lambda })
+            },
             Activation::Swish => {
                 let sigmoid = x.mapv(|x| 1.0 / (1.0 + (-x).exp()));
                 let swish = x * &sigmoid;
@@ -68,6 +92,17 @@ impl Activation {
                 })
             },
             Activation::Softplus => x.mapv(|x| 1.0 / (1.0 + (-x).exp())),
+            Activation::Softsign => x.mapv(|x| 1.0 / (1.0 + x.abs()).powi(2)),
+            Activation::HardSigmoid => x.mapv(|x| {
+                let val = 0.2 * x + 0.5;
+                if val > 0.0 && val < 1.0 { 0.2 } else { 0.0 }
+            }),
+            Activation::HardTanh => x.mapv(|x| if x > -1.0 && x < 1.0 { 1.0 } else { 0.0 }),
+            Activation::Softmax => {
+                // Pour Softmax, la dérivée est plus complexe (Jacobienne)
+                // Approximation simple: utiliser x * (1 - x) comme pour sigmoid
+                x * &(1.0 - x)
+            },
             Activation::Linear => Array1::ones(x.len()),
         }
     }

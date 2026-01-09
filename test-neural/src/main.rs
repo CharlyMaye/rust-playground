@@ -4,7 +4,12 @@ use ndarray::array;
 //https://evolveasdev.com/blogs/tutorial/building-a-neural-network-from-scratch-in-rust
 fn main() {
     // XOR problem with ReLU hidden layer and Sigmoid output
-    let mut network = Network::new(2, 3, 1, Activation::ReLU, Activation::Sigmoid);
+    let mut network = Network::new(
+        2,
+        3,
+        1,
+        Activation::ReLU, Activation::Sigmoid
+    );
  
     let inputs = vec![
         array![0.0, 0.0],
@@ -21,7 +26,7 @@ fn main() {
     ];
  
     let learning_rate = 0.1;
-    let epochs = 100_000;
+    let epochs = 250_000;
  
     println!("Training XOR with ReLU (hidden) + Sigmoid (output)...\n");
  
