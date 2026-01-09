@@ -8,43 +8,78 @@ use docker::{DockerManager, DockerImageManager, DockerContainerManager, DockerNe
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Décommenter pour tester Docker Compose
+    test_docker_compose().await;
 
-
+    // Décommenter pour tester Docker direct
+    // test_docker().await;
 
     Ok(())
 }
 
 async fn test_docker_compose() {
-        let compose_manager = DockerComposeManager::new("docker-compose.yml");
+    // Chemin vers le docker-compose.yml existant
+    let compose_manager = DockerComposeManager::new("../docker-compose.yml");
 
-    // Créer un nouveau service
+    // Lister les services existants
+    println!("\n📋 Services actuels:");
+    compose_manager.list_services().unwrap();
+
+    // Ajouter un nouveau service PostgreSQL
+    println!("\n➕ Ajout d'un service PostgreSQL...");
     let mut env = HashMap::new();
     env.insert("POSTGRES_PASSWORD".to_string(), "secret".to_string());
+    env.insert("POSTGRES_USER".to_string(), "admin".to_string());
+    env.insert("POSTGRES_DB".to_string(), "mydb".to_string());
 
     let postgres_service = Service {
-        image: "postgres:15".to_string(),
+        image: Some("postgres:15-alpine".to_string()),
+        build: None,
         container_name: Some("my-postgres".to_string()),
         ports: Some(vec!["5432:5432".to_string()]),
         environment: Some(env),
-        networks: Some(vec!["my-network".to_string()]),
-        volumes: Some(vec!["postgres-data:/var/lib/postgresql/data".to_string()]),
+        networks: None,
+        volumes: Some(vec!["postgres_data:/var/lib/postgresql/data".to_string()]),
         depends_on: None,
+        command: None,
     };
 
-    // Ajouter le service
     compose_manager.add_service("postgres", postgres_service).unwrap();
 
-    // Ajouter un réseau
-    compose_manager.add_network("my-network").unwrap();
+    // Ajouter le volume pour postgres
+    println!("\n➕ Ajout du volume postgres_data...");
+    compose_manager.add_volume("postgres_data").unwrap();
 
-    // Démarrer les services
+    // Lister les services après ajout
+    println!("\n📋 Services après ajout:");
+    compose_manager.list_services().unwrap();
+
+    // Démarrer tous les services
+    println!("\n🚀 Démarrage de tous les services...");
     compose_manager.up(true).unwrap();
 
-    // Supprimer un service
-    // compose_manager.remove_service("postgres").unwrap();
+    // Attendre un peu
+    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+
+    // Redémarrer un service spécifique
+    println!("\n🔄 Redémarrage du service redis...");
+    compose_manager.restart_service("redis").unwrap();
+
+    // Arrêter un service spécifique
+    println!("\n⏹️  Arrêt du service postgres...");
+    compose_manager.stop_service("postgres").unwrap();
+
+    // Supprimer le service postgres
+    println!("\n➖ Suppression du service postgres...");
+    compose_manager.remove_service("postgres").unwrap();
+
+    // Lister les services après suppression
+    println!("\n📋 Services après suppression:");
+    compose_manager.list_services().unwrap();
 
     // Arrêter tous les services
-    // compose_manager.down().unwrap();
+    println!("\n⏹️  Arrêt de tous les services...");
+    compose_manager.down().unwrap();
 }
 
 async fn test_docker() {

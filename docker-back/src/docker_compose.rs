@@ -5,17 +5,21 @@ use std::process::Command;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DockerCompose {
-    version: Option<String>,
-    services: HashMap<String, Service>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    networks: Option<HashMap<String, Network>>,
+    pub version: Option<String>,
+    pub services: HashMap<String, Service>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    volumes: Option<HashMap<String, Volume>>,
+    pub networks: Option<HashMap<String, Network>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub volumes: Option<HashMap<String, Volume>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Service {
-    pub image: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub image: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub build: Option<BuildConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub container_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -28,12 +32,20 @@ pub struct Service {
     pub volumes: Option<Vec<String>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub depends_on: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub command: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct BuildConfig {
+    pub context: String,
+    pub dockerfile: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Network {
     #[serde(skip_serializing_if = "Option::is_none")]
-    driver: Option<String>,
+    pub driver: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -101,6 +113,27 @@ impl DockerComposeManager {
         Ok(())
     }
 
+    /// Ajouter un volume
+    pub fn add_volume(&self, volume_name: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let mut compose = self.read()?;
+        let volumes = compose.volumes.get_or_insert_with(HashMap::new);
+        volumes.insert(volume_name.to_string(), Volume {});
+        self.write(&compose)?;
+        println!("✅ Volume '{}' ajouté au docker-compose.yml", volume_name);
+        Ok(())
+    }
+
+    /// Lister tous les services
+    pub fn list_services(&self) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+        let compose = self.read()?;
+        let services: Vec<String> = compose.services.keys().cloned().collect();
+        println!("📋 Services dans docker-compose.yml:");
+        for service in &services {
+            println!("  - {}", service);
+        }
+        Ok(services)
+    }
+
     /// Démarrer les services (docker-compose up)
     pub fn up(&self, detached: bool) -> Result<(), String> {
         let mut args = vec!["-f", &self.compose_file, "up"];
@@ -145,6 +178,36 @@ impl DockerComposeManager {
 
         if output.status.success() {
             println!("✅ Service '{}' redémarré", service_name);
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).to_string())
+        }
+    }
+
+    /// Démarrer un service spécifique
+    pub fn start_service(&self, service_name: &str) -> Result<(), String> {
+        let output = Command::new("docker-compose")
+            .args(["-f", &self.compose_file, "start", service_name])
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        if output.status.success() {
+            println!("✅ Service '{}' démarré", service_name);
+            Ok(())
+        } else {
+            Err(String::from_utf8_lossy(&output.stderr).to_string())
+        }
+    }
+
+    /// Arrêter un service spécifique
+    pub fn stop_service(&self, service_name: &str) -> Result<(), String> {
+        let output = Command::new("docker-compose")
+            .args(["-f", &self.compose_file, "stop", service_name])
+            .output()
+            .map_err(|e| e.to_string())?;
+
+        if output.status.success() {
+            println!("✅ Service '{}' arrêté", service_name);
             Ok(())
         } else {
             Err(String::from_utf8_lossy(&output.stderr).to_string())

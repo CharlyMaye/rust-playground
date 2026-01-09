@@ -1,26 +1,24 @@
-version: "3.8"
-
+version: '3.8'
 services:
   back:
     build:
       context: ./back
       dockerfile: Dockerfile
-    volumes:
-      - .:/workspace:cached
     ports:
-      - "8080:8080"
-    depends_on:
-      - redis
+    - 8080:8080
     environment:
       REDIS_URL: redis://redis:6379
-
+    volumes:
+    - .:/workspace:cached
+    depends_on:
+    - redis
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+    - 6379:6379
     volumes:
-      - redis_data:/data
+    - redis_data:/data
     command: redis-server --appendonly yes
-
 volumes:
-  redis_data:
+  redis_data: {}
+  postgres_data: {}
