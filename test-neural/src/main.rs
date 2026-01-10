@@ -84,6 +84,14 @@ fn main() {
         Activation::Sigmoid,
         &inputs, &targets, learning_rate, 50_000);
     
+    // Test 9: Deep network with 3 hidden layers - adjusted params
+    test_loss_deep("Deep: 3 layers [8, 5, 3] + BCE (lr=0.3, 100k epochs)",
+        LossFunction::BinaryCrossEntropy,
+        vec![8, 5, 3],
+        vec![Activation::ReLU, Activation::ReLU, Activation::ReLU],
+        Activation::Sigmoid,
+        &inputs, &targets, 0.3, 100_000);
+    
     println!("\n=== All Tests Completed ===");
 }
 

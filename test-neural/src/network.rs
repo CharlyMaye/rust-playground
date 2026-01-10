@@ -1,7 +1,92 @@
 use ndarray::{Array1, Array2, Axis};
 use rand::rng;
-use rand::thread_rng;
 use rand::Rng;
+
+/// Weight initialization methods for neural networks.
+#[derive(Debug, Clone, Copy)]
+pub enum WeightInit {
+    /// Uniform distribution in [-1, 1] (simple, for shallow networks)
+    Uniform,
+    /// Xavier/Glorot initialization (for Tanh, Sigmoid, Softmax)
+    Xavier,
+    /// He initialization (for ReLU, LeakyReLU, ELU)
+    He,
+    /// LeCun initialization (for SELU)
+    LeCun,
+}
+
+impl WeightInit {
+    /// Initialize a weight matrix based on the initialization method.
+    ///
+    /// # Arguments
+    /// - `rows`: Number of rows (output size)
+    /// - `cols`: Number of columns (input size)
+    /// - `rng`: Random number generator
+    ///
+    /// # Returns
+    /// Initialized weight matrix
+    fn initialize_weights(&self, rows: usize, cols: usize, rng: &mut impl Rng) -> Array2<f64> {
+        match self {
+            WeightInit::Uniform => {
+                Array2::from_shape_fn((rows, cols), |_| rng.random_range(-1.0..1.0))
+            },
+            WeightInit::Xavier => {
+                // Xavier: std = sqrt(2 / (input_size + output_size))
+                let std = (2.0 / (rows + cols) as f64).sqrt();
+                Array2::from_shape_fn((rows, cols), |_| {
+                    // Box-Muller transform for Gaussian distribution
+                    let u1: f64 = rng.random();
+                    let u2: f64 = rng.random();
+                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+                    z * std
+                })
+            },
+            WeightInit::He => {
+                // He: std = sqrt(2 / input_size)
+                let std = (2.0 / cols as f64).sqrt();
+                Array2::from_shape_fn((rows, cols), |_| {
+                    // Box-Muller transform for Gaussian distribution
+                    let u1: f64 = rng.random();
+                    let u2: f64 = rng.random();
+                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+                    z * std
+                })
+            },
+            WeightInit::LeCun => {
+                // LeCun: std = sqrt(1 / input_size)
+                let std = (1.0 / cols as f64).sqrt();
+                Array2::from_shape_fn((rows, cols), |_| {
+                    // Box-Muller transform for Gaussian distribution
+                    let u1: f64 = rng.random();
+                    let u2: f64 = rng.random();
+                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+                    z * std
+                })
+            },
+        }
+    }
+
+    /// Get recommended initialization method for an activation function.
+    pub fn for_activation(activation: Activation) -> Self {
+        match activation {
+            Activation::Sigmoid | Activation::Tanh | Activation::Softsign 
+            | Activation::HardSigmoid | Activation::HardTanh | Activation::Softmax => {
+                WeightInit::Xavier
+            },
+            Activation::ReLU | Activation::LeakyReLU | Activation::ELU 
+            | Activation::GELU | Activation::Swish | Activation::Mish 
+            | Activation::Softplus => {
+                WeightInit::He
+            },
+            Activation::SELU => {
+                WeightInit::LeCun
+            },
+            Activation::Linear => {
+                WeightInit::Xavier
+            },
+        }
+    }
+}
 
 /// Available activation functions for neural network layers.
 #[derive(Debug, Clone, Copy)]
@@ -268,6 +353,8 @@ impl Network {
     /// This is a convenience method for simple networks. For deep networks
     /// with multiple hidden layers, use `new_deep()`.
     ///
+    /// Uses automatic weight initialization based on activation functions.
+    ///
     /// # Arguments
     /// - `input_size`: Number of input neurons
     /// - `hidden_size`: Number of neurons in the hidden layer
@@ -294,18 +381,25 @@ impl Network {
         output_activation: Activation,
         loss_function: LossFunction,
     ) -> Self {
-        // Use new_deep internally for consistency
-        Self::new_deep(
+        // Use recommended initialization for each activation
+        let hidden_init = WeightInit::for_activation(hidden_activation);
+        let output_init = WeightInit::for_activation(output_activation);
+        
+        Self::new_deep_with_init(
             input_size,
             vec![hidden_size],
             output_size,
             vec![hidden_activation],
             output_activation,
             loss_function,
+            vec![hidden_init],
+            output_init,
         )
     }
 
     /// Creates a new deep neural network with multiple hidden layers.
+    ///
+    /// Uses automatic weight initialization based on activation functions.
     ///
     /// # Arguments
     /// - `input_size`: Number of input neurons
@@ -338,10 +432,74 @@ impl Network {
         output_activation: Activation,
         loss_function: LossFunction,
     ) -> Self {
+        // Use recommended initialization for each activation
+        let hidden_inits: Vec<WeightInit> = hidden_activations.iter()
+            .map(|&act| WeightInit::for_activation(act))
+            .collect();
+        let output_init = WeightInit::for_activation(output_activation);
+        
+        Self::new_deep_with_init(
+            input_size,
+            hidden_sizes,
+            output_size,
+            hidden_activations,
+            output_activation,
+            loss_function,
+            hidden_inits,
+            output_init,
+        )
+    }
+
+    /// Creates a new deep neural network with custom weight initialization.
+    ///
+    /// This method gives full control over weight initialization for each layer.
+    ///
+    /// # Arguments
+    /// - `input_size`: Number of input neurons
+    /// - `hidden_sizes`: Vector of sizes for each hidden layer
+    /// - `output_size`: Number of output neurons
+    /// - `hidden_activations`: Activation function for each hidden layer
+    /// - `output_activation`: Activation function for output layer
+    /// - `loss_function`: Loss function for training
+    /// - `hidden_inits`: Weight initialization method for each hidden layer
+    /// - `output_init`: Weight initialization method for output layer
+    ///
+    /// # Panics
+    /// Panics if lengths don't match
+    ///
+    /// # Example
+    /// ```
+    /// // Deep network with custom initialization
+    /// let network = Network::new_deep_with_init(
+    ///     2,
+    ///     vec![10, 8],
+    ///     1,
+    ///     vec![Activation::ReLU, Activation::ReLU],
+    ///     Activation::Sigmoid,
+    ///     LossFunction::BinaryCrossEntropy,
+    ///     vec![WeightInit::He, WeightInit::He],
+    ///     WeightInit::Xavier
+    /// );
+    /// ```
+    pub fn new_deep_with_init(
+        input_size: usize,
+        hidden_sizes: Vec<usize>,
+        output_size: usize,
+        hidden_activations: Vec<Activation>,
+        output_activation: Activation,
+        loss_function: LossFunction,
+        hidden_inits: Vec<WeightInit>,
+        output_init: WeightInit,
+    ) -> Self {
         assert_eq!(
             hidden_sizes.len(),
             hidden_activations.len(),
             "Number of hidden layers must match number of activations"
+        );
+        assert_eq!(
+            hidden_sizes.len(),
+            hidden_inits.len(),
+            "Number of hidden layers must match number of initializations"
         );
 
         let mut rng = rng();
@@ -350,8 +508,8 @@ impl Network {
         // Create hidden layers
         let mut prev_size = input_size;
         for (i, &size) in hidden_sizes.iter().enumerate() {
-            let weights = Array2::from_shape_fn((size, prev_size), |_| rng.random_range(-1.0..1.0));
-            let biases = Array1::from_shape_fn(size, |_| rng.random_range(-1.0..1.0));
+            let weights = hidden_inits[i].initialize_weights(size, prev_size, &mut rng);
+            let biases = Array1::zeros(size);  // Biases initialized to 0
             
             layers.push(Layer {
                 weights,
@@ -363,8 +521,8 @@ impl Network {
         }
 
         // Create output layer
-        let weights = Array2::from_shape_fn((output_size, prev_size), |_| rng.random_range(-1.0..1.0));
-        let biases = Array1::from_shape_fn(output_size, |_| rng.random_range(-1.0..1.0));
+        let weights = output_init.initialize_weights(output_size, prev_size, &mut rng);
+        let biases = Array1::zeros(output_size);
         
         layers.push(Layer {
             weights,

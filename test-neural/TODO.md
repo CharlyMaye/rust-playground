@@ -9,12 +9,62 @@
 - [x] Méthode `predict_with_confidence()` pour estimation d'incertitude
 - [x] Méthode `evaluate()` pour calculer la loss sans update
 - [x] Documentation complète dans readme.md
+- [x] **Architecture multi-couches** avec `Network::new_deep()`
+- [x] Backpropagation généralisée pour N couches
+- [x] Tests sur XOR avec réseaux profonds (2 et 3 couches)
+
+### Résultats Architecture Multi-Couches
+
+✅ **Fonctionne parfaitement :**
+- Réseau simple : 2 → [5] → 1 (1 couche cachée)
+- Réseau profond : 2 → [5, 3] → 1 (2 couches cachées)
+
+⚠️ **Problème identifié :**
+- Réseau très profond : 2 → [8, 5, 3] → 1 (3 couches) → Ne converge pas (vanishing gradients)
+- Reste bloqué à 0.496 (prédiction = 0.5 partout)
+- **Solution nécessaire :** Meilleure initialisation des poids + activation ReLU
 
 ---
 
-## 🔄 Prochaines Étapes
+## 🔄 En Cours
 
-### 1. Architecture Multi-Couches (Deep Learning)
+### 1. Initialisation des Poids (Xavier/He) ✅ COMPLÉTÉ
+
+**Problème résolu !** L'initialisation Xavier/He permet maintenant aux réseaux profonds de converger.
+
+#### Résultats avec XOR
+
+**Avant (Uniform -1..1) :**
+- ✅ Réseau simple : 2 → [5] → 1 (converge)
+- ✅ Réseau 2 couches : 2 → [5, 3] → 1 (converge)  
+- ❌ Réseau 3 couches : 2 → [8, 5, 3] → 1 (ne converge PAS)
+
+**Après (Xavier/He automatique) :**
+- ✅ Réseau simple : 2 → [5] → 1 (converge)
+- ✅ Réseau 2 couches : 2 → [5, 3] → 1 (converge)
+- ✅ Réseau 3 couches : 2 → [8, 5, 3] → 1 (**converge maintenant !** avec lr=0.3, 100k epochs)
+
+#### Implémentation
+
+- [x] Enum `WeightInit { Uniform, Xavier, He, LeCun }`
+- [x] Méthode automatique `WeightInit::for_activation()` 
+- [x] Méthode `new_deep_with_init()` pour contrôle manuel
+- [x] Distribution gaussienne via Box-Muller transform
+- [x] Biases initialisés à zéro (recommandé)
+- [x] Tests sur XOR avec réseaux profonds
+
+#### Mapping Implémenté
+
+| **Activation** | **Initialisation Auto** |
+|----------------|-------------------------|
+| Sigmoid, Tanh, Softsign, HardSigmoid, HardTanh, Softmax | Xavier |
+| ReLU, LeakyReLU, ELU, GELU, Swish, Mish, Softplus | He |
+| SELU | LeCun |
+| Linear | Xavier |
+
+---
+
+### 2. Métriques d'Évaluation (accuracy, F1...)
 
 #### Changements Fondamentaux
 
@@ -182,24 +232,64 @@ Plus de couches = plus de paramètres = risque de surapprentissage
 
 ### 2. Initialisation des Poids
 
-#### Xavier/Glorot Initialization
+**Problème actuel :** Initialisation uniforme `random_range(-1.0..1.0)` ne prend pas en compte :
+- La taille de la couche
+- Le type d'activation utilisé
+- Risque de gradients qui disparaissent/explosent
+
+#### Méthodes d'Initialisation
+
+##### Uniform (Actuelle)
+```rust
+weight = rng.random_range(-1.0..1.0)
+```
+✅ Simple, fonctionne pour réseaux peu profonds  
+❌ Pas adaptée aux réseaux profonds
+
+##### Xavier/Glorot Initialization
 
 Pour Tanh et Sigmoid :
 ```rust
 let std = (2.0 / (input_size + output_size) as f64).sqrt();
 let weight = rng.sample::<f64, _>(StandardNormal) * std;
 ```
+✅ Maintient la variance constante à travers les couches  
+✅ Idéal pour activations symétriques (Tanh, Softsign)
 
-#### He Initialization
+##### He Initialization
 
 Pour ReLU et variantes :
 ```rust
 let std = (2.0 / input_size as f64).sqrt();
 let weight = rng.sample::<f64, _>(StandardNormal) * std;
 ```
+✅ Compense pour les neurones "morts" de ReLU  
+✅ Standard moderne pour réseaux profonds
 
-- [ ] Implémenter enum `WeightInit { Xavier, He, Uniform, Normal }`
-- [ ] Adapter l'initialisation selon l'activation choisie
+##### LeCun Initialization
+
+Pour SELU :
+```rust
+let std = (1.0 / input_size as f64).sqrt();
+let weight = rng.sample::<f64, _>(StandardNormal) * std;
+```
+
+#### Implémentation
+
+- [x] Enum `WeightInit { Uniform, Xavier, He, LeCun }`
+- [x] Adapter l'initialisation selon l'activation choisie
+- [ ] Initialisation automatique basée sur l'activation
+- [ ] Benchmark comparatif des méthodes
+
+#### Mapping Recommandé
+
+| **Activation** | **Initialisation Recommandée** |
+|----------------|-------------------------------|
+| Sigmoid, Tanh | Xavier/Glorot |
+| ReLU, LeakyReLU, ELU | He |
+| SELU | LeCun |
+| GELU, Swish, Mish | He (expérimental) |
+| Softmax | Xavier |
 
 ---
 
