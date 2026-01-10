@@ -1,4 +1,5 @@
 use ndarray::{Array1, Array2, Axis};
+use rand::rng;
 use rand::thread_rng;
 use rand::Rng;
 
@@ -284,12 +285,12 @@ impl Network {
         output_activation: Activation,
         loss_function: LossFunction,
     ) -> Self {
-        let mut rng = thread_rng();
+        let mut rng = rng();
  
-        let weights1 = Array2::from_shape_fn((hidden_size, input_size), |_| rng.gen_range(-1.0..1.0));
-        let biases1 = Array1::from_shape_fn(hidden_size, |_| rng.gen_range(-1.0..1.0));
-        let weights2 = Array2::from_shape_fn((output_size, hidden_size), |_| rng.gen_range(-1.0..1.0));
-        let biases2 = Array1::from_shape_fn(output_size, |_| rng.gen_range(-1.0..1.0));
+        let weights1 = Array2::from_shape_fn((hidden_size, input_size), |_| rng.random_range(-1.0..1.0));
+        let biases1 = Array1::from_shape_fn(hidden_size, |_| rng.random_range(-1.0..1.0));
+        let weights2 = Array2::from_shape_fn((output_size, hidden_size), |_| rng.random_range(-1.0..1.0));
+        let biases2 = Array1::from_shape_fn(output_size, |_| rng.random_range(-1.0..1.0));
  
         Network {
             weights1,
