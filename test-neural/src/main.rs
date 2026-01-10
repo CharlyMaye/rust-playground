@@ -66,6 +66,24 @@ fn main() {
         Activation::Sigmoid,
         &inputs, &targets, learning_rate, 50_000);
     
+    println!("\n=== Testing Deep Networks (Multiple Hidden Layers) ===\n");
+    
+    // Test 7: Deep network with 2 hidden layers
+    test_loss_deep("Deep: 2 layers [5, 3] + BCE",
+        LossFunction::BinaryCrossEntropy,
+        vec![5, 3],
+        vec![Activation::Tanh, Activation::Tanh],
+        Activation::Sigmoid,
+        &inputs, &targets, learning_rate, 50_000);
+    
+    // Test 8: Deep network with 3 hidden layers
+    test_loss_deep("Deep: 3 layers [8, 5, 3] + BCE",
+        LossFunction::BinaryCrossEntropy,
+        vec![8, 5, 3],
+        vec![Activation::ReLU, Activation::ReLU, Activation::ReLU],
+        Activation::Sigmoid,
+        &inputs, &targets, learning_rate, 50_000);
+    
     println!("\n=== All Tests Completed ===");
 }
 
@@ -84,6 +102,52 @@ fn test_loss(
     println!("--- {} ---", name);
     let initial_loss = network.evaluate(inputs, targets);
     println!("Initial loss: {:.4}", initial_loss);
+    
+    for _ in 0..epochs {
+        for (input, target) in inputs.iter().zip(targets.iter()) {
+            network.train(input, target, learning_rate);
+        }
+    }
+    
+    let final_loss = network.evaluate(inputs, targets);
+    println!("Final loss: {:.4}", final_loss);
+    
+    println!("Predictions:");
+    let mut all_correct = true;
+    for (input, target) in inputs.iter().zip(targets.iter()) {
+        let prediction = network.predict(input);
+        let binary_pred = if prediction[0] > 0.5 { 1.0 } else { 0.0 };
+        let correct = (binary_pred - target[0]).abs() < 0.1;
+        all_correct = all_correct && correct;
+        println!("  {:?} -> {:.3} (expected {:.0}) {}", 
+            input, prediction[0], target[0], 
+            if correct { "✓" } else { "✗" });
+    }
+    
+    if all_correct {
+        println!("Status: ✓ PASSED\n");
+    } else {
+        println!("Status: ✗ FAILED\n");
+    }
+}
+
+fn test_loss_deep(
+    name: &str,
+    loss: LossFunction,
+    hidden_sizes: Vec<usize>,
+    hidden_acts: Vec<Activation>,
+    output_act: Activation,
+    inputs: &Vec<ndarray::Array1<f64>>,
+    targets: &Vec<ndarray::Array1<f64>>,
+    learning_rate: f64,
+    epochs: usize,
+) {
+    let mut network = Network::new_deep(2, hidden_sizes.clone(), 1, hidden_acts, output_act, loss);
+    
+    println!("--- {} ---", name);
+    let initial_loss = network.evaluate(inputs, targets);
+    println!("Initial loss: {:.4}", initial_loss);
+    println!("Architecture: 2 inputs → {:?} → 1 output", hidden_sizes);
     
     for _ in 0..epochs {
         for (input, target) in inputs.iter().zip(targets.iter()) {

@@ -220,36 +220,53 @@ impl Activation {
     }
 }
 
-/// A simple feedforward neural network with one hidden layer.
+/// A layer in the neural network.
+#[derive(Clone)]
+struct Layer {
+    weights: Array2<f64>,
+    biases: Array1<f64>,
+    activation: Activation,
+}
+
+/// A feedforward neural network with configurable depth.
 ///
 /// This network implements backpropagation for training and allows
-/// customizable activation functions for hidden and output layers.
+/// customizable activation functions for each layer.
 ///
 /// # Architecture
 /// - Input layer (size defined by user)
-/// - Hidden layer with configurable activation
+/// - Multiple hidden layers with configurable activations
 /// - Output layer with configurable activation
+///
+/// # Examples
+/// ```
+/// // Single hidden layer (simple network)
+/// let net = Network::new(2, 5, 1, Activation::Tanh, Activation::Sigmoid, LossFunction::MSE);
+///
+/// // Multiple hidden layers (deep network)
+/// let net = Network::new_deep(
+///     2,
+///     vec![10, 8, 5],
+///     1,
+///     vec![Activation::ReLU, Activation::ReLU, Activation::ReLU],
+///     Activation::Sigmoid,
+///     LossFunction::BinaryCrossEntropy
+/// );
+/// ```
 pub struct Network {
-    /// Weights connecting input layer to hidden layer (hidden_size × input_size)
-    weights1: Array2<f64>,
-    /// Biases for the hidden layer
-    biases1: Array1<f64>,
-
-    /// Weights connecting hidden layer to output layer (output_size × hidden_size)
-    weights2: Array2<f64>,
-    /// Biases for the output layer
-    biases2: Array1<f64>,
-
-    /// Activation function for hidden layer
-    hidden_activation: Activation,
-    /// Activation function for output layer
-    output_activation: Activation,
+    /// All layers (hidden + output)
+    layers: Vec<Layer>,
+    /// Input size for reference
+    input_size: usize,
     /// Loss function for training
     loss_function: LossFunction,
 }
 
 impl Network {
-    /// Creates a new neural network with random weights and biases.
+    /// Creates a new neural network with one hidden layer.
+    ///
+    /// This is a convenience method for simple networks. For deep networks
+    /// with multiple hidden layers, use `new_deep()`.
     ///
     /// # Arguments
     /// - `input_size`: Number of input neurons
@@ -261,20 +278,12 @@ impl Network {
     ///
     /// # Example
     /// ```
-    /// // XOR with ReLU hidden, Sigmoid output, Binary Cross-Entropy loss
+    /// // XOR with Tanh hidden, Sigmoid output, Binary Cross-Entropy loss
     /// let network = Network::new(
-    ///     2, 3, 1, 
-    ///     Activation::ReLU, 
+    ///     2, 5, 1, 
+    ///     Activation::Tanh, 
     ///     Activation::Sigmoid,
     ///     LossFunction::BinaryCrossEntropy
-    /// );
-    ///
-    /// // Multi-class classification with GELU and Softmax
-    /// let network = Network::new(
-    ///     784, 128, 10, 
-    ///     Activation::GELU, 
-    ///     Activation::Softmax,
-    ///     LossFunction::CategoricalCrossEntropy
     /// );
     /// ```
     pub fn new(
@@ -285,20 +294,87 @@ impl Network {
         output_activation: Activation,
         loss_function: LossFunction,
     ) -> Self {
-        let mut rng = rng();
- 
-        let weights1 = Array2::from_shape_fn((hidden_size, input_size), |_| rng.random_range(-1.0..1.0));
-        let biases1 = Array1::from_shape_fn(hidden_size, |_| rng.random_range(-1.0..1.0));
-        let weights2 = Array2::from_shape_fn((output_size, hidden_size), |_| rng.random_range(-1.0..1.0));
-        let biases2 = Array1::from_shape_fn(output_size, |_| rng.random_range(-1.0..1.0));
- 
-        Network {
-            weights1,
-            biases1,
-            weights2,
-            biases2,
-            hidden_activation,
+        // Use new_deep internally for consistency
+        Self::new_deep(
+            input_size,
+            vec![hidden_size],
+            output_size,
+            vec![hidden_activation],
             output_activation,
+            loss_function,
+        )
+    }
+
+    /// Creates a new deep neural network with multiple hidden layers.
+    ///
+    /// # Arguments
+    /// - `input_size`: Number of input neurons
+    /// - `hidden_sizes`: Vector of sizes for each hidden layer (e.g., [10, 8, 5] for 3 layers)
+    /// - `output_size`: Number of output neurons
+    /// - `hidden_activations`: Activation function for each hidden layer
+    /// - `output_activation`: Activation function for output layer
+    /// - `loss_function`: Loss function for training
+    ///
+    /// # Panics
+    /// Panics if `hidden_sizes.len() != hidden_activations.len()`
+    ///
+    /// # Example
+    /// ```
+    /// // Deep network with 3 hidden layers
+    /// let network = Network::new_deep(
+    ///     2,                                      // 2 inputs
+    ///     vec![10, 8, 5],                        // 3 hidden layers
+    ///     1,                                      // 1 output
+    ///     vec![Activation::ReLU, Activation::ReLU, Activation::ReLU],
+    ///     Activation::Sigmoid,
+    ///     LossFunction::BinaryCrossEntropy
+    /// );
+    /// ```
+    pub fn new_deep(
+        input_size: usize,
+        hidden_sizes: Vec<usize>,
+        output_size: usize,
+        hidden_activations: Vec<Activation>,
+        output_activation: Activation,
+        loss_function: LossFunction,
+    ) -> Self {
+        assert_eq!(
+            hidden_sizes.len(),
+            hidden_activations.len(),
+            "Number of hidden layers must match number of activations"
+        );
+
+        let mut rng = rng();
+        let mut layers = Vec::new();
+
+        // Create hidden layers
+        let mut prev_size = input_size;
+        for (i, &size) in hidden_sizes.iter().enumerate() {
+            let weights = Array2::from_shape_fn((size, prev_size), |_| rng.random_range(-1.0..1.0));
+            let biases = Array1::from_shape_fn(size, |_| rng.random_range(-1.0..1.0));
+            
+            layers.push(Layer {
+                weights,
+                biases,
+                activation: hidden_activations[i],
+            });
+            
+            prev_size = size;
+        }
+
+        // Create output layer
+        let weights = Array2::from_shape_fn((output_size, prev_size), |_| rng.random_range(-1.0..1.0));
+        let biases = Array1::from_shape_fn(output_size, |_| rng.random_range(-1.0..1.0));
+        
+        layers.push(Layer {
+            weights,
+            biases,
+            activation: output_activation,
+        });
+
+        Network {
+            layers,
+            input_size,
             loss_function,
         }
     }
@@ -311,22 +387,25 @@ impl Network {
     /// - `input`: Input vector
     ///
     /// # Returns
-    /// Tuple containing:
-    /// - Hidden layer output (after activation)
-    /// - Final layer input (before activation)
-    /// - Final layer output (after activation - network prediction)
+    /// Vector of all layer activations (including input and final output).
+    /// Index 0 is the input, last index is the final output.
     ///
     /// # Example
     /// ```
-    /// let (hidden, final_in, prediction) = network.forward(&array![0.0, 1.0]);
+    /// let activations = network.forward(&array![0.0, 1.0]);
+    /// let prediction = activations.last().unwrap();
     /// ```
-    pub fn forward(&self, input: &Array1<f64>) -> (Array1<f64>, Array1<f64>, Array1<f64>) {
-        let hidden_input = self.weights1.dot(input) + &self.biases1;
-        let hidden_output = self.hidden_activation.apply(&hidden_input);
-        let final_input = self.weights2.dot(&hidden_output) + &self.biases2;
-        let final_output = self.output_activation.apply(&final_input);
- 
-        (hidden_output, final_input, final_output)
+    fn forward(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
+        let mut activations = vec![input.clone()];
+        
+        // Forward pass through all layers
+        for layer in &self.layers {
+            let z = layer.weights.dot(activations.last().unwrap()) + &layer.biases;
+            let a = layer.activation.apply(&z);
+            activations.push(a);
+        }
+        
+        activations
     }
 }
 
@@ -342,9 +421,9 @@ impl Network {
     /// - `learning_rate`: Controls how much to adjust weights (typically 0.001 - 0.1)
     ///
     /// # Algorithm
-    /// 1. Forward pass to get prediction
+    /// 1. Forward pass to get all activations
     /// 2. Calculate output layer error using loss function
-    /// 3. Backpropagate error to hidden layer
+    /// 3. Backpropagate error through all hidden layers
     /// 4. Update all weights and biases
     ///
     /// # Example
@@ -352,43 +431,59 @@ impl Network {
     /// network.train(&array![0.0, 1.0], &array![1.0], 0.1);
     /// ```
     pub fn train(&mut self, input: &Array1<f64>, target: &Array1<f64>, learning_rate: f64) {
-        let (hidden_output, _final_input, final_output) = self.forward(input);
- 
-        // For output layer: compute error signal
-        // For specific combinations, the derivative simplifies nicely
-        let output_delta = match (&self.output_activation, &self.loss_function) {
-            // Sigmoid + Binary Cross-Entropy: derivative simplifies to -(target - prediction)
+        // Forward pass
+        let activations = self.forward(input);
+        let final_output = activations.last().unwrap();
+        
+        // Compute output layer delta
+        let output_layer_idx = self.layers.len() - 1;
+        let output_activation = self.layers[output_layer_idx].activation;
+        
+        let output_delta = match (&output_activation, &self.loss_function) {
+            // Sigmoid + Binary Cross-Entropy: derivative simplifies
             (Activation::Sigmoid, LossFunction::BinaryCrossEntropy) => {
-                target - &final_output
+                target - final_output
             },
-            // Softmax + Categorical Cross-Entropy: derivative simplifies to -(target - prediction)
+            // Softmax + Categorical Cross-Entropy: derivative simplifies
             (Activation::Softmax, LossFunction::CategoricalCrossEntropy) => {
-                target - &final_output
+                target - final_output
             },
             // MSE: derivative is (prediction - target), negate for gradient descent
             (_, LossFunction::MSE) => {
-                target - &final_output
+                target - final_output
             },
             // General case: use loss gradient and activation derivative
             _ => {
-                let loss_gradient = self.loss_function.derivative(&final_output, target);
-                -&loss_gradient * &self.output_activation.derivative(&final_output)
+                let loss_gradient = self.loss_function.derivative(final_output, target);
+                -&loss_gradient * &output_activation.derivative(final_output)
             }
         };
- 
-        let hidden_errors = self.weights2.t().dot(&output_delta);
-        let hidden_delta = &hidden_errors * &self.hidden_activation.derivative(&hidden_output);
- 
-        let weights2_update = output_delta.view().insert_axis(Axis(1)).dot(&hidden_output.view().insert_axis(Axis(0))) * learning_rate;
-        let biases2_update = &output_delta * learning_rate;
         
-        let weights1_update = hidden_delta.view().insert_axis(Axis(1)).dot(&input.view().insert_axis(Axis(0))) * learning_rate;
-        let biases1_update = &hidden_delta * learning_rate;
+        // Backpropagate through all layers
+        let mut deltas = vec![output_delta];
         
-        self.weights2 = &self.weights2 + &weights2_update;
-        self.biases2 = &self.biases2 + &biases2_update;
-        self.weights1 = &self.weights1 + &weights1_update;
-        self.biases1 = &self.biases1 + &biases1_update;
+        // Go backwards through hidden layers
+        for i in (0..self.layers.len() - 1).rev() {
+            let current_delta = deltas.last().unwrap();
+            let errors = self.layers[i + 1].weights.t().dot(current_delta);
+            let delta = &errors * &self.layers[i].activation.derivative(&activations[i + 1]);
+            deltas.push(delta);
+        }
+        
+        // Reverse deltas to match layer order
+        deltas.reverse();
+        
+        // Update weights and biases for all layers
+        for (i, delta) in deltas.iter().enumerate() {
+            let prev_activation = &activations[i];
+            
+            let weights_update = delta.view().insert_axis(Axis(1))
+                .dot(&prev_activation.view().insert_axis(Axis(0))) * learning_rate;
+            let biases_update = delta * learning_rate;
+            
+            self.layers[i].weights = &self.layers[i].weights + &weights_update;
+            self.layers[i].biases = &self.layers[i].biases + &biases_update;
+        }
     }
 
     /// Evaluates the network on given input-target pairs without updating weights.
@@ -411,8 +506,9 @@ impl Network {
         let mut total_loss = 0.0;
         
         for (input, target) in inputs.iter().zip(targets.iter()) {
-            let (_, _, prediction) = self.forward(input);
-            total_loss += self.loss_function.compute(&prediction, target);
+            let activations = self.forward(input);
+            let prediction = activations.last().unwrap();
+            total_loss += self.loss_function.compute(prediction, target);
         }
         
         total_loss / inputs.len() as f64
@@ -434,8 +530,7 @@ impl Network {
     /// println!("Prediction: {:.3}", prediction[0]);
     /// ```
     pub fn predict(&self, input: &Array1<f64>) -> Array1<f64> {
-        let (_, _, output) = self.forward(input);
-        output
+        let activations = self.forward(input);
+        activations.last().unwrap().clone()
     }
-
 }
