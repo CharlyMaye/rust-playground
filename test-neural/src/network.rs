@@ -22,6 +22,117 @@ pub enum Activation {
     Linear,
 }
 
+/// Available loss functions for training.
+#[derive(Debug, Clone, Copy)]
+pub enum LossFunction {
+    /// Mean Squared Error - for regression
+    MSE,
+    /// Mean Absolute Error - for robust regression
+    MAE,
+    /// Binary Cross-Entropy - for binary classification
+    BinaryCrossEntropy,
+    /// Categorical Cross-Entropy - for multi-class classification
+    CategoricalCrossEntropy,
+    /// Huber Loss - robust to outliers
+    Huber,
+}
+
+impl LossFunction {
+    /// Compute the loss value between predictions and targets.
+    pub fn compute(&self, predictions: &Array1<f64>, targets: &Array1<f64>) -> f64 {
+        match self {
+            LossFunction::MSE => {
+                let diff = predictions - targets;
+                (&diff * &diff).sum() / predictions.len() as f64
+            },
+            LossFunction::MAE => {
+                (predictions - targets).mapv(|x| x.abs()).sum() / predictions.len() as f64
+            },
+            LossFunction::BinaryCrossEntropy => {
+                let epsilon = 1e-15;
+                let mut sum = 0.0;
+                for (p, t) in predictions.iter().zip(targets.iter()) {
+                    let p_clamped = p.max(epsilon).min(1.0 - epsilon);
+                    sum += -(t * p_clamped.ln() + (1.0 - t) * (1.0 - p_clamped).ln());
+                }
+                sum / predictions.len() as f64
+            },
+            LossFunction::CategoricalCrossEntropy => {
+                let epsilon = 1e-15;
+                let mut sum = 0.0;
+                for (p, t) in predictions.iter().zip(targets.iter()) {
+                    let p_clamped = p.max(epsilon);
+                    sum += -t * p_clamped.ln();
+                }
+                sum
+            },
+            LossFunction::Huber => {
+                let delta = 1.0;
+                let diff = predictions - targets;
+                let mut sum = 0.0;
+                for &d in diff.iter() {
+                    let abs_d = d.abs();
+                    if abs_d <= delta {
+                        sum += 0.5 * d * d;
+                    } else {
+                        sum += delta * (abs_d - 0.5 * delta);
+                    }
+                }
+                sum / predictions.len() as f64
+            },
+        }
+    }
+
+    /// Compute the derivative (gradient) of the loss function.
+    /// Returns the error signal to be backpropagated.
+    pub fn derivative(&self, predictions: &Array1<f64>, targets: &Array1<f64>) -> Array1<f64> {
+        match self {
+            LossFunction::MSE => {
+                // d/dx[(y - x)^2] = -2(y - x) = 2(x - y)
+                // Simplified for gradient descent: (x - y)
+                predictions - targets
+            },
+            LossFunction::MAE => {
+                // d/dx[|y - x|] = sign(x - y)
+                (predictions - targets).mapv(|x| if x > 0.0 { 1.0 } else if x < 0.0 { -1.0 } else { 0.0 })
+            },
+            LossFunction::BinaryCrossEntropy => {
+                // d/dx[-y*ln(x) - (1-y)*ln(1-x)] = -y/x + (1-y)/(1-x) = (x - y) / (x(1-x))
+                // Simplified when used with sigmoid: (x - y)
+                let epsilon = 1e-15;
+                let mut result = Array1::zeros(predictions.len());
+                for (i, (p, t)) in predictions.iter().zip(targets.iter()).enumerate() {
+                    let p_clamped = p.max(epsilon).min(1.0 - epsilon);
+                    result[i] = (p_clamped - t) / (p_clamped * (1.0 - p_clamped));
+                }
+                result
+            },
+            LossFunction::CategoricalCrossEntropy => {
+                // d/dx[-y*ln(x)] = -y/x
+                // Simplified when used with softmax: (x - y)
+                let epsilon = 1e-15;
+                let mut result = Array1::zeros(predictions.len());
+                for (i, (p, t)) in predictions.iter().zip(targets.iter()).enumerate() {
+                    let p_clamped = p.max(epsilon);
+                    result[i] = -t / p_clamped;
+                }
+                result
+            },
+            LossFunction::Huber => {
+                let delta = 1.0;
+                let diff = predictions - targets;
+                diff.mapv(|d| {
+                    if d.abs() <= delta {
+                        d
+                    } else {
+                        delta * d.signum()
+                    }
+                })
+            },
+        }
+    }
+}
+
 impl Activation {
     /// Apply the activation function to an array.
     pub fn apply(&self, x: &Array1<f64>) -> Array1<f64> {
@@ -132,6 +243,8 @@ pub struct Network {
     hidden_activation: Activation,
     /// Activation function for output layer
     output_activation: Activation,
+    /// Loss function for training
+    loss_function: LossFunction,
 }
 
 impl Network {
@@ -143,14 +256,25 @@ impl Network {
     /// - `output_size`: Number of output neurons
     /// - `hidden_activation`: Activation function for hidden layer
     /// - `output_activation`: Activation function for output layer
+    /// - `loss_function`: Loss function for training
     ///
     /// # Example
     /// ```
-    /// // XOR with ReLU hidden, Sigmoid output
-    /// let network = Network::new(2, 3, 1, Activation::ReLU, Activation::Sigmoid);
+    /// // XOR with ReLU hidden, Sigmoid output, Binary Cross-Entropy loss
+    /// let network = Network::new(
+    ///     2, 3, 1, 
+    ///     Activation::ReLU, 
+    ///     Activation::Sigmoid,
+    ///     LossFunction::BinaryCrossEntropy
+    /// );
     ///
     /// // Multi-class classification with GELU and Softmax
-    /// let network = Network::new(784, 128, 10, Activation::GELU, Activation::Sigmoid);
+    /// let network = Network::new(
+    ///     784, 128, 10, 
+    ///     Activation::GELU, 
+    ///     Activation::Softmax,
+    ///     LossFunction::CategoricalCrossEntropy
+    /// );
     /// ```
     pub fn new(
         input_size: usize, 
@@ -158,6 +282,7 @@ impl Network {
         output_size: usize,
         hidden_activation: Activation,
         output_activation: Activation,
+        loss_function: LossFunction,
     ) -> Self {
         let mut rng = thread_rng();
  
@@ -173,6 +298,7 @@ impl Network {
             biases2,
             hidden_activation,
             output_activation,
+            loss_function,
         }
     }
 }
@@ -207,6 +333,7 @@ impl Network {
     /// Trains the network on a single input-target pair using backpropagation.
     ///
     /// Updates weights and biases based on the error between prediction and target.
+    /// Uses the configured loss function to compute gradients.
     ///
     /// # Arguments
     /// - `input`: Input vector
@@ -215,7 +342,7 @@ impl Network {
     ///
     /// # Algorithm
     /// 1. Forward pass to get prediction
-    /// 2. Calculate output layer error and gradients
+    /// 2. Calculate output layer error using loss function
     /// 3. Backpropagate error to hidden layer
     /// 4. Update all weights and biases
     ///
@@ -224,10 +351,29 @@ impl Network {
     /// network.train(&array![0.0, 1.0], &array![1.0], 0.1);
     /// ```
     pub fn train(&mut self, input: &Array1<f64>, target: &Array1<f64>, learning_rate: f64) {
-        let (hidden_output, final_input, final_output) = self.forward(input);
+        let (hidden_output, _final_input, final_output) = self.forward(input);
  
-        let output_errors = target - &final_output;
-        let output_delta = &output_errors * &self.output_activation.derivative(&final_output);
+        // For output layer: compute error signal
+        // For specific combinations, the derivative simplifies nicely
+        let output_delta = match (&self.output_activation, &self.loss_function) {
+            // Sigmoid + Binary Cross-Entropy: derivative simplifies to -(target - prediction)
+            (Activation::Sigmoid, LossFunction::BinaryCrossEntropy) => {
+                target - &final_output
+            },
+            // Softmax + Categorical Cross-Entropy: derivative simplifies to -(target - prediction)
+            (Activation::Softmax, LossFunction::CategoricalCrossEntropy) => {
+                target - &final_output
+            },
+            // MSE: derivative is (prediction - target), negate for gradient descent
+            (_, LossFunction::MSE) => {
+                target - &final_output
+            },
+            // General case: use loss gradient and activation derivative
+            _ => {
+                let loss_gradient = self.loss_function.derivative(&final_output, target);
+                -&loss_gradient * &self.output_activation.derivative(&final_output)
+            }
+        };
  
         let hidden_errors = self.weights2.t().dot(&output_delta);
         let hidden_delta = &hidden_errors * &self.hidden_activation.derivative(&hidden_output);
@@ -242,5 +388,32 @@ impl Network {
         self.biases2 = &self.biases2 + &biases2_update;
         self.weights1 = &self.weights1 + &weights1_update;
         self.biases1 = &self.biases1 + &biases1_update;
+    }
+
+    /// Evaluates the network on given input-target pairs without updating weights.
+    ///
+    /// Returns the average loss over all samples.
+    ///
+    /// # Arguments
+    /// - `inputs`: Vector of input arrays
+    /// - `targets`: Vector of target arrays
+    ///
+    /// # Returns
+    /// Average loss value
+    ///
+    /// # Example
+    /// ```
+    /// let loss = network.evaluate(&inputs, &targets);
+    /// println!("Average loss: {:.4}", loss);
+    /// ```
+    pub fn evaluate(&self, inputs: &Vec<Array1<f64>>, targets: &Vec<Array1<f64>>) -> f64 {
+        let mut total_loss = 0.0;
+        
+        for (input, target) in inputs.iter().zip(targets.iter()) {
+            let (_, _, prediction) = self.forward(input);
+            total_loss += self.loss_function.compute(&prediction, target);
+        }
+        
+        total_loss / inputs.len() as f64
     }
 }
