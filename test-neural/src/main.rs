@@ -27,7 +27,7 @@ fn main() {
         LossFunction::MSE,
         Activation::Tanh,
         Activation::Sigmoid,
-        &inputs, &targets, learning_rate, epochs);
+        &inputs, &targets, learning_rate, 150_000);
     
     // Test 2: MAE (needs lower lr and more epochs due to constant gradients)
     test_loss("MAE",
@@ -41,14 +41,14 @@ fn main() {
         LossFunction::BinaryCrossEntropy,
         Activation::Tanh,
         Activation::Sigmoid,
-        &inputs, &targets, learning_rate, epochs);
+        &inputs, &targets, learning_rate, 50_000);
     
     // Test 4: Huber
     test_loss("Huber",
         LossFunction::Huber,
         Activation::Tanh,
         Activation::Sigmoid,
-        &inputs, &targets, learning_rate, epochs);
+        &inputs, &targets, learning_rate, 50_000);
     
     println!("\n=== Testing Different Activation Combinations ===\n");
     
@@ -57,14 +57,14 @@ fn main() {
         LossFunction::MSE,
         Activation::LeakyReLU,
         Activation::Sigmoid,
-        &inputs, &targets, learning_rate, epochs);
+        &inputs, &targets, learning_rate, 50_000);
     
     // Test 6: GELU + Sigmoid + BCE
     test_loss("GELU + Sigmoid + BCE",
         LossFunction::BinaryCrossEntropy,
         Activation::GELU,
         Activation::Sigmoid,
-        &inputs, &targets, learning_rate, epochs);
+        &inputs, &targets, learning_rate, 50_000);
     
     println!("\n=== All Tests Completed ===");
 }
