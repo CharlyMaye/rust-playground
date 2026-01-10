@@ -94,15 +94,15 @@ fn test_loss(
     let final_loss = network.evaluate(inputs, targets);
     println!("Final loss: {:.4}", final_loss);
     
-    println!("Results:");
+    println!("Predictions:");
     let mut all_correct = true;
     for (input, target) in inputs.iter().zip(targets.iter()) {
-        let (_, _, output) = network.forward(input);
-        let prediction = if output[0] > 0.5 { 1.0 } else { 0.0 };
-        let correct = (prediction - target[0]).abs() < 0.1;
+        let prediction = network.predict(input);
+        let binary_pred = if prediction[0] > 0.5 { 1.0 } else { 0.0 };
+        let correct = (binary_pred - target[0]).abs() < 0.1;
         all_correct = all_correct && correct;
         println!("  {:?} -> {:.3} (expected {:.0}) {}", 
-            input, output[0], target[0], 
+            input, prediction[0], target[0], 
             if correct { "✓" } else { "✗" });
     }
     

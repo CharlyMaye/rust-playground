@@ -417,4 +417,25 @@ impl Network {
         
         total_loss / inputs.len() as f64
     }
+
+    /// Makes a prediction for a single input without requiring a target.
+    ///
+    /// This is the main inference method - use it to get predictions after training.
+    ///
+    /// # Arguments
+    /// - `input`: Input vector
+    ///
+    /// # Returns
+    /// Output vector (network's prediction)
+    ///
+    /// # Example
+    /// ```
+    /// let prediction = network.predict(&array![0.0, 1.0]);
+    /// println!("Prediction: {:.3}", prediction[0]);
+    /// ```
+    pub fn predict(&self, input: &Array1<f64>) -> Array1<f64> {
+        let (_, _, output) = self.forward(input);
+        output
+    }
+
 }
