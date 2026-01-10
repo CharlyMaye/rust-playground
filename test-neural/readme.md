@@ -604,12 +604,265 @@ Quelle est ta couche ?
 - **Trop grand** → instabilité, ne converge pas
 - **Typique** : `0.001` à `0.1`
 
+---
+
+## Fonctions de Perte (Loss Functions)
+
+### Concept de Base
+
+La **loss function** (fonction de perte/coût) mesure **à quel point le réseau se trompe** dans ses prédictions.
+
+**Objectif :** Minimiser l'erreur entre la prédiction et la valeur réelle.
+
+```
+Loss = Différence(Prédiction, Valeur_Réelle)
+```
+
+Plus la loss est **petite** → meilleure prédiction  
+Plus la loss est **grande** → pire prédiction
+
+### Cycle d'apprentissage
+
+```
+1. Forward pass → Prédiction
+2. Calcul de la Loss → Mesurer l'erreur
+3. Backpropagation → Calculer les gradients
+4. Update des poids → Réduire la Loss
+```
+
+---
+
+### 1. MSE (Mean Squared Error)
+
+**Formule :** $\text{MSE} = \frac{1}{n}\sum(y - \hat{y})^2$
+
+**Usage :** Régression (prédire des valeurs continues)
+
+**Avantages :**
+- ✅ Pénalise fortement les grandes erreurs
+- ✅ Différentiable partout
+- ✅ Interprétation intuitive
+
+**Inconvénients :**
+- ❌ Pas optimal pour classification
+- ❌ Gradient qui disparaît avec Sigmoid
+
+**Exemple :**
+```
+Prédiction: 2.5, Réel: 3.0
+Loss = (3.0 - 2.5)² = 0.25
+```
+
+**Implémentation Rust :**
+```rust
+fn mse(predictions: &Array1<f64>, targets: &Array1<f64>) -> f64 {
+    let diff = predictions - targets;
+    (&diff * &diff).sum() / predictions.len() as f64
+}
+```
+
+---
+
+### 2. MAE (Mean Absolute Error)
+
+**Formule :** $\text{MAE} = \frac{1}{n}\sum|y - \hat{y}|$
+
+**Usage :** Régression (moins sensible aux outliers)
+
+**Avantages :**
+- ✅ Robuste aux outliers
+- ✅ Interprétation intuitive
+- ✅ Toutes les erreurs traitées linéairement
+
+**Inconvénients :**
+- ❌ Gradients constants (convergence plus lente)
+- ❌ Non différentiable en zéro
+
+**Exemple :**
+```
+Prédiction: 2.5, Réel: 3.0
+Loss = |3.0 - 2.5| = 0.5
+```
+
+**Implémentation Rust :**
+```rust
+fn mae(predictions: &Array1<f64>, targets: &Array1<f64>) -> f64 {
+    (predictions - targets).mapv(|x| x.abs()).sum() / predictions.len() as f64
+}
+```
+
+---
+
+### 3. Binary Cross-Entropy (Log Loss)
+
+**Formule :** $\text{BCE} = -\frac{1}{n}\sum[y\log(\hat{y}) + (1-y)\log(1-\hat{y})]$
+
+**Usage :** Classification binaire (avec Sigmoid)
+
+**Avantages :**
+- ✅ Interprétation probabiliste
+- ✅ Gradient plus stable que MSE pour classification
+- ✅ Convergence plus rapide
+- ✅ Standard pour classification binaire
+
+**Inconvénients :**
+- ❌ Nécessite prédictions dans [0, 1]
+- ❌ Instable si prédiction = 0 ou 1 (log(0))
+
+**Exemple :**
+```
+Prédiction: 0.9, Réel: 1 (classe positive)
+Loss = -[1×log(0.9) + 0×log(0.1)] = 0.105  // Bonne prédiction
+
+Prédiction: 0.1, Réel: 1 (classe positive)
+Loss = -[1×log(0.1) + 0×log(0.9)] = 2.303  // Grosse erreur!
+```
+
+**Implémentation Rust :**
+```rust
+fn binary_cross_entropy(predictions: &Array1<f64>, targets: &Array1<f64>) -> f64 {
+    let epsilon = 1e-15; // Éviter log(0)
+    let mut sum = 0.0;
+    for (p, t) in predictions.iter().zip(targets.iter()) {
+        let p_clamped = p.max(epsilon).min(1.0 - epsilon);
+        sum += -(t * p_clamped.ln() + (1.0 - t) * (1.0 - p_clamped).ln());
+    }
+    sum / predictions.len() as f64
+}
+```
+
+---
+
+### 4. Categorical Cross-Entropy
+
+**Formule :** $\text{CCE} = -\sum y_i \log(\hat{y}_i)$
+
+**Usage :** Classification multi-classes (avec Softmax)
+
+**Avantages :**
+- ✅ Standard pour multi-classes
+- ✅ Interprétation probabiliste claire
+- ✅ Gradient bien adapté avec Softmax
+
+**Exemple :**
+```
+Classes: [Chat, Chien, Oiseau]
+Réel:    [1,    0,     0]      // C'est un chat
+Prédit:  [0.7,  0.2,   0.1]
+Loss = -(1×log(0.7) + 0×log(0.2) + 0×log(0.1)) = 0.357
+```
+
+**Implémentation Rust :**
+```rust
+fn categorical_cross_entropy(predictions: &Array1<f64>, targets: &Array1<f64>) -> f64 {
+    let epsilon = 1e-15;
+    -targets.iter()
+        .zip(predictions.iter())
+        .map(|(t, p)| t * (p.max(epsilon)).ln())
+        .sum::<f64>()
+}
+```
+
+---
+
+### 5. Huber Loss
+
+**Formule :** 
+$$\text{Huber} = \begin{cases} \frac{1}{2}(y - \hat{y})^2 & \text{si } |y - \hat{y}| \leq \delta \\ \delta(|y - \hat{y}| - \frac{1}{2}\delta) & \text{sinon} \end{cases}$$
+
+**Usage :** Régression robuste aux outliers
+
+**Avantages :**
+- ✅ Combine MSE (petites erreurs) et MAE (grandes erreurs)
+- ✅ Moins sensible aux outliers que MSE
+- ✅ Différentiable partout
+
+**Paramètre :** $\delta$ (typiquement 1.0) = seuil entre comportement MSE et MAE
+
+**Implémentation Rust :**
+```rust
+fn huber_loss(predictions: &Array1<f64>, targets: &Array1<f64>, delta: f64) -> f64 {
+    let diff = predictions - targets;
+    let mut sum = 0.0;
+    for &d in diff.iter() {
+        let abs_d = d.abs();
+        if abs_d <= delta {
+            sum += 0.5 * d * d;  // MSE pour petites erreurs
+        } else {
+            sum += delta * (abs_d - 0.5 * delta);  // MAE pour grandes erreurs
+        }
+    }
+    sum / predictions.len() as f64
+}
+```
+
+---
+
+### Guide de Sélection des Loss Functions
+
+| **Tâche** | **Activation Sortie** | **Loss Function Recommandée** | **Pourquoi** |
+|-----------|----------------------|-------------------------------|--------------|
+| Régression | Linear | **MSE** | Standard, pénalise grandes erreurs |
+| Régression robuste | Linear | **MAE** ou **Huber** | Résiste aux outliers |
+| Classification binaire | Sigmoid | **Binary Cross-Entropy** | Interprétation probabiliste |
+| Classification multi-classes | Softmax | **Categorical Cross-Entropy** | Standard multi-classes |
+| Détection d'objets | Variable | IoU Loss, Focal Loss | Adapté aux boîtes |
+| Segmentation | Softmax | Dice Loss, Focal Loss | Adapté aux pixels |
+
+---
+
+### Comparaison MSE vs Binary Cross-Entropy (XOR)
+
+**Problème :** Classification binaire avec Sigmoid
+
+#### MSE pour classification
+- ❌ Gradient qui disparaît quand proche de 0 ou 1
+- ❌ Pas d'interprétation probabiliste
+- ❌ Convergence plus lente
+
+#### Binary Cross-Entropy pour classification
+- ✅ Gradient plus stable
+- ✅ Converge plus vite
+- ✅ Interprétation comme probabilité
+- ✅ Meilleur choix pour XOR
+
+**Résultats typiques (50k epochs, lr=0.5) :**
+```
+MSE:  Final loss: 0.0000 ✓
+BCE:  Final loss: 0.0000 ✓
+MAE:  Final loss: 0.2500 (nécessite lr=0.2, epochs=150k)
+```
+
+---
+
+### Visualisation de la Convergence
+
+```
+Haute Loss ━━━━━━━━━┓
+                    ┃    Début
+                    ┃      ↓
+                    ┃      •
+                    ┃     ╱
+                    ┃    ╱
+                    ┃   ╱     Training
+                    ┃  ╱      ↓
+                    ┃ ╱
+Basse Loss ━━━━━━━━━┃╱________• Convergence
+                    └────────────────→
+                         Epochs
+```
+
+**Objectif du training :** Descendre cette courbe le plus vite possible en ajustant les poids.
+
+---
+
 ## Documentation Recommandée
 
 1. **[3Blue1Brown - Neural Networks](https://www.youtube.com/watch?v=aircAruvnKk)** (YouTube) : visualisations excellentes
 2. **[The Rust ML Book](https://rust-ml.github.io/book/)** : apprentissage automatique en Rust
 3. **[ndarray docs](https://docs.rs/ndarray/latest/ndarray/)** : documentation de la bibliothèque
 4. **Neural Networks from Scratch** (livre) : explications mathématiques détaillées
+5. **[ML Cheatsheet - Loss Functions](https://ml-cheatsheet.readthedocs.io/en/latest/loss_functions.html)** : référence complète
 
 ## Expérimentation
 
@@ -626,5 +879,23 @@ let learning_rate = 0.5;   // Plus rapide
 let learning_rate = 1.0;   // Très rapide (attention à la stabilité)
 ```
 
-### Fonction d'Activation
-Remplace `sigmoid` par `ReLU` ou `tanh` dans [network.rs](src/network.rs).
+### Fonction d'Activation et Loss
+```rust
+// Classification binaire (XOR)
+Network::new(2, 5, 1, 
+    Activation::Tanh,           // Couche cachée
+    Activation::Sigmoid,        // Sortie
+    LossFunction::BinaryCrossEntropy)
+
+// Régression
+Network::new(4, 10, 1,
+    Activation::ReLU,           // Couche cachée
+    Activation::Linear,         // Sortie
+    LossFunction::MSE)
+
+// Multi-classes
+Network::new(784, 128, 10,
+    Activation::GELU,           // Couche cachée
+    Activation::Softmax,        // Sortie
+    LossFunction::CategoricalCrossEntropy)
+```
