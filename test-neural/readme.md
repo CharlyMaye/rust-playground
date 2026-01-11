@@ -14,6 +14,7 @@ cargo run --release
 # Exécuter les exemples
 cargo run --release --example xor_tests       # Tests de fonctions de perte et réseaux profonds
 cargo run --release --example serialization   # Démonstration save/load de modèles
+cargo run --release --example metrics_demo    # Démonstration des métriques d'évaluation
 ```
 
 ### Exemples Disponibles
@@ -30,11 +31,19 @@ cargo run --release --example serialization   # Démonstration save/load de mod�
    - Charge et vérifie les prédictions
    - Compare les tailles de fichiers
 
+3. **`metrics_demo`** - Évaluation de performance
+   - Entraîne un réseau sur XOR
+   - Calcule accuracy, precision, recall, F1-score
+   - Affiche la matrice de confusion
+   - Compare différents seuils de classification
+   - Calcule ROC-AUC
+
 ### Utilisation Basique
 
 ```rust
 use test_neural::network::{Network, Activation, LossFunction};
 use test_neural::io;
+use test_neural::metrics::accuracy;
 use ndarray::array;
 
 // Créer un réseau simple
@@ -55,12 +64,141 @@ network.train(&input, &target, 0.5);  // learning_rate = 0.5
 // Prédire
 let prediction = network.predict(&input);
 
+// Évaluer
+let predictions = vec![network.predict(&array![0.0, 1.0])];
+let targets = vec![array![1.0]];
+let acc = accuracy(&predictions, &targets, 0.5);
+println!("Accuracy: {:.2}%", acc * 100.0);
+
 // Sauvegarder
 io::save_json(&network, "model.json").unwrap();
 
 // Charger
 let loaded = io::load_json("model.json").unwrap();
 ```
+
+---
+
+## Métriques d'Évaluation
+
+Le module `metrics` fournit des outils complets pour évaluer la performance de vos modèles.
+
+### Métriques Disponibles
+
+#### 1. **`accuracy()`** - Exactitude
+```rust
+use test_neural::metrics::accuracy;
+
+let acc = accuracy(&predictions, &targets, 0.5);
+println!("Accuracy: {:.2}%", acc * 100.0);
+```
+- **Binaire** : seuil personnalisable (défaut 0.5)
+- **Multi-classes** : argmax automatique
+- Simple, rapide, intuitif
+- Retourne le pourcentage de prédictions correctes
+
+#### 2. **`binary_metrics()`** - Métriques Complètes pour Classification Binaire
+```rust
+use test_neural::metrics::binary_metrics;
+
+let metrics = binary_metrics(&predictions, &targets, 0.5);
+println!("{}", metrics.summary());
+// Accuracy: 0.9500 | Precision: 0.9231 | Recall: 0.9600 | F1: 0.9412
+// TP: 24 | FP: 2 | TN: 19 | FN: 1
+```
+
+**Métriques retournées :**
+- **Precision** : `TP / (TP + FP)` - "Quand je prédis positif, à quelle fréquence ai-je raison?"
+- **Recall** : `TP / (TP + FN)` - "Je capture quel % de tous les positifs réels?"
+- **F1-Score** : Moyenne harmonique de Precision et Recall
+- **TP, FP, TN, FN** : True/False Positives/Negatives
+
+#### 3. **`confusion_matrix_binary()` & `confusion_matrix_multiclass()`** - Matrice de Confusion
+```rust
+use test_neural::metrics::{confusion_matrix_binary, format_confusion_matrix};
+
+let matrix = confusion_matrix_binary(&predictions, &targets, 0.5);
+println!("{}", format_confusion_matrix(&matrix, Some(&["Neg", "Pos"])));
+```
+
+```
+Confusion Matrix:
+                Predicted
+              Neg      Pos 
+Actual   Neg   19        2
+         Pos    1       24
+```
+
+- **Binaire** : Matrice 2x2
+- **Multi-classes** : Matrice NxN
+- Helper `format_confusion_matrix()` pour affichage lisible
+- Visualise précisément les types d'erreurs
+
+#### 4. **`roc_curve()` & `auc_roc()`** - Analyse ROC
+```rust
+use test_neural::metrics::{roc_curve, auc_roc};
+
+// Courbe ROC complète
+let (fpr, tpr, thresholds) = roc_curve(&predictions, &targets, 100);
+
+// AUC (Area Under Curve)
+let auc = auc_roc(&predictions, &targets);
+println!("AUC: {:.4}", auc);
+// AUC: 0.9850 (1.0 = parfait, 0.5 = aléatoire)
+```
+
+- **Courbe ROC** : FPR vs TPR à différents seuils
+- **AUC** : 1.0 = prédictions parfaites, 0.5 = performance aléatoire
+- **Indépendant du seuil** : Évalue la performance globale
+- Idéal pour comparer différents modèles
+
+### Quand Utiliser Quelle Métrique ?
+
+| Situation | Métrique Recommandée | Raison |
+|-----------|---------------------|--------|
+| **Dataset équilibré** | Accuracy | Simple et intuitif |
+| **Dataset déséquilibré** | F1-Score, Recall | Évite les fausses bonnes performances |
+| **Coût FP élevé** (ex: spam) | Precision | Ne pas bloquer vrais emails |
+| **Coût FN élevé** (ex: médical) | Recall | Ne pas manquer de malades |
+| **Comparaison de modèles** | AUC | Indépendant du seuil |
+| **Analyse détaillée** | Confusion Matrix | Voir précisément les erreurs |
+
+### Exemple Complet
+
+```rust
+use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::metrics::{accuracy, binary_metrics, confusion_matrix_binary};
+use ndarray::array;
+
+// Entraîner le réseau
+let mut network = Network::new(2, 5, 1, 
+    Activation::Tanh, 
+    Activation::Sigmoid,
+    LossFunction::BinaryCrossEntropy
+);
+
+// ... entraînement ...
+
+// Obtenir les prédictions
+let predictions: Vec<_> = test_inputs.iter()
+    .map(|input| network.predict(input))
+    .collect();
+
+// Évaluer avec différentes métriques
+let acc = accuracy(&predictions, &test_targets, 0.5);
+let metrics = binary_metrics(&predictions, &test_targets, 0.5);
+let matrix = confusion_matrix_binary(&predictions, &test_targets, 0.5);
+
+println!("Accuracy: {:.2}%", acc * 100.0);
+println!("{}", metrics.summary());
+println!("{}", format_confusion_matrix(&matrix, Some(&["Neg", "Pos"])));
+```
+
+Pour plus de détails, consultez [METRICS_GUIDE.md](METRICS_GUIDE.md) qui contient :
+- Guide complet de toutes les métriques
+- Cas d'usage par domaine (médical, finance, vision, NLP)
+- Métriques avancées à implémenter
+- Bonnes pratiques et pièges à éviter
 
 ---
 

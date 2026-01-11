@@ -7,6 +7,7 @@
 //! - Deep architectures (multiple hidden layers)
 //! - Xavier/He weight initialization
 //! - Model serialization (JSON and binary)
+//! - Evaluation metrics (accuracy, precision, recall, F1, confusion matrix, ROC/AUC)
 //!
 //! # Quick Start
 //!
@@ -33,3 +34,4 @@
 
 pub mod network;
 pub mod io;
+pub mod metrics;

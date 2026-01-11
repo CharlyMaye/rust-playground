@@ -14,6 +14,7 @@
 - [x] Tests sur XOR avec réseaux profonds (2 et 3 couches)
 - [x] **Initialisation des poids** (Xavier, He, LeCun) avec sélection automatique
 - [x] **Sérialisation** (save/load) avec module I/O externalisé
+- [x] **Métriques d'évaluation** (accuracy, precision, recall, F1, confusion matrix, ROC/AUC)
 
 ### Résultats Architecture Multi-Couches
 
@@ -93,42 +94,33 @@ Loaded predictions:
 
 ---
 
-## � Prochaines Priorités
+## ✅ Métriques d'Évaluation (Complétées)
 
-### 1. **Métriques d'Évaluation** 🎯
-Performance et analyse des modèles
+### Module `metrics.rs` - Évaluation Externalisée
 
-- [ ] **Méthode `accuracy()`** - Pourcentage de prédictions correctes
-  ```rust
-  pub fn accuracy(&self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) -> f64
-  ```
-  - Classification binaire : seuil à 0.5
-  - Multi-classe : argmax des sorties
-  - Essentiel pour évaluer les modèles de classification
+- [x] **Accuracy** - Pourcentage de prédictions correctes (binaire + multi-classes)
+- [x] **Binary Metrics** - Precision, Recall, F1-Score, TP/FP/TN/FN
+- [x] **Confusion Matrix** - 2x2 (binaire) et NxN (multi-classes)
+- [x] **ROC Curve & AUC** - Courbe ROC et aire sous la courbe
 
-- [ ] **Precision, Recall, F1-Score**
-  ```rust
-  pub fn metrics(&self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) 
-      -> (f64, f64, f64)  // (precision, recall, f1)
-  ```
-  - True Positives, False Positives, False Negatives
-  - Utile pour datasets déséquilibrés
+**Résultats Tests (XOR):**
+```
+Perfect: Accuracy=100%, Precision=1.0, Recall=1.0, F1=1.0
+Imperfect: Accuracy=75%, Precision=1.0, Recall=0.5, F1=0.667
+```
 
-- [ ] **Confusion Matrix**
-  ```rust
-  pub fn confusion_matrix(&self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) 
-      -> Array2<usize>
-  ```
-  - Visualiser les erreurs de classification
-  - Identifier les classes problématiques
-
-- [ ] **Courbes ROC et AUC**
-  - Évaluation robuste pour classification binaire
-  - Indépendant du seuil de décision
+**Architecture:**
+- Module séparé `metrics.rs` (indépendant de Network)
+- Tests unitaires complets  
+- Support binaire et multi-classes
+- Exemple: `cargo run --example metrics_demo`
 
 ---
 
-### 2. **Optimiseurs Avancés** 🚀
+## Prochaines Priorités
+
+
+### 1. **Optimiseurs Avancés (Adam, RMSprop)** 🚀
 Convergence plus rapide et stable
 
 - [ ] **Enum `Optimizer`**
@@ -168,7 +160,7 @@ Convergence plus rapide et stable
 
 ---
 
-### 3. **Régularisation** 🛡️
+### 2. **Régularisation** 🛡️
 Éviter l'overfitting et améliorer la généralisation
 
 - [ ] **Dropout**
@@ -256,7 +248,7 @@ Scalabilité sur gros datasets
 
 ---
 
-### 5. **Callbacks et Contrôle de l'Entraînement** 🎛️
+### 4. **Callbacks et Contrôle de l'Entraînement** 🎛️
 Monitoring et automation
 
 - [ ] **Trait `Callback`**
@@ -507,164 +499,6 @@ Monitoring et automation
 
 ## 🔄 Priorités Suivantes
 
-### 1. Métriques d'Évaluation (accuracy, F1...)
-
-#### Changements Fondamentaux
-
-**Actuellement (1 couche cachée) :**
-```
-Input → Hidden Layer → Output
-  2   →      5       →    1
-```
-
-**Avec plusieurs couches (Deep Neural Network) :**
-```
-Input → Hidden1 → Hidden2 → Hidden3 → Output
-  2   →    10    →    8    →    5    →   1
-```
-
-#### Capacité d'Apprentissage
-
-**1 couche cachée :**
-- ✅ Peut approximer n'importe quelle fonction continue (théorème d'approximation universelle)
-- ❌ Besoin de BEAUCOUP de neurones pour des fonctions complexes
-- ❌ Apprend des features "plates" (pas hiérarchiques)
-
-**Plusieurs couches (Deep Learning) :**
-- ✅ Apprend des **représentations hiérarchiques**
-- ✅ Chaque couche apprend des abstractions plus complexes
-- ✅ Moins de neurones nécessaires au total
-
-**Exemple (vision) :**
-```
-Couche 1: Détecte bords, coins
-Couche 2: Détecte formes simples (cercles, carrés)
-Couche 3: Détecte parties d'objets (yeux, roues)
-Couche 4: Détecte objets complets (visage, voiture)
-```
-
-#### Structure de Données Nécessaire
-
-**Actuellement :**
-```rust
-pub struct Network {
-    weights1: Array2<f64>,  // 1 matrice
-    biases1: Array1<f64>,   // 1 vecteur
-    weights2: Array2<f64>,  // 1 matrice
-    biases2: Array1<f64>,   // 1 vecteur
-}
-```
-
-**Avec plusieurs couches :**
-```rust
-pub struct Network {
-    layers: Vec<Layer>,  // Liste de couches
-}
-
-struct Layer {
-    weights: Array2<f64>,
-    biases: Array1<f64>,
-    activation: Activation,
-}
-```
-
-#### Forward Pass Multi-Couches
-
-```rust
-pub fn forward(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
-    let mut activations = vec![input.clone()];
-    
-    // Pour chaque couche
-    for layer in &self.layers {
-        let z = layer.weights.dot(activations.last().unwrap()) + &layer.biases;
-        let a = layer.activation.apply(&z);
-        activations.push(a);
-    }
-    
-    activations  // Retourne toutes les activations (besoin pour backprop)
-}
-```
-
-#### Backpropagation Multi-Couches
-
-```rust
-// Partir de la fin et remonter
-let mut deltas = Vec::new();
-
-// Couche de sortie
-let mut delta = target - &activations.last().unwrap();
-deltas.push(delta);
-
-// Remonter couche par couche (de la fin vers le début)
-for i in (1..self.layers.len()).rev() {
-    let errors = self.layers[i].weights.t().dot(&delta);
-    delta = &errors * &self.layers[i].activation.derivative(&activations[i]);
-    deltas.push(delta);
-}
-
-// Mettre à jour tous les poids
-for (i, delta) in deltas.iter().enumerate() {
-    let layer_idx = self.layers.len() - 1 - i;
-    // Update weights[layer_idx] et biases[layer_idx]
-}
-```
-
-#### API Proposée
-
-```rust
-// Réseau simple (existant)
-let network = Network::new(2, 5, 1, 
-    Activation::Tanh, 
-    Activation::Sigmoid,
-    LossFunction::BinaryCrossEntropy);
-
-// Réseau profond (nouveau)
-let network = Network::new_deep(
-    2,                        // Input size
-    vec![10, 8, 5],          // Hidden layers: 3 couches de 10, 8, 5 neurones
-    1,                        // Output size
-    vec![Activation::ReLU, Activation::ReLU, Activation::ReLU],  // Hidden activations
-    Activation::Sigmoid,      // Output activation
-    LossFunction::BinaryCrossEntropy
-);
-```
-
-#### Nouveaux Problèmes à Gérer
-
-##### A. Vanishing/Exploding Gradients
-
-Avec beaucoup de couches, les gradients peuvent :
-- **Disparaître** (vanishing) : devenir trop petits → les premières couches n'apprennent plus
-- **Exploser** (exploding) : devenir trop grands → poids qui divergent
-
-**Solutions :**
-- [ ] Meilleure initialisation des poids (Xavier, He)
-- [ ] Batch Normalization
-- [ ] Skip connections (ResNet)
-- [ ] Gradient clipping
-- [ ] Préférer ReLU/GELU au lieu de Sigmoid
-
-##### B. Surapprentissage (Overfitting)
-
-Plus de couches = plus de paramètres = risque de surapprentissage
-
-**Solutions :**
-- [ ] Dropout (désactiver aléatoirement des neurones)
-- [ ] Régularisation L1/L2
-- [ ] Early stopping
-- [ ] Augmentation de données
-
-##### C. Performance
-
-- [ ] Optimisation GPU (intégration CUDA ou ROCm)
-- [ ] Optimiseurs avancés (Adam, RMSprop, AdamW)
-- [ ] Mini-batch training
-- [ ] Parallélisation
-
-#### Quand Utiliser Plus de Couches ?
-
-| **Problème** | **Couches Recommandées** | **Pourquoi** |
-|--------------|-------------------------|--------------|
 | XOR, problèmes simples | 1-2 couches cachées | Suffisant |
 | MNIST (chiffres) | 2-3 couches | Patterns simples |
 | Images (CIFAR, ImageNet) | 10-50+ couches | Hiérarchie complexe |
