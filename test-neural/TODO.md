@@ -12,6 +12,8 @@
 - [x] **Architecture multi-couches** avec `Network::new_deep()`
 - [x] Backpropagation généralisée pour N couches
 - [x] Tests sur XOR avec réseaux profonds (2 et 3 couches)
+- [x] **Initialisation des poids** (Xavier, He, LeCun) avec sélection automatique
+- [x] **Sérialisation** (save/load) avec module I/O externalisé
 
 ### Résultats Architecture Multi-Couches
 
@@ -26,9 +28,448 @@
 
 ---
 
-## 🔄 En Cours
+## ✅ Sérialisation (Complétée)
 
-### 1. Initialisation des Poids (Xavier/He) ✅ COMPLÉTÉ
+### Module I/O Externalisé
+
+La gestion de fichiers est complètement **externe au réseau de neurones**, comme demandé.
+
+#### Structure
+
+```rust
+// src/io.rs - Module séparé pour la persistance
+pub fn save_json(network: &Network, path: &str) -> Result<(), IoError>
+pub fn load_json(path: &str) -> Result<Network, IoError>
+pub fn save_binary(network: &Network, path: &str) -> Result<(), IoError>
+pub fn load_binary(path: &str) -> Result<Network, IoError>
+pub fn get_serialized_size(network: &Network) -> (usize, usize)  // (json, bincode)
+```
+
+#### Formats Supportés
+
+1. **JSON** (`save_json`, `load_json`)
+   - ✅ Human-readable
+   - ✅ Editable manuellement
+   - ✅ Compatible multi-plateformes
+   - ⚠️ Plus volumineux (~660 bytes pour XOR)
+
+2. **Binary** (`save_binary`, `load_binary`)
+   - ✅ Compact (280 bytes pour XOR)
+   - ✅ Compression ~2.35x vs JSON
+   - ✅ Performant
+   - ⚠️ Non-lisible
+
+#### Résultats Tests XOR
+
+```
+Training: loss 0.0001 en 10000 epochs
+JSON: 659 bytes
+Binary: 280 bytes
+Ratio: 2.35x compression
+
+Loaded predictions:
+[0,0] -> 0.000 ✓
+[0,1] -> 1.000 ✓
+[1,0] -> 1.000 ✓
+[1,1] -> 0.000 ✓
+```
+
+#### Avantages Architecture
+
+✅ **Séparation des responsabilités :**
+- `Network` : logique d'apprentissage
+- `io` module : persistance et I/O
+- Pas de méthodes `save()`/`load()` dans `Network`
+
+✅ **Flexibilité :**
+- Plusieurs formats disponibles (JSON, bincode)
+- Facile d'ajouter d'autres formats (YAML, MessagePack...)
+- Pas de couplage fort
+
+✅ **Testable :**
+- Tests unitaires dans le module `io`
+- Mock du système de fichiers possible
+- Validation indépendante
+
+---
+
+## � Prochaines Priorités
+
+### 1. **Métriques d'Évaluation** 🎯
+Performance et analyse des modèles
+
+- [ ] **Méthode `accuracy()`** - Pourcentage de prédictions correctes
+  ```rust
+  pub fn accuracy(&self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) -> f64
+  ```
+  - Classification binaire : seuil à 0.5
+  - Multi-classe : argmax des sorties
+  - Essentiel pour évaluer les modèles de classification
+
+- [ ] **Precision, Recall, F1-Score**
+  ```rust
+  pub fn metrics(&self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) 
+      -> (f64, f64, f64)  // (precision, recall, f1)
+  ```
+  - True Positives, False Positives, False Negatives
+  - Utile pour datasets déséquilibrés
+
+- [ ] **Confusion Matrix**
+  ```rust
+  pub fn confusion_matrix(&self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) 
+      -> Array2<usize>
+  ```
+  - Visualiser les erreurs de classification
+  - Identifier les classes problématiques
+
+- [ ] **Courbes ROC et AUC**
+  - Évaluation robuste pour classification binaire
+  - Indépendant du seuil de décision
+
+---
+
+### 2. **Optimiseurs Avancés** 🚀
+Convergence plus rapide et stable
+
+- [ ] **Enum `Optimizer`**
+  ```rust
+  pub enum Optimizer {
+      SGD { learning_rate: f64 },
+      Momentum { learning_rate: f64, beta: f64 },
+      RMSprop { learning_rate: f64, beta: f64, epsilon: f64 },
+      Adam { learning_rate: f64, beta1: f64, beta2: f64, epsilon: f64 },
+      AdamW { learning_rate: f64, beta1: f64, beta2: f64, epsilon: f64, weight_decay: f64 },
+  }
+  ```
+
+- [ ] **Adam Optimizer** (Priorité #1)
+  - Adapte le learning rate par paramètre
+  - Converge 2-10x plus vite que SGD
+  - État : `m` (momentum) et `v` (variance) par poids
+  - Standard moderne pour deep learning
+
+- [ ] **RMSprop**
+  - Adaptatif comme Adam mais plus simple
+  - Bon pour RNN et problèmes non-stationnaires
+
+- [ ] **Momentum**
+  - Accélère SGD dans les bonnes directions
+  - Réduit les oscillations
+
+- [ ] **Learning Rate Scheduling**
+  ```rust
+  pub enum LRSchedule {
+      Constant(f64),
+      StepDecay { initial: f64, drop: f64, epochs_drop: usize },
+      ExponentialDecay { initial: f64, decay_rate: f64 },
+      CosineAnnealing { initial: f64, min_lr: f64, period: usize },
+  }
+  ```
+
+---
+
+### 3. **Régularisation** 🛡️
+Éviter l'overfitting et améliorer la généralisation
+
+- [ ] **Dropout**
+  ```rust
+  pub struct Layer {
+      weights: Array2<f64>,
+      biases: Array1<f64>,
+      activation: Activation,
+      dropout_rate: Option<f64>,  // Nouveau
+  }
+  ```
+  - Désactive aléatoirement p% des neurones
+  - Mode training vs inference
+  - Recommandé : 0.2-0.5 pour couches cachées
+
+- [ ] **L2 Regularization (Weight Decay)**
+  ```rust
+  loss = loss + lambda * weights.mapv(|w| w * w).sum()
+  gradient = gradient + lambda * weights
+  ```
+  - Pénalise les poids trop grands
+  - Typique : lambda = 0.0001 - 0.01
+
+- [ ] **L1 Regularization**
+  - Encourage la sparsité (poids à zéro)
+  - Sélection automatique de features
+
+- [ ] **Early Stopping**
+  - Arrête l'entraînement si val_loss n'améliore plus
+  - Paramètre `patience` (nombre d'epochs sans amélioration)
+
+- [ ] **Batch Normalization**
+  ```rust
+  pub struct BatchNorm {
+      gamma: Array1<f64>,      // Scale (learnable)
+      beta: Array1<f64>,       // Shift (learnable)
+      running_mean: Array1<f64>,
+      running_var: Array1<f64>,
+      momentum: f64,
+      epsilon: f64,
+  }
+  ```
+  - Normalise les activations par batch
+  - Accélère convergence
+  - Réduit vanishing gradients
+
+---
+
+### 4. **Mini-Batch Training** 📦
+Scalabilité sur gros datasets
+
+- [ ] **Dataset Struct**
+  ```rust
+  pub struct Dataset {
+      inputs: Vec<Array1<f64>>,
+      targets: Vec<Array1<f64>>,
+  }
+  
+  impl Dataset {
+      pub fn shuffle(&mut self);
+      pub fn split(&self, ratios: (f64, f64, f64)) 
+          -> (Dataset, Dataset, Dataset);  // train, val, test
+      pub fn batches(&self, batch_size: usize) -> BatchIterator;
+  }
+  ```
+
+- [ ] **Méthode `train_batch()`**
+  ```rust
+  pub fn train_batch(&mut self, 
+                     batch: &[(Array1<f64>, Array1<f64>)], 
+                     optimizer: &Optimizer)
+  ```
+  - Accumule gradients sur le batch
+  - Update poids une fois par batch
+  - 10-100x plus rapide que SGD pur
+
+- [ ] **Stratégies de Batching**
+  - Batch size typique : 16, 32, 64, 128
+  - Trade-off : vitesse vs qualité du gradient
+  - Plus petit batch = plus de bruit (peut aider la généralisation)
+
+- [ ] **Shuffling**
+  - Mélanger les données avant chaque epoch
+  - Évite l'apprentissage de l'ordre
+
+---
+
+### 5. **Callbacks et Contrôle de l'Entraînement** 🎛️
+Monitoring et automation
+
+- [ ] **Trait `Callback`**
+  ```rust
+  pub trait Callback {
+      fn on_epoch_begin(&mut self, epoch: usize);
+      fn on_epoch_end(&mut self, epoch: usize, metrics: &Metrics);
+      fn on_train_begin(&mut self);
+      fn on_train_end(&mut self);
+      fn should_stop(&self) -> bool;
+  }
+  ```
+
+- [ ] **EarlyStopping Callback**
+  ```rust
+  pub struct EarlyStopping {
+      patience: usize,
+      best_loss: f64,
+      wait: usize,
+      restore_best_weights: bool,
+  }
+  ```
+  - Arrête si val_loss ne s'améliore pas
+  - Restaure les meilleurs poids
+
+- [ ] **ModelCheckpoint Callback**
+  ```rust
+  pub struct ModelCheckpoint {
+      filepath: String,
+      save_best_only: bool,
+      monitor: String,  // "loss" ou "val_loss"
+  }
+  ```
+  - Sauvegarde automatique du meilleur modèle
+  - Évite de perdre le progrès
+
+- [ ] **LearningRateScheduler Callback**
+  - Ajuste le learning rate pendant l'entraînement
+  - Warmup, decay, cyclic LR
+
+- [ ] **ProgressBar et Logging**
+  - Affichage temps réel : epoch, loss, metrics
+  - Estimation du temps restant
+  - Logging dans fichier CSV/JSON
+
+---
+
+### 6. **Architecture et Validation** 🏗️
+
+- [ ] **Méthode `fit()` Complète**
+  ```rust
+  pub fn fit(&mut self,
+             train_data: &Dataset,
+             validation_data: Option<&Dataset>,
+             epochs: usize,
+             batch_size: usize,
+             optimizer: Optimizer,
+             callbacks: Vec<Box<dyn Callback>>) -> History
+  ```
+  - Interface unifiée pour l'entraînement
+  - Validation automatique à chaque epoch
+  - Retourne historique (loss, metrics par epoch)
+
+- [ ] **Cross-Validation**
+  ```rust
+  pub fn cross_validate(network_builder: impl Fn() -> Network,
+                        dataset: &Dataset,
+                        k_folds: usize) -> Vec<f64>
+  ```
+  - K-fold cross-validation
+  - Évaluation robuste sur petits datasets
+
+- [ ] **Grid Search / Random Search**
+  - Recherche automatique d'hyperparamètres
+  - Learning rate, architecture, dropout rate, etc.
+
+---
+
+### 7. **Datasets et Benchmarks** 📊
+
+- [ ] **Chargeurs de Datasets Standard**
+  ```rust
+  pub fn load_mnist() -> (Dataset, Dataset)
+  pub fn load_iris() -> Dataset
+  pub fn load_wine() -> Dataset
+  ```
+  - MNIST : 28x28 images de chiffres
+  - Iris : classification de fleurs (classique)
+  - Wine : classification de vins
+
+- [ ] **Data Augmentation**
+  - Rotation, flip, noise pour images
+  - Augmente artificiellement le dataset
+  - Améliore généralisation
+
+- [ ] **Normalisation**
+  ```rust
+  pub fn normalize(&mut self, method: NormMethod)
+  
+  pub enum NormMethod {
+      MinMax,           // [0, 1]
+      StandardScore,    // mean=0, std=1
+      MaxAbs,           // [-1, 1]
+  }
+  ```
+
+---
+
+### 8. **Visualisation et Debug** 🔍
+
+- [ ] **Visualisation des Poids**
+  ```rust
+  pub fn visualize_weights(&self, layer: usize) -> Array2<f64>
+  ```
+  - Comprendre ce que le réseau a appris
+
+- [ ] **Activation Maps**
+  - Voir quels neurones s'activent pour une entrée donnée
+
+- [ ] **Gradient Flow Analysis**
+  - Détecter vanishing/exploding gradients
+  - Norms des gradients par couche
+
+- [ ] **Learning Curves**
+  - Plot train_loss vs val_loss
+  - Détecter overfitting/underfitting
+
+---
+
+### 9. **Performance et Optimisation** ⚡
+
+- [ ] **Parallelisation**
+  - Utiliser `rayon` pour paralléliser batch processing
+  - Multi-threading pour forward/backward pass
+
+- [ ] **SIMD Optimizations**
+  - Vectorisation avec instructions CPU modernes
+  - ndarray supporte déjà partiellement
+
+- [ ] **GPU Support** (Long terme)
+  - Intégration avec `wgpu` ou `cudarc`
+  - 10-100x speedup sur gros réseaux
+
+- [ ] **Quantization**
+  - Réduire précision (f32 → f16, int8)
+  - Inference plus rapide, moins de mémoire
+
+---
+
+### 10. **Architecture Avancées** 🧠
+
+#### Convolutional Neural Networks (CNN)
+- [ ] **Conv2D Layer**
+  ```rust
+  pub struct Conv2D {
+      filters: Array4<f64>,  // [num_filters, channels, height, width]
+      stride: (usize, usize),
+      padding: Padding,
+  }
+  ```
+- [ ] **MaxPool2D / AvgPool2D**
+- [ ] **Flatten Layer**
+- [ ] Example : LeNet-5, ResNet basique
+
+#### Recurrent Neural Networks (RNN)
+- [ ] **LSTM Cell**
+  ```rust
+  pub struct LSTM {
+      input_size: usize,
+      hidden_size: usize,
+      // Gates : forget, input, output
+  }
+  ```
+- [ ] **GRU Cell** (version simplifiée de LSTM)
+- [ ] **Bidirectional RNN**
+- [ ] Example : classification de séquences
+
+#### Attention Mechanisms
+- [ ] **Multi-Head Attention**
+- [ ] **Transformer Block** (très long terme)
+
+---
+
+## 🎯 Roadmap Recommandée
+
+### Phase 1 : Métriques et Optimisation (1-2 semaines)
+1. ✅ Sérialisation (FAIT)
+2. **Méthode `accuracy()`** ← Commencer ici
+3. Adam optimizer
+4. Mini-batch training basique
+
+### Phase 2 : Régularisation (1 semaine)
+1. Dropout
+2. L2 regularization
+3. Early stopping
+4. Dataset struct avec split/shuffle
+
+### Phase 3 : Production Ready (1-2 semaines)
+1. Callbacks (EarlyStopping, ModelCheckpoint)
+2. Méthode `fit()` unifiée
+3. Cross-validation
+4. Chargeurs de datasets (MNIST, Iris)
+
+### Phase 4 : Architectures Avancées (Long terme)
+1. CNN layers
+2. RNN/LSTM
+3. GPU support
+
+---
+
+
+
+## ✅ Initialisation des Poids (Complétée)
 
 **Problème résolu !** L'initialisation Xavier/He permet maintenant aux réseaux profonds de converger.
 
@@ -64,7 +505,9 @@
 
 ---
 
-### 2. Métriques d'Évaluation (accuracy, F1...)
+## 🔄 Priorités Suivantes
+
+### 1. Métriques d'Évaluation (accuracy, F1...)
 
 #### Changements Fondamentaux
 
@@ -525,31 +968,45 @@ let rnn = RNN::new()
 
 ---
 
-## 🎯 Priorités
+## 💡 Notes Techniques
 
-### Court Terme (Améliorer l'Existant)
-1. [ ] Meilleure initialisation des poids
-2. [ ] Optimiseur Adam
-3. [ ] Sérialisation (save/load)
-4. [ ] Métriques (accuracy, F1)
+### Design Patterns Rust
+- **Builder Pattern** : Pour construction flexible des réseaux
+- **Type Safety** : Utiliser types phantom pour valider architecture à compile-time
+- **Zero-Cost Abstractions** : Pas de runtime overhead pour les abstractions
+- **Error Handling** : `Result<T, E>` partout, jamais de panic en production
 
-### Moyen Terme (Deep Learning)
-1. [ ] Architecture multi-couches
-2. [ ] Dropout
-3. [ ] Batch Normalization
-4. [ ] Mini-batch training
+### Best Practices
+- Tests unitaires pour chaque feature
+- Benchmarks avec `criterion`
+- Documentation avec exemples exécutables (`cargo test --doc`)
+- CI/CD avec GitHub Actions
 
-### Long Terme (Avancé)
-1. [ ] CNN pour images
-2. [ ] RNN/LSTM pour séquences
-3. [ ] Optimisation GPU
-4. [ ] Architectures modernes (Transformers)
+### Performance Tips
+- `ndarray` avec BLAS (OpenBLAS, MKL) pour algebra linéaire
+- Profile avec `perf`, `flamegraph`
+- Éviter allocations inutiles dans boucles d'entraînement
+- `cargo build --release` donne 10-100x speedup vs debug
 
 ---
 
-## 💡 Notes
+## 📚 Références Techniques
 
-- XOR fonctionne parfaitement avec 1 couche cachée - pas besoin de plus pour ce problème
-- Commencer par améliorer l'architecture simple avant d'ajouter des couches
-- Focus sur la qualité du code et la documentation
-- Tester chaque feature indépendamment
+### Papers Fondamentaux
+- **Dropout:** Srivastava et al., 2014 - "Dropout: A Simple Way to Prevent Neural Networks from Overfitting"
+- **Batch Normalization:** Ioffe & Szegedy, 2015 - "Batch Normalization: Accelerating Deep Network Training"
+- **Adam:** Kingma & Ba, 2015 - "Adam: A Method for Stochastic Optimization"
+- **Xavier Init:** Glorot & Bengio, 2010 - "Understanding the difficulty of training deep feedforward neural networks"
+- **He Init:** He et al., 2015 - "Delving Deep into Rectifiers"
+
+### Frameworks Rust ML/DL
+- **burn** - Framework complet, très prometteur
+- **candle** - Par Hugging Face, léger et rapide
+- **tch-rs** - Bindings PyTorch pour Rust
+- **linfa** - Scikit-learn-like pour Rust
+
+### Datasets
+- **MNIST** : 60k images de chiffres manuscrits
+- **CIFAR-10** : 60k images 32x32 (10 classes)
+- **Iris** : 150 samples, classification florale
+- **Boston Housing** : Régression de prix

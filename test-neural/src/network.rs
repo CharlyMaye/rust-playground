@@ -1,9 +1,10 @@
 use ndarray::{Array1, Array2, Axis};
 use rand::rng;
 use rand::Rng;
+use serde::{Serialize, Deserialize};
 
 /// Weight initialization methods for neural networks.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum WeightInit {
     /// Uniform distribution in [-1, 1] (simple, for shallow networks)
     Uniform,
@@ -89,7 +90,7 @@ impl WeightInit {
 }
 
 /// Available activation functions for neural network layers.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum Activation {
     Sigmoid,
     Tanh,
@@ -109,7 +110,7 @@ pub enum Activation {
 }
 
 /// Available loss functions for training.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum LossFunction {
     /// Mean Squared Error - for regression
     MSE,
@@ -306,7 +307,7 @@ impl Activation {
 }
 
 /// A layer in the neural network.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 struct Layer {
     weights: Array2<f64>,
     biases: Array1<f64>,
@@ -338,6 +339,7 @@ struct Layer {
 ///     LossFunction::BinaryCrossEntropy
 /// );
 /// ```
+#[derive(Serialize, Deserialize)]
 pub struct Network {
     /// All layers (hidden + output)
     layers: Vec<Layer>,

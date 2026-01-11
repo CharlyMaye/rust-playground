@@ -1,5 +1,69 @@
 # Réseau de Neurones en Rust
 
+## Quick Start
+
+### Compilation et Exécution
+
+```bash
+# Compiler le projet
+cargo build --release
+
+# Exécuter le programme principal
+cargo run --release
+
+# Exécuter les exemples
+cargo run --release --example xor_tests       # Tests de fonctions de perte et réseaux profonds
+cargo run --release --example serialization   # Démonstration save/load de modèles
+```
+
+### Exemples Disponibles
+
+1. **`xor_tests`** - Tests complets du réseau
+   - Teste toutes les fonctions de perte (MSE, MAE, BCE, Huber)
+   - Teste différentes combinaisons d'activations
+   - Teste les réseaux profonds multi-couches
+   - Validation complète sur le problème XOR
+
+2. **`serialization`** - Persistance des modèles
+   - Entraîne un réseau sur XOR
+   - Sauvegarde en JSON (human-readable) et binaire (compact)
+   - Charge et vérifie les prédictions
+   - Compare les tailles de fichiers
+
+### Utilisation Basique
+
+```rust
+use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::io;
+use ndarray::array;
+
+// Créer un réseau simple
+let mut network = Network::new(
+    2,                              // 2 entrées
+    5,                              // 5 neurones cachés
+    1,                              // 1 sortie
+    Activation::Tanh,               // Activation couche cachée
+    Activation::Sigmoid,            // Activation sortie
+    LossFunction::BinaryCrossEntropy
+);
+
+// Entraîner
+let input = array![0.0, 1.0];
+let target = array![1.0];
+network.train(&input, &target, 0.5);  // learning_rate = 0.5
+
+// Prédire
+let prediction = network.predict(&input);
+
+// Sauvegarder
+io::save_json(&network, "model.json").unwrap();
+
+// Charger
+let loaded = io::load_json("model.json").unwrap();
+```
+
+---
+
 ## Concepts Clés
 
 ### 1. Architecture (Couches/Neurones)
