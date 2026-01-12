@@ -1,4 +1,5 @@
 use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::optimizer::OptimizerType;
 use ndarray::array;
 
 fn main() {
@@ -104,7 +105,7 @@ fn test_loss(
     learning_rate: f64,
     epochs: usize,
 ) {
-    let mut network = Network::new(2, 5, 1, hidden_act, output_act, loss);
+    let mut network = Network::new(2, 5, 1, hidden_act, output_act, loss, OptimizerType::sgd(learning_rate));
     
     println!("--- {} ---", name);
     let initial_loss = network.evaluate(inputs, targets);
@@ -112,7 +113,7 @@ fn test_loss(
     
     for _ in 0..epochs {
         for (input, target) in inputs.iter().zip(targets.iter()) {
-            network.train(input, target, learning_rate);
+            network.train(input, target);
         }
     }
     
@@ -149,7 +150,7 @@ fn test_loss_deep(
     learning_rate: f64,
     epochs: usize,
 ) {
-    let mut network = Network::new_deep(2, hidden_sizes.clone(), 1, hidden_acts, output_act, loss);
+    let mut network = Network::new_deep(2, hidden_sizes.clone(), 1, hidden_acts, output_act, loss, OptimizerType::sgd(learning_rate));
     
     println!("--- {} ---", name);
     let initial_loss = network.evaluate(inputs, targets);
@@ -158,7 +159,7 @@ fn test_loss_deep(
     
     for _ in 0..epochs {
         for (input, target) in inputs.iter().zip(targets.iter()) {
-            network.train(input, target, learning_rate);
+            network.train(input, target);
         }
     }
     

@@ -1,4 +1,5 @@
 use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::optimizer::OptimizerType;
 use test_neural::io;
 use ndarray::array;
 
@@ -11,7 +12,8 @@ fn main() {
         2, 5, 1,
         Activation::Tanh,
         Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy
+        LossFunction::BinaryCrossEntropy,
+        OptimizerType::adam(0.01)
     );
     
     let inputs = vec![
@@ -31,7 +33,7 @@ fn main() {
     // Train the network
     for epoch in 0..10_000 {
         for (input, target) in inputs.iter().zip(targets.iter()) {
-            network.train(input, target, 0.5);
+            network.train(input, target);
         }
         
         if (epoch + 1) % 2_000 == 0 {

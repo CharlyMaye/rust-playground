@@ -42,24 +42,26 @@ cargo run --release --example metrics_demo    # Démonstration des métriques d'
 
 ```rust
 use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::optimizer::OptimizerType;
 use test_neural::io;
 use test_neural::metrics::accuracy;
 use ndarray::array;
 
-// Créer un réseau simple
+// Créer un réseau simple avec optimiseur Adam
 let mut network = Network::new(
     2,                              // 2 entrées
     5,                              // 5 neurones cachés
     1,                              // 1 sortie
     Activation::Tanh,               // Activation couche cachée
     Activation::Sigmoid,            // Activation sortie
-    LossFunction::BinaryCrossEntropy
+    LossFunction::BinaryCrossEntropy,
+    OptimizerType::adam(0.01)       // Optimiseur Adam, lr=0.01
 );
 
-// Entraîner
+// Entraîner (learning rate est dans l'optimiseur)
 let input = array![0.0, 1.0];
 let target = array![1.0];
-network.train(&input, &target, 0.5);  // learning_rate = 0.5
+network.train(&input, &target);
 
 // Prédire
 let prediction = network.predict(&input);
@@ -76,6 +78,148 @@ io::save_json(&network, "model.json").unwrap();
 // Charger
 let loaded = io::load_json("model.json").unwrap();
 ```
+
+---
+
+## Optimiseurs
+
+Le module `optimizer` fournit 5 algorithmes d'optimisation modernes pour l'entraînement des réseaux.
+
+### Optimiseurs Disponibles
+
+#### 1. **SGD** - Stochastic Gradient Descent (Simple)
+```rust
+use test_neural::optimizer::OptimizerType;
+
+let optimizer = OptimizerType::sgd(0.1);
+```
+- **Utilisation** : Basique, pour débuter ou tester
+- **Learning rate** : Typiquement 0.01 - 0.5
+- **Avantages** : Simple, rapide, reproductible
+- **Inconvénients** : Convergence lente, nécessite tuning du LR
+
+#### 2. **Momentum** - SGD avec momentum
+```rust
+let optimizer = OptimizerType::momentum(0.1);  // beta=0.9 par défaut
+```
+- **Utilisation** : Accélère la convergence
+- **Learning rate** : Typiquement 0.01 - 0.1
+- **Avantages** : Plus rapide que SGD, navigue mieux les vallées
+- **Beta** : 0.9 (défaut) accumule 90% du gradient précédent
+
+#### 3. **RMSprop** - Root Mean Square Propagation
+```rust
+let optimizer = OptimizerType::rmsprop(0.01);  // beta=0.9, epsilon=1e-8
+```
+- **Utilisation** : Adapte le learning rate par paramètre
+- **Learning rate** : Typiquement 0.001 - 0.01
+- **Avantages** : Gère bien les gradients instables
+- **Idéal pour** : RNN, problèmes avec gradients variables
+
+#### 4. **Adam** - Adaptive Moment Estimation (Recommandé ⭐)
+```rust
+let optimizer = OptimizerType::adam(0.001);  // beta1=0.9, beta2=0.999, epsilon=1e-8
+```
+- **Utilisation** : **Standard moderne pour la plupart des cas**
+- **Learning rate** : Typiquement 0.001 (3e-4 à 1e-3)
+- **Avantages** : 
+  - Combine momentum + RMSprop
+  - Convergence 2-10x plus rapide que SGD
+  - Adapte le LR par paramètre
+  - Correction de biais au début
+- **Idéal pour** : Deep learning en général, par défaut
+
+#### 5. **AdamW** - Adam avec Weight Decay découplé
+```rust
+let optimizer = OptimizerType::adamw(0.001, 0.01);  // lr=0.001, weight_decay=0.01
+```
+- **Utilisation** : Améliore la généralisation
+- **Learning rate** : Typiquement 0.001
+- **Weight decay** : Typiquement 0.01 - 0.1
+- **Avantages** : Meilleure régularisation que L2 classique
+- **Idéal pour** : Grands modèles, prévenir l'overfitting
+
+### Comparaison de Performance
+
+```bash
+cargo run --example optimizer_comparison --release
+```
+
+Résultats sur XOR (2000 epochs) :
+| Optimiseur | Loss finale | Vitesse | Remarques |
+|-----------|-------------|---------|-----------|
+| SGD (lr=0.5) | 0.000471 | 🐢 Lent | Nécessite LR élevé |
+| Momentum (lr=0.1) | 0.000138 | 🏃 Rapide | 3x plus rapide que SGD |
+| RMSprop (lr=0.01) | ~0.000000 | 🚀 Très rapide | Excellente convergence |
+| Adam (lr=0.01) | 0.000207 | 🚀 Très rapide | **Meilleur compromis** |
+| AdamW (lr=0.01) | 0.001215 | 🚀 Rapide | Meilleure généralisation |
+
+### Personnalisation des Paramètres
+
+```rust
+use test_neural::optimizer::OptimizerType;
+
+// Momentum personnalisé
+let momentum = OptimizerType::Momentum { 
+    learning_rate: 0.05, 
+    beta: 0.95  // Plus de momentum
+};
+
+// Adam personnalisé
+let adam = OptimizerType::Adam {
+    learning_rate: 0.0005,
+    beta1: 0.9,      // Momentum
+    beta2: 0.999,    // Variance
+    epsilon: 1e-8    // Stabilité numérique
+};
+
+// AdamW personnalisé
+let adamw = OptimizerType::AdamW {
+    learning_rate: 0.001,
+    beta1: 0.9,
+    beta2: 0.999,
+    epsilon: 1e-8,
+    weight_decay: 0.05  // Plus de régularisation
+};
+
+let network = Network::new(2, 5, 1, 
+    Activation::ReLU, 
+    Activation::Sigmoid,
+    LossFunction::BinaryCrossEntropy,
+    adam
+);
+```
+
+### Guide de Sélection
+
+| Cas d'Usage | Optimiseur Recommandé | Raison |
+|-------------|----------------------|--------|
+| **Premier essai / Prototype** | Adam (lr=0.001) | Fonctionne dans 90% des cas |
+| **Petit dataset** | AdamW (wd=0.01) | Évite l'overfitting |
+| **Grand dataset** | Adam ou SGD + Momentum | SGD scale mieux |
+| **Recherche / Benchmark** | SGD avec schedule | Reproductibilité |
+| **Gradients instables** | RMSprop | Adapte le LR |
+| **Besoin de vitesse** | Adam | Convergence la plus rapide |
+
+### Conseils Pratiques
+
+**Learning Rates de Départ :**
+- SGD : 0.01 - 0.1
+- Momentum : 0.01 - 0.1  
+- RMSprop : 0.001 - 0.01
+- Adam : **0.001** (le plus universel)
+- AdamW : 0.001
+
+**Si l'entraînement ne converge pas :**
+1. Réduire le learning rate (÷10)
+2. Essayer Adam si vous utilisiez SGD
+3. Vérifier l'initialisation des poids (Xavier pour Sigmoid/Tanh, He pour ReLU)
+
+**Pour de meilleurs résultats :**
+- Adam est le meilleur choix par défaut
+- AdamW si vous observez de l'overfitting
+- Momentum + SGD pour la recherche académique
+- RMSprop pour les RNN/LSTM
 
 ---
 

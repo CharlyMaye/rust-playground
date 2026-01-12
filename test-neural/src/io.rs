@@ -208,6 +208,7 @@ pub fn get_serialized_size(network: &Network) -> (usize, usize) {
 mod tests {
     use super::*;
     use crate::network::{Network, Activation, LossFunction};
+    use crate::optimizer::OptimizerType;
     use ndarray::array;
     use std::fs;
 
@@ -217,7 +218,8 @@ mod tests {
             2, 3, 1,
             Activation::Tanh,
             Activation::Sigmoid,
-            LossFunction::MSE
+            LossFunction::MSE,
+            OptimizerType::sgd(0.1)
         );
 
         let path = "test_model.json";
@@ -243,7 +245,8 @@ mod tests {
             2, 3, 1,
             Activation::Tanh,
             Activation::Sigmoid,
-            LossFunction::MSE
+            LossFunction::MSE,
+            OptimizerType::adam(0.001)
         );
 
         let path = "test_model.bin";
@@ -268,7 +271,8 @@ mod tests {
             2, 5, 1,
             Activation::ReLU,
             Activation::Sigmoid,
-            LossFunction::BinaryCrossEntropy
+            LossFunction::BinaryCrossEntropy,
+            OptimizerType::sgd(0.1)
         );
 
         let (json_size, bin_size) = get_serialized_size(&network);

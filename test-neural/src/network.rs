@@ -2,6 +2,7 @@ use ndarray::{Array1, Array2, Axis};
 use rand::rng;
 use rand::Rng;
 use serde::{Serialize, Deserialize};
+use crate::optimizer::{OptimizerType, OptimizerState1D, OptimizerState2D};
 
 /// Weight initialization methods for neural networks.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -327,7 +328,7 @@ struct Layer {
 /// # Examples
 /// ```
 /// // Single hidden layer (simple network)
-/// let net = Network::new(2, 5, 1, Activation::Tanh, Activation::Sigmoid, LossFunction::MSE);
+/// let net = Network::new(2, 5, 1, Activation::Tanh, Activation::Sigmoid, LossFunction::MSE, OptimizerType::adam(0.001));
 ///
 /// // Multiple hidden layers (deep network)
 /// let net = Network::new_deep(
@@ -336,7 +337,8 @@ struct Layer {
 ///     1,
 ///     vec![Activation::ReLU, Activation::ReLU, Activation::ReLU],
 ///     Activation::Sigmoid,
-///     LossFunction::BinaryCrossEntropy
+///     LossFunction::BinaryCrossEntropy,
+///     OptimizerType::adam(0.001)
 /// );
 /// ```
 #[derive(Serialize, Deserialize)]
@@ -347,6 +349,12 @@ pub struct Network {
     input_size: usize,
     /// Loss function for training
     loss_function: LossFunction,
+    /// Optimizer type
+    optimizer: OptimizerType,
+    /// Optimizer states for weights
+    optimizer_states_weights: Vec<OptimizerState2D>,
+    /// Optimizer states for biases
+    optimizer_states_biases: Vec<OptimizerState1D>,
 }
 
 impl Network {
@@ -372,7 +380,8 @@ impl Network {
     ///     2, 5, 1, 
     ///     Activation::Tanh, 
     ///     Activation::Sigmoid,
-    ///     LossFunction::BinaryCrossEntropy
+    ///     LossFunction::BinaryCrossEntropy,
+    ///     OptimizerType::adam(0.001)
     /// );
     /// ```
     pub fn new(
@@ -382,6 +391,7 @@ impl Network {
         hidden_activation: Activation,
         output_activation: Activation,
         loss_function: LossFunction,
+        optimizer: OptimizerType,
     ) -> Self {
         // Use recommended initialization for each activation
         let hidden_init = WeightInit::for_activation(hidden_activation);
@@ -396,6 +406,7 @@ impl Network {
             loss_function,
             vec![hidden_init],
             output_init,
+            optimizer,
         )
     }
 
@@ -423,7 +434,8 @@ impl Network {
     ///     1,                                      // 1 output
     ///     vec![Activation::ReLU, Activation::ReLU, Activation::ReLU],
     ///     Activation::Sigmoid,
-    ///     LossFunction::BinaryCrossEntropy
+    ///     LossFunction::BinaryCrossEntropy,
+    ///     OptimizerType::adam(0.001)
     /// );
     /// ```
     pub fn new_deep(
@@ -433,6 +445,7 @@ impl Network {
         hidden_activations: Vec<Activation>,
         output_activation: Activation,
         loss_function: LossFunction,
+        optimizer: OptimizerType,
     ) -> Self {
         // Use recommended initialization for each activation
         let hidden_inits: Vec<WeightInit> = hidden_activations.iter()
@@ -449,6 +462,7 @@ impl Network {
             loss_function,
             hidden_inits,
             output_init,
+            optimizer,
         )
     }
 
@@ -480,7 +494,8 @@ impl Network {
     ///     Activation::Sigmoid,
     ///     LossFunction::BinaryCrossEntropy,
     ///     vec![WeightInit::He, WeightInit::He],
-    ///     WeightInit::Xavier
+    ///     WeightInit::Xavier,
+    ///     OptimizerType::adam(0.001)
     /// );
     /// ```
     pub fn new_deep_with_init(
@@ -492,6 +507,7 @@ impl Network {
         loss_function: LossFunction,
         hidden_inits: Vec<WeightInit>,
         output_init: WeightInit,
+        optimizer: OptimizerType,
     ) -> Self {
         assert_eq!(
             hidden_sizes.len(),
@@ -532,10 +548,28 @@ impl Network {
             activation: output_activation,
         });
 
+        // Initialize optimizer states for all layers
+        let optimizer_states_weights: Vec<OptimizerState2D> = layers.iter()
+            .map(|layer| {
+                let shape = layer.weights.dim();
+                OptimizerState2D::new(shape, &optimizer)
+            })
+            .collect();
+        
+        let optimizer_states_biases: Vec<OptimizerState1D> = layers.iter()
+            .map(|layer| {
+                let size = layer.biases.len();
+                OptimizerState1D::new(size, &optimizer)
+            })
+            .collect();
+
         Network {
             layers,
             input_size,
             loss_function,
+            optimizer,
+            optimizer_states_weights,
+            optimizer_states_biases,
         }
     }
 }
@@ -573,24 +607,36 @@ impl Network {
     /// Trains the network on a single input-target pair using backpropagation.
     ///
     /// Updates weights and biases based on the error between prediction and target.
-    /// Uses the configured loss function to compute gradients.
+    /// Uses the configured loss function to compute gradients and the configured
+    /// optimizer to update parameters.
     ///
     /// # Arguments
     /// - `input`: Input vector
     /// - `target`: Expected output vector
-    /// - `learning_rate`: Controls how much to adjust weights (typically 0.001 - 0.1)
+    ///
+    /// Note: Learning rate is now part of the optimizer configuration.
+    /// For backward compatibility, you can override the learning rate by modifying
+    /// the optimizer before training.
     ///
     /// # Algorithm
     /// 1. Forward pass to get all activations
     /// 2. Calculate output layer error using loss function
     /// 3. Backpropagate error through all hidden layers
-    /// 4. Update all weights and biases
+    /// 4. Update all weights and biases using the optimizer
     ///
     /// # Example
     /// ```
-    /// network.train(&array![0.0, 1.0], &array![1.0], 0.1);
+    /// // Learning rate is in the optimizer
+    /// let mut network = Network::new(
+    ///     2, 5, 1,
+    ///     Activation::Tanh,
+    ///     Activation::Sigmoid,
+    ///     LossFunction::BinaryCrossEntropy,
+    ///     OptimizerType::adam(0.001)
+    /// );
+    /// network.train(&array![0.0, 1.0], &array![1.0]);
     /// ```
-    pub fn train(&mut self, input: &Array1<f64>, target: &Array1<f64>, learning_rate: f64) {
+    pub fn train(&mut self, input: &Array1<f64>, target: &Array1<f64>) {
         // Forward pass
         let activations = self.forward(input);
         let final_output = activations.last().unwrap();
@@ -633,16 +679,27 @@ impl Network {
         // Reverse deltas to match layer order
         deltas.reverse();
         
-        // Update weights and biases for all layers
+        // Update weights and biases for all layers using optimizer
         for (i, delta) in deltas.iter().enumerate() {
             let prev_activation = &activations[i];
             
-            let weights_update = delta.view().insert_axis(Axis(1))
-                .dot(&prev_activation.view().insert_axis(Axis(0))) * learning_rate;
-            let biases_update = delta * learning_rate;
+            // Compute gradients (negative because delta already has correct sign)
+            let weights_gradient = -delta.view().insert_axis(Axis(1))
+                .dot(&prev_activation.view().insert_axis(Axis(0)));
+            let biases_gradient = -delta;
             
-            self.layers[i].weights = &self.layers[i].weights + &weights_update;
-            self.layers[i].biases = &self.layers[i].biases + &biases_update;
+            // Update using optimizer
+            self.optimizer_states_weights[i].step(
+                &mut self.layers[i].weights,
+                &weights_gradient,
+                &self.optimizer,
+            );
+            
+            self.optimizer_states_biases[i].step(
+                &mut self.layers[i].biases,
+                &biases_gradient,
+                &self.optimizer,
+            );
         }
     }
 

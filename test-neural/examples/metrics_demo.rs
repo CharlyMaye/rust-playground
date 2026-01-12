@@ -1,4 +1,5 @@
 use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::optimizer::OptimizerType;
 use test_neural::metrics::{accuracy, binary_metrics, confusion_matrix_binary, format_confusion_matrix, auc_roc};
 use ndarray::array;
 
@@ -25,14 +26,15 @@ fn main() {
         2, 5, 1,
         Activation::Tanh,
         Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy
+        LossFunction::BinaryCrossEntropy,
+        OptimizerType::adam(0.01)
     );
     
     // Entraînement
     let epochs = 10_000;
     for epoch in 0..epochs {
         for (input, target) in inputs.iter().zip(targets.iter()) {
-            network.train(input, target, 0.5);
+            network.train(input, target);
         }
         
         if (epoch + 1) % 2000 == 0 {
