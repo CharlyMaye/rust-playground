@@ -37,5 +37,6 @@
 
 pub mod network;
 pub mod optimizer;
+pub mod dataset;
 pub mod io;
 pub mod metrics;

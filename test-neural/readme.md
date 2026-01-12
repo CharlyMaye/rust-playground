@@ -476,6 +476,209 @@ Résultats sur XOR avec réseau surdimensionné (2 → [20] → 1) :
 
 ---
 
+## Mini-Batch Training
+
+Le **mini-batch training** consiste à entraîner le réseau sur des groupes d'exemples (batches) au lieu d'un seul exemple à la fois. C'est une technique essentielle pour l'entraînement efficace sur de grands datasets.
+
+### Pourquoi Mini-Batch ?
+
+**❌ Problèmes du Single-Sample Training (SGD pur):**
+- Très lent sur grands datasets
+- Gradients bruités → convergence instable
+- Impossible d'utiliser la vectorisation
+- Mise à jour trop fréquente des poids
+
+**✅ Avantages du Mini-Batch:**
+- **2-3x plus rapide** en pratique
+- Gradients plus stables (moyenne sur le batch)
+- Meilleure utilisation du cache CPU
+- Convergence plus smooth
+- Permet la parallélisation
+
+### Utilisation du Module `dataset`
+
+```rust
+use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::optimizer::OptimizerType;
+use test_neural::dataset::Dataset;
+use ndarray::array;
+
+// 1. Créer le dataset
+let inputs = vec![
+    array![0.0, 0.0], array![0.0, 1.0],
+    array![1.0, 0.0], array![1.0, 1.0],
+];
+let targets = vec![
+    array![0.0], array![1.0],
+    array![1.0], array![0.0],
+];
+
+let dataset = Dataset::new(inputs, targets);
+
+// 2. Split train/validation/test
+let (train, val, test) = dataset.split_three(0.7, 0.15, 0.15);
+// Résultat: 70% train, 15% validation, 15% test
+
+// 3. Créer le réseau (learning rate plus élevé pour batch training)
+let mut network = Network::new(
+    2, 8, 1,
+    Activation::Tanh,
+    Activation::Sigmoid,
+    LossFunction::BinaryCrossEntropy,
+    OptimizerType::adam(0.01)  // 10x plus que single-sample (0.001)
+);
+
+// 4. Entraîner avec mini-batches
+let batch_size = 32;
+let epochs = 100;
+
+for epoch in 0..epochs {
+    // IMPORTANT: Shuffle avant chaque epoch !
+    train.shuffle();
+    
+    // Itérer sur les batches
+    for (batch_inputs, batch_targets) in train.batches(batch_size) {
+        network.train_batch(&batch_inputs, &batch_targets);
+    }
+    
+    // Évaluation périodique
+    if epoch % 10 == 0 {
+        let train_loss = network.evaluate(train.inputs(), train.targets());
+        let val_loss = network.evaluate(val.inputs(), val.targets());
+        println!("Epoch {}: train={:.4}, val={:.4}", epoch, train_loss, val_loss);
+    }
+}
+
+// 5. Test final
+let test_loss = network.evaluate(test.inputs(), test.targets());
+println!("Test loss: {:.6}", test_loss);
+```
+
+### API du Module Dataset
+
+#### **`Dataset::new(inputs, targets)`**
+Crée un dataset à partir de vecteurs d'inputs et targets.
+
+```rust
+let dataset = Dataset::new(inputs, targets);
+println!("Dataset size: {}", dataset.len());
+```
+
+#### **`dataset.shuffle()`**
+Mélange aléatoirement l'ordre des exemples.
+
+```rust
+dataset.shuffle();  // À appeler avant chaque epoch !
+```
+
+⚠️ **IMPORTANT** : Toujours shuffle entre les epochs pour éviter que le réseau apprenne l'ordre des exemples.
+
+#### **`dataset.split(ratio)`**
+Split en train/test.
+
+```rust
+let (train, test) = dataset.split(0.8);  // 80% train, 20% test
+```
+
+#### **`dataset.split_three(train_ratio, val_ratio)`**
+Split en train/validation/test.
+
+```rust
+let (train, val, test) = dataset.split_three(0.7, 0.15);
+// 70% train, 15% val, 15% test (le reste)
+```
+
+#### **`dataset.batches(batch_size)`**
+Retourne un iterator sur les batches.
+
+```rust
+for (batch_inputs, batch_targets) in dataset.batches(32) {
+    network.train_batch(&batch_inputs, &batch_targets);
+}
+```
+
+### Comparaison: Single-Sample vs Mini-Batch
+
+Sur un dataset de 1000 exemples (50 epochs):
+
+| Méthode | Batch Size | Temps | Loss Finale | Speedup |
+|---------|------------|-------|-------------|---------|
+| Single-sample | 1 | 0.10s | 0.000000 | 1.0x (baseline) |
+| Mini-batch | 32 | **0.05s** | 0.001794 | **2.1x** ⚡ |
+| Mini-batch | 64 | 0.05s | 0.006283 | 2.1x |
+| Mini-batch | 128 | 0.05s | 0.015565 | 2.2x |
+
+**Résultats** (exemple minibatch_demo.rs):
+- **batch_size=32** offre le meilleur compromis vitesse/qualité
+- Plus le batch est grand, plus c'est rapide mais convergence légèrement moins bonne
+- Ajuster le learning rate : ×10 pour batch training vs single-sample
+
+### Guide de Sélection du Batch Size
+
+| Taille Dataset | Batch Size Recommandé | Raison |
+|----------------|----------------------|--------|
+| < 1000 exemples | 16-32 | Dataset petit, petits batches suffisent |
+| 1000-10k exemples | 32-64 | Compromis optimal |
+| 10k-100k exemples | 64-128 | Meilleure vectorisation |
+| > 100k exemples | 128-256 | Maximiser la vitesse |
+
+**Règles générales:**
+- Batch size **trop petit** (< 16) : trop lent, gradients bruités
+- Batch size **trop grand** (> 256) : convergence plus difficile, demande plus de mémoire
+- **Puissance de 2** (16, 32, 64, 128) : optimisé pour le CPU
+- Toujours **augmenter le learning rate** proportionnellement au batch size
+
+### Ajuster le Learning Rate
+
+```rust
+// Single-sample training
+OptimizerType::adam(0.001)
+
+// Mini-batch training (batch_size=32)
+OptimizerType::adam(0.01)   // 10x plus élevé
+
+// Mini-batch training (batch_size=128)
+OptimizerType::adam(0.03)   // 30x plus élevé
+```
+
+**Règle empirique** : Learning rate ≈ 0.001 × sqrt(batch_size)
+
+### Conseils Pratiques
+
+✅ **À faire:**
+- Toujours `shuffle()` le dataset avant chaque epoch
+- Split en train/val/test pour détecter l'overfitting
+- Commencer avec batch_size=32 puis expérimenter
+- Augmenter le learning rate pour le batch training
+- Surveiller la loss de validation (early stopping)
+
+❌ **À éviter:**
+- Oublier de shuffle → le réseau apprend l'ordre !
+- Batch size de 1 sur grand dataset (trop lent)
+- Utiliser le même learning rate que single-sample
+- Batch size > 10% du dataset (perd le bénéfice SGD)
+
+### Démo
+
+```bash
+cargo run --example minibatch_demo --release
+```
+
+Résultats sur dataset XOR élargi (1000 exemples, 50 epochs):
+```
+📈 Temps d'entraînement:
+  • Single-sample:  0.10s
+  • Mini-batch (32): 0.05s (2.1x speedup) ⚡
+
+🎯 Loss finale (test):
+  • Single-sample:  0.000000
+  • Mini-batch (32): 0.001794  (excellent compromis)
+```
+
+**Conclusion** : Le mini-batch training est **essentiel** pour datasets > 1000 exemples. Batch size 32 offre le meilleur compromis.
+
+---
+
 ## Métriques d'Évaluation
 
 Le module `metrics` fournit des outils complets pour évaluer la performance de vos modèles.

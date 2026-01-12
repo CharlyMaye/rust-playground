@@ -856,6 +856,140 @@ impl Network {
         }
     }
 
+    /// Train the network on a batch of examples (mini-batch training).
+    /// 
+    /// This method is more efficient than calling `train()` multiple times because:
+    /// - Gradients are accumulated over the entire batch
+    /// - Optimizer updates are applied once per batch instead of once per example
+    /// - Provides more stable gradient estimates (reduced variance)
+    /// - Better utilization of vectorized operations
+    /// 
+    /// # Arguments
+    /// - `inputs`: Vector of input arrays (batch of inputs)
+    /// - `targets`: Vector of target arrays (batch of targets)
+    /// 
+    /// # Panics
+    /// Panics if inputs.len() != targets.len() or if batch is empty
+    /// 
+    /// # Example
+    /// ```
+    /// use test_neural::network::{Network, Activation, LossFunction};
+    /// use test_neural::optimizer::OptimizerType;
+    /// use test_neural::dataset::Dataset;
+    /// use ndarray::array;
+    /// 
+    /// let mut network = Network::new(
+    ///     2, 5, 1,
+    ///     Activation::Tanh,
+    ///     Activation::Sigmoid,
+    ///     LossFunction::BinaryCrossEntropy,
+    ///     OptimizerType::adam(0.001)
+    /// );
+    /// 
+    /// let inputs = vec![array![0.0, 0.0], array![0.0, 1.0], array![1.0, 0.0]];
+    /// let targets = vec![array![0.0], array![1.0], array![1.0]];
+    /// 
+    /// network.train_batch(&inputs, &targets);
+    /// ```
+    pub fn train_batch(&mut self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) {
+        assert_eq!(inputs.len(), targets.len(), "Number of inputs must match number of targets");
+        assert!(!inputs.is_empty(), "Batch cannot be empty");
+        
+        let batch_size = inputs.len() as f64;
+        
+        // Initialize accumulated gradients
+        let mut accumulated_weights_gradients: Vec<Array2<f64>> = self.layers
+            .iter()
+            .map(|layer| Array2::zeros(layer.weights.dim()))
+            .collect();
+            
+        let mut accumulated_biases_gradients: Vec<Array1<f64>> = self.layers
+            .iter()
+            .map(|layer| Array1::zeros(layer.biases.dim()))
+            .collect();
+        
+        // Accumulate gradients for each example in the batch
+        for (input, target) in inputs.iter().zip(targets.iter()) {
+            // Forward pass
+            let activations = self.forward(input);
+            let final_output = activations.last().unwrap();
+            
+            // Compute output layer delta
+            let output_layer_idx = self.layers.len() - 1;
+            let output_activation = self.layers[output_layer_idx].activation;
+            
+            let output_delta = match (&output_activation, &self.loss_function) {
+                // Sigmoid + Binary Cross-Entropy: derivative simplifies
+                (Activation::Sigmoid, LossFunction::BinaryCrossEntropy) => {
+                    target - final_output
+                },
+                // Softmax + Categorical Cross-Entropy: derivative simplifies
+                (Activation::Softmax, LossFunction::CategoricalCrossEntropy) => {
+                    target - final_output
+                },
+                // MSE: derivative is (prediction - target), negate for gradient descent
+                (_, LossFunction::MSE) => {
+                    target - final_output
+                },
+                // General case: use loss gradient and activation derivative
+                _ => {
+                    let loss_gradient = self.loss_function.derivative(final_output, target);
+                    -&loss_gradient * &output_activation.derivative(final_output)
+                }
+            };
+            
+            // Backpropagate through all layers
+            let mut deltas = vec![output_delta];
+            
+            // Go backwards through hidden layers
+            for i in (0..self.layers.len() - 1).rev() {
+                let current_delta = deltas.last().unwrap();
+                let errors = self.layers[i + 1].weights.t().dot(current_delta);
+                let delta = &errors * &self.layers[i].activation.derivative(&activations[i + 1]);
+                deltas.push(delta);
+            }
+            
+            // Reverse deltas to match layer order
+            deltas.reverse();
+            
+            // Accumulate gradients (no update yet)
+            for (i, delta) in deltas.iter().enumerate() {
+                let prev_activation = &activations[i];
+                
+                // Compute gradients (negative because delta already has correct sign)
+                let weights_gradient = -delta.view().insert_axis(Axis(1))
+                    .dot(&prev_activation.view().insert_axis(Axis(0)));
+                let biases_gradient = -delta;
+                
+                accumulated_weights_gradients[i] = &accumulated_weights_gradients[i] + &weights_gradient;
+                accumulated_biases_gradients[i] = &accumulated_biases_gradients[i] + &biases_gradient;
+            }
+        }
+        
+        // Average gradients and apply optimizer update
+        for i in 0..self.layers.len() {
+            // Average the gradients
+            let mut avg_weights_gradient = &accumulated_weights_gradients[i] / batch_size;
+            let avg_biases_gradient = &accumulated_biases_gradients[i] / batch_size;
+            
+            // Add regularization gradient (only to weights, not biases)
+            avg_weights_gradient = avg_weights_gradient + self.regularization.gradient(&self.layers[i].weights);
+            
+            // Update using optimizer
+            self.optimizer_states_weights[i].step(
+                &mut self.layers[i].weights,
+                &avg_weights_gradient,
+                &self.optimizer,
+            );
+            
+            self.optimizer_states_biases[i].step(
+                &mut self.layers[i].biases,
+                &avg_biases_gradient,
+                &self.optimizer,
+            );
+        }
+    }
+
     /// Evaluates the network on given input-target pairs without updating weights.
     ///
     /// Returns the average loss over all samples.
