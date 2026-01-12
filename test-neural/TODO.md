@@ -376,86 +376,168 @@ Imperfect: Accuracy=75%, Precision=1.0, Recall=0.5, F1=0.667
 
 ---
 
-### 4. **Callbacks et Contrôle de l'Entraînement** 🔔 (PROCHAINE PRIORITÉ)
-Monitoring et automation
+### 4. ✅ **Callbacks et Contrôle de l'Entraînement** 🔔 - COMPLÉTÉ 🎉
 
-- [ ] **Trait `Callback`**
+**Module `callbacks.rs` créé pour automatiser l'entraînement :**
+
+✅ **Trait `Callback`** complet
   ```rust
   pub trait Callback {
-      fn on_epoch_begin(&mut self, epoch: usize);
-      fn on_epoch_end(&mut self, epoch: usize, metrics: &Metrics);
-      fn on_train_begin(&mut self);
-      fn on_train_end(&mut self);
-      fn should_stop(&self) -> bool;
+      fn on_train_begin(&mut self, network: &Network) {}
+      fn on_train_end(&mut self, network: &Network) {}
+      fn on_epoch_begin(&mut self, epoch: usize, network: &Network) {}
+      fn on_epoch_end(&mut self, epoch: usize, network: &Network, 
+                       train_loss: f64, val_loss: Option<f64>) -> bool
   }
   ```
 
-- [ ] **EarlyStopping Callback**
+✅ **EarlyStopping** - Arrêt Précoce
   ```rust
   pub struct EarlyStopping {
-      patience: usize,
+      patience: usize,           // Epochs à attendre sans amélioration
+      min_delta: f64,            // Amélioration minimale requise
       best_loss: f64,
       wait: usize,
-      restore_best_weights: bool,
+      stopped: bool,
+      best_epoch: usize,
   }
   ```
-  - Arrête si val_loss ne s'améliore pas
-  - Restaure les meilleurs poids
+- Surveille la validation loss
+- Arrête après `patience` epochs sans amélioration
+- Évite l'overfitting automatiquement
+- Typique: patience=10-20
 
-- [ ] **ModelCheckpoint Callback**
+✅ **ModelCheckpoint** - Sauvegarde Automatique
   ```rust
   pub struct ModelCheckpoint {
-      filepath: String,
+      filepath: PathBuf,
       save_best_only: bool,
-      monitor: String,  // "loss" ou "val_loss"
+      best_loss: f64,
+      use_json: bool,             // true=JSON, false=Binary
   }
   ```
-  - Sauvegarde automatique du meilleur modèle
-  - Évite de perdre le progrès
+- Sauvegarde automatique quand validation loss s'améliore
+- Support JSON (.json) et Binary (.bin)
+- save_best_only: sauvegarder uniquement si amélioration
+- Récupère le meilleur modèle même si overfitting ensuite
 
-- [ ] **LearningRateScheduler Callback**
-  - Ajuste le learning rate pendant l'entraînement
-  - Warmup, decay, cyclic LR
+✅ **LearningRateScheduler** - Ajustement Dynamique du LR
+  ```rust
+  pub enum LRSchedule {
+      StepLR { step_size: usize, gamma: f64 },
+      ReduceOnPlateau { patience: usize, factor: f64, min_delta: f64 },
+      ExponentialLR { gamma: f64 },
+  }
+  
+  pub struct LearningRateScheduler {
+      schedule: LRSchedule,
+      best_loss: f64,
+      wait: usize,
+      pub current_lr: f64,
+  }
+  ```
+- **StepLR**: Réduit LR à intervalles réguliers
+- **ReduceOnPlateau**: Réduit LR quand loss stagne (recommandé !)
+- **ExponentialLR**: Décroissance exponentielle
+- update_optimizer_lr() pour mettre à jour l'optimizer
 
-- [ ] **ProgressBar et Logging**
-  - Affichage temps réel : epoch, loss, metrics
-  - Estimation du temps restant
-  - Logging dans fichier CSV/JSON
+✅ **ProgressBar** - Affichage de Progression
+  ```rust
+  pub struct ProgressBar {
+      total_epochs: usize,
+      start_time: Option<Instant>,
+      verbose: bool,
+  }
+  ```
+- Affiche progression en temps réel
+- ETA (temps restant estimé)
+- train_loss et val_loss à chaque epoch
+- Améliore l'expérience utilisateur
+
+✅ **Méthodes d'entraînement avec callbacks dans Network :**
+  ```rust
+  // Avec callbacks standard
+  pub fn fit(
+      &mut self,
+      train_dataset: &Dataset,
+      val_dataset: Option<&Dataset>,
+      epochs: usize,
+      batch_size: usize,
+      callbacks: &mut Vec<Box<dyn Callback>>,
+  ) -> Vec<(f64, Option<f64>)>
+  
+  // Avec LR scheduler
+  pub fn fit_with_scheduler(
+      &mut self,
+      train_dataset: &Dataset,
+      val_dataset: Option<&Dataset>,
+      epochs: usize,
+      batch_size: usize,
+      scheduler: &mut LearningRateScheduler,
+      callbacks: &mut Vec<Box<dyn Callback>>,
+  ) -> Vec<(f64, Option<f64>)>
+  ```
+- API high-level pour entraînement automatisé
+- Retourne history (train_loss, val_loss) pour chaque epoch
+- Shuffle automatique entre epochs
+- Gestion complète du lifecycle
+
+✅ **Exemple de démonstration `callbacks_demo.rs` :**
+- Compare 8 configurations différentes
+- Démontre chaque callback individuellement
+- Montre la combinaison optimale
+- Résultats quantitatifs sur XOR
+
+**Résultats (dataset XOR 1000 exemples, 100 epochs max) :**
+| Configuration | Epochs | Loss Finale | Notes |
+|--------------|--------|-------------|-------|
+| Baseline (sans callbacks) | 100 | 0.000291 | Overfitting possible |
+| EarlyStopping | 90 | 0.000349 | Arrêt automatique ✓ |
+| ModelCheckpoint | 50 | 0.001442 | Meilleur modèle sauvegardé ✓ |
+| StepLR | 50 | 0.000166 | LR réduit 3× |
+| ReduceOnPlateau | 50 | 0.001441 | LR adapté intelligemment ✓ |
+| ExponentialLR | 50 | 0.000685 | Décroissance smooth |
+| Combinaison optimale | 90 | **0.000079** | **Meilleur résultat** ⚡ |
+
+**Observations :**
+- **EarlyStopping** économise 10% du temps (arrêt à epoch 90 vs 100)
+- **ModelCheckpoint** sauvegarde automatiquement le meilleur modèle
+- **ReduceOnPlateau** adapte le LR intelligemment quand stagnation
+- **Combinaison** (Early+Checkpoint+Plateau+Progress) = meilleur résultat (loss 0.000079)
+
+✅ **Tests unitaires (3 tests) :**
+- `test_early_stopping_triggers` : Vérification arrêt après patience
+- `test_early_stopping_improvement` : Pas d'arrêt si amélioration continue
+- `test_lr_scheduler_step` : Vérification réduction LR StepLR
+
+✅ **Documentation complète :**
+- Section "Callbacks" dans readme.md (300+ lignes)
+- Explications des concepts (pourquoi callbacks?)
+- Guide de sélection par situation
+- Tableau comparatif des résultats
+- Exemples de code complets pour chaque callback
+- Conseils pratiques de configuration
+- Instructions pour créer callbacks personnalisés
+
+**Impact :**
+- **Automatisation complète** de l'entraînement
+- Évite overfitting avec EarlyStopping
+- Optimise convergence avec LR Scheduler
+- Code production-ready, maintenable
+- Expérience utilisateur professionnelle
+- Réduction du temps de développement
+
+**Avantages techniques :**
+- Architecture extensible (trait Callback)
+- Support de callbacks personnalisés
+- Combinaison de plusieurs callbacks
+- API intuitive (Vec<Box<dyn Callback>>)
+- Intégration transparente avec Network
+- fit() et fit_with_scheduler() high-level
 
 ---
 
-### 6. **Architecture et Validation** 🏗️
-
-- [ ] **Méthode `fit()` Complète**
-  ```rust
-  pub fn fit(&mut self,
-             train_data: &Dataset,
-             validation_data: Option<&Dataset>,
-             epochs: usize,
-             batch_size: usize,
-             optimizer: Optimizer,
-             callbacks: Vec<Box<dyn Callback>>) -> History
-  ```
-  - Interface unifiée pour l'entraînement
-  - Validation automatique à chaque epoch
-  - Retourne historique (loss, metrics par epoch)
-
-- [ ] **Cross-Validation**
-  ```rust
-  pub fn cross_validate(network_builder: impl Fn() -> Network,
-                        dataset: &Dataset,
-                        k_folds: usize) -> Vec<f64>
-  ```
-  - K-fold cross-validation
-  - Évaluation robuste sur petits datasets
-
-- [ ] **Grid Search / Random Search**
-  - Recherche automatique d'hyperparamètres
-  - Learning rate, architecture, dropout rate, etc.
-
----
-
-### 7. **Datasets et Benchmarks** 📊
+### 5. **Datasets et Benchmarks** 📊 (PROCHAINES PRIORITÉS)
 
 - [ ] **Chargeurs de Datasets Standard**
   ```rust

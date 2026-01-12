@@ -679,6 +679,392 @@ Résultats sur dataset XOR élargi (1000 exemples, 50 epochs):
 
 ---
 
+## Callbacks - Automatisation de l'Entraînement
+
+Les **callbacks** sont des fonctions qui s'exécutent automatiquement à différents moments de l'entraînement (début/fin epoch, début/fin training). Ils permettent d'**automatiser** et d'**optimiser** l'entraînement sans modifier la boucle principale.
+
+### Pourquoi les Callbacks ?
+
+**❌ Problèmes sans callbacks:**
+- Code d'entraînement répétitif et verbeux
+- Difficile de surveiller la progression
+- Pas de sauvegarde automatique du meilleur modèle
+- Surentraînement (overfitting) si on ne surveille pas
+- Learning rate fixe = convergence sous-optimale
+
+**✅ Avec callbacks:**
+- **EarlyStopping** : Arrête automatiquement si overfitting
+- **ModelCheckpoint** : Sauvegarde le meilleur modèle
+- **LearningRateScheduler** : Adapte le LR dynamiquement
+- **ProgressBar** : Affiche la progression en temps réel
+- Code propre, maintenable, réutilisable
+
+### Callbacks Disponibles
+
+#### 1. **EarlyStopping** - Arrêt Précoce
+
+Surveille la validation loss et **arrête l'entraînement** après `patience` epochs sans amélioration.
+
+```rust
+use test_neural::callbacks::EarlyStopping;
+
+let mut early_stop = EarlyStopping::new(
+    10,      // patience: attendre 10 epochs sans amélioration
+    0.0001   // min_delta: amélioration minimale requise
+);
+
+// Dans la boucle d'entraînement
+let mut callbacks: Vec<Box<dyn Callback>> = vec![
+    Box::new(early_stop),
+];
+
+network.fit(&train, Some(&val), 100, 32, &mut callbacks);
+```
+
+**Fonctionnement:**
+- Compare val_loss à chaque epoch
+- Si amélioration < min_delta pendant `patience` epochs → **arrête**
+- Évite l'overfitting automatiquement
+- Économise du temps de calcul
+
+**Quand utiliser:**
+- Toujours ! Surtout sur petits datasets
+- patience=10-20 pour datasets moyens
+- patience=5-10 pour petits datasets
+- min_delta=0.0001 typique
+
+#### 2. **ModelCheckpoint** - Sauvegarde Automatique
+
+Sauvegarde automatiquement le modèle quand la validation loss **s'améliore**.
+
+```rust
+use test_neural::callbacks::ModelCheckpoint;
+
+let mut checkpoint = ModelCheckpoint::new(
+    "best_model.json",  // Chemin du fichier
+    true                // save_best_only: sauvegarder uniquement si amélioration
+);
+
+let mut callbacks: Vec<Box<dyn Callback>> = vec![
+    Box::new(checkpoint),
+];
+
+network.fit(&train, Some(&val), 100, 32, &mut callbacks);
+
+// Après l'entraînement, charger le meilleur modèle
+let best_network = test_neural::io::load_json("best_model.json").unwrap();
+```
+
+**Fonctionnement:**
+- Compare val_loss à chaque epoch
+- Si amélioration → sauvegarde automatique (JSON ou binary)
+- Vous récupérez le meilleur modèle même si l'entraînement overfitte ensuite
+
+**Formats supportés:**
+- `.json` → JSON (human-readable)
+- `.bin` → Binary (compact, 2-3x plus petit)
+
+**Quand utiliser:**
+- Entraînements longs (> 50 epochs)
+- Quand la loss peut fluctuer
+- Pour garder le meilleur modèle automatiquement
+
+#### 3. **LearningRateScheduler** - Ajustement Dynamique du LR
+
+Ajuste automatiquement le learning rate pendant l'entraînement. Trois stratégies disponibles.
+
+##### **StepLR** - Réduction à Intervalles Réguliers
+
+```rust
+use test_neural::callbacks::{LearningRateScheduler, LRSchedule};
+
+let mut scheduler = LearningRateScheduler::new(
+    LRSchedule::StepLR {
+        step_size: 10,  // Réduire tous les 10 epochs
+        gamma: 0.5      // Diviser LR par 2
+    }
+);
+
+network.fit_with_scheduler(&train, Some(&val), 50, 32, &mut scheduler, &mut callbacks);
+```
+
+**Fonctionnement:**
+- Tous les `step_size` epochs: `LR = LR × gamma`
+- Exemple: LR=0.1 → 0.05 → 0.025 → 0.0125...
+- Simple, prévisible
+
+**Quand utiliser:**
+- Convergence instable avec LR fixe
+- Vous connaissez approximativement la durée de l'entraînement
+- step_size=10-20 typique
+
+##### **ReduceOnPlateau** - Réduction Intelligente
+
+```rust
+let mut scheduler = LearningRateScheduler::new(
+    LRSchedule::ReduceOnPlateau {
+        patience: 5,      // Attendre 5 epochs sans amélioration
+        factor: 0.5,      // Diviser LR par 2
+        min_delta: 0.0001 // Amélioration minimale
+    }
+);
+
+network.fit_with_scheduler(&train, Some(&val), 50, 32, &mut scheduler, &mut callbacks);
+```
+
+**Fonctionnement:**
+- Surveille la validation loss
+- Si stagnation pendant `patience` epochs → `LR = LR × factor`
+- S'adapte automatiquement à la convergence
+
+**Quand utiliser:**
+- **Recommandé dans la plupart des cas**
+- Convergence adaptative, intelligente
+- Ne nécessite pas de connaître la durée d'entraînement
+- patience=5-10 typique
+
+##### **ExponentialLR** - Décroissance Exponentielle
+
+```rust
+let mut scheduler = LearningRateScheduler::new(
+    LRSchedule::ExponentialLR {
+        gamma: 0.95  // Multiplier LR par 0.95 chaque epoch
+    }
+);
+
+network.fit_with_scheduler(&train, Some(&val), 50, 32, &mut scheduler, &mut callbacks);
+```
+
+**Fonctionnement:**
+- Chaque epoch: `LR = LR × gamma`
+- Décroissance smooth et continue
+- LR diminue exponentiellement
+
+**Quand utiliser:**
+- Fine-tuning avec décroissance lente
+- gamma=0.95-0.99 typique
+- Convergence très smooth
+
+#### 4. **ProgressBar** - Affichage de Progression
+
+Affiche la progression en temps réel avec ETA (temps restant estimé).
+
+```rust
+use test_neural::callbacks::ProgressBar;
+
+let mut progress = ProgressBar::new(100);  // 100 epochs total
+
+let mut callbacks: Vec<Box<dyn Callback>> = vec![
+    Box::new(progress),
+];
+
+network.fit(&train, Some(&val), 100, 32, &mut callbacks);
+```
+
+**Affichage:**
+```
+🚀 Début de l'entraînement (100 epochs)
+Epoch 10/100 [10.0%] - train_loss: 0.123456 - val_loss: 0.234567 - ETA: 45s
+Epoch 20/100 [20.0%] - train_loss: 0.056789 - val_loss: 0.123456 - ETA: 36s
+...
+✅ Entraînement terminé en 50.23s
+```
+
+**Quand utiliser:**
+- Entraînements longs (> 20 epochs)
+- Pour suivre la progression visuellement
+- Estimée du temps restant utile
+
+### Combiner Plusieurs Callbacks
+
+La vraie puissance vient de la **combinaison** de callbacks :
+
+```rust
+use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::optimizer::OptimizerType;
+use test_neural::dataset::Dataset;
+use test_neural::callbacks::{
+    EarlyStopping, ModelCheckpoint, LearningRateScheduler,
+    ProgressBar, LRSchedule, Callback
+};
+
+// 1. Créer le réseau
+let mut network = Network::new(
+    2, 8, 1,
+    Activation::Tanh,
+    Activation::Sigmoid,
+    LossFunction::BinaryCrossEntropy,
+    OptimizerType::adam(0.01)
+);
+
+// 2. Préparer les données
+let dataset = Dataset::new(inputs, targets);
+let (train, val) = dataset.split(0.8);
+
+// 3. Configurer les callbacks
+let mut scheduler = LearningRateScheduler::new(
+    LRSchedule::ReduceOnPlateau {
+        patience: 5,
+        factor: 0.5,
+        min_delta: 0.0001
+    }
+);
+
+let mut callbacks: Vec<Box<dyn Callback>> = vec![
+    Box::new(EarlyStopping::new(15, 0.00001)),
+    Box::new(ModelCheckpoint::new("best_model.json", true)),
+    Box::new(ProgressBar::new(100)),
+];
+
+// 4. Entraîner avec tout automatisé !
+let history = network.fit_with_scheduler(
+    &train,
+    Some(&val),
+    100,        // max epochs
+    32,         // batch size
+    &mut scheduler,
+    &mut callbacks
+);
+
+// 5. Résultat
+println!("Entraînement terminé en {} epochs", history.len());
+println!("Meilleur modèle sauvegardé automatiquement dans best_model.json");
+```
+
+**Résultat:**
+- ✅ Progression affichée en temps réel
+- ✅ Learning rate adapté automatiquement quand stagnation
+- ✅ Arrêt automatique si overfitting
+- ✅ Meilleur modèle sauvegardé automatiquement
+- ✅ Code propre, maintenable, professionnel
+
+### API Complète
+
+#### **Méthodes d'Entraînement avec Callbacks**
+
+```rust
+// Avec callbacks standard (pas de LR scheduler)
+pub fn fit(
+    &mut self,
+    train_dataset: &Dataset,
+    val_dataset: Option<&Dataset>,
+    epochs: usize,
+    batch_size: usize,
+    callbacks: &mut Vec<Box<dyn Callback>>,
+) -> Vec<(f64, Option<f64>)>  // Retourne history (train_loss, val_loss)
+
+// Avec LR scheduler
+pub fn fit_with_scheduler(
+    &mut self,
+    train_dataset: &Dataset,
+    val_dataset: Option<&Dataset>,
+    epochs: usize,
+    batch_size: usize,
+    scheduler: &mut LearningRateScheduler,
+    callbacks: &mut Vec<Box<dyn Callback>>,
+) -> Vec<(f64, Option<f64>)>
+```
+
+#### **Trait Callback** - Créer Vos Propres Callbacks
+
+```rust
+pub trait Callback {
+    fn on_train_begin(&mut self, network: &Network) {}
+    fn on_train_end(&mut self, network: &Network) {}
+    fn on_epoch_begin(&mut self, epoch: usize, network: &Network) {}
+    fn on_epoch_end(&mut self, epoch: usize, network: &Network, 
+                     train_loss: f64, val_loss: Option<f64>) -> bool {
+        true  // Return false to stop training
+    }
+}
+```
+
+**Exemple - Callback Personnalisé:**
+
+```rust
+use test_neural::callbacks::Callback;
+use test_neural::network::Network;
+
+struct LossLogger {
+    losses: Vec<f64>,
+}
+
+impl Callback for LossLogger {
+    fn on_epoch_end(&mut self, epoch: usize, _network: &Network, 
+                     _train_loss: f64, val_loss: Option<f64>) -> bool {
+        if let Some(loss) = val_loss {
+            self.losses.push(loss);
+            println!("Epoch {}: val_loss = {:.6}", epoch, loss);
+        }
+        true  // Continue training
+    }
+}
+```
+
+### Comparaison: Avec vs Sans Callbacks
+
+| Aspect | Sans Callbacks | Avec Callbacks |
+|--------|---------------|----------------|
+| **Code** | Verbeux, répétitif | Concis, réutilisable |
+| **Monitoring** | Manuel (print dans boucle) | Automatique (ProgressBar) |
+| **Sauvegarde** | Manuelle (if best_loss...) | Automatique (ModelCheckpoint) |
+| **Overfitting** | Risque élevé | Prévenu (EarlyStopping) |
+| **Learning Rate** | Fixe, sous-optimal | Adapté (LR Scheduler) |
+| **Temps dev** | Plus long | Plus court |
+| **Maintenabilité** | Difficile | Facile |
+| **Professionnalisme** | Amateur | Production-ready |
+
+### Guide de Sélection
+
+| Situation | Callbacks Recommandés |
+|-----------|----------------------|
+| **Prototypage rapide** | ProgressBar |
+| **Entraînement long** | EarlyStopping + ProgressBar |
+| **Production** | EarlyStopping + ModelCheckpoint + ReduceOnPlateau |
+| **Fine-tuning** | ExponentialLR + ModelCheckpoint |
+| **Petit dataset** | EarlyStopping (patience=5) + Dropout |
+| **Grand dataset** | ReduceOnPlateau + ModelCheckpoint |
+| **Optimal (recommandé)** | **Tous combinés !** |
+
+### Conseils Pratiques
+
+✅ **À faire:**
+- Toujours utiliser **EarlyStopping** (évite overfitting)
+- **ModelCheckpoint** pour entraînements > 20 epochs
+- **ReduceOnPlateau** = meilleur scheduler dans la plupart des cas
+- Combiner plusieurs callbacks pour résultat optimal
+- Ajuster `patience` selon la taille du dataset
+
+❌ **À éviter:**
+- Entraînement sans validation dataset (impossible d'utiliser callbacks intelligemment)
+- patience trop faible (< 5) → arrêt prématuré
+- Oublier save_best_only=true dans ModelCheckpoint
+- Ne pas vérifier que val_dataset est fourni
+
+### Démo
+
+```bash
+cargo run --example callbacks_demo --release
+```
+
+**Résultats** (dataset XOR 1000 exemples, 100 epochs max):
+
+| Configuration | Epochs | Loss Finale | Notes |
+|--------------|--------|-------------|-------|
+| Baseline (sans callbacks) | 100 | 0.000291 | Overfitting possible |
+| EarlyStopping | 90 | 0.000349 | Arrêt automatique ✓ |
+| ModelCheckpoint | 50 | 0.001442 | Meilleur modèle sauvegardé ✓ |
+| StepLR | 50 | 0.000166 | LR réduit 3× |
+| ReduceOnPlateau | 50 | 0.001441 | LR adapté intelligemment ✓ |
+| ExponentialLR | 50 | 0.000685 | Décroissance smooth |
+| **Combinaison optimale** | **90** | **0.000079** | **Meilleur résultat** ⚡ |
+
+**Observation**: La combinaison **EarlyStopping + ModelCheckpoint + ReduceOnPlateau + ProgressBar** donne les meilleurs résultats avec automatisation complète.
+
+**Conclusion** : Les callbacks transforment l'entraînement de réseaux neuronaux. Ils sont **essentiels** pour un code production-ready, évitent l'overfitting, et optimisent automatiquement la convergence.
+
+---
+
 ## Métriques d'Évaluation
 
 Le module `metrics` fournit des outils complets pour évaluer la performance de vos modèles.

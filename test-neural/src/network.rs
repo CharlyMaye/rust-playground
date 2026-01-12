@@ -3,6 +3,7 @@ use rand::rng;
 use rand::Rng;
 use serde::{Serialize, Deserialize};
 use crate::optimizer::{OptimizerType, OptimizerState1D, OptimizerState2D};
+use crate::callbacks::Callback;
 
 /// Type de régularisation pour éviter l'overfitting
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -1043,5 +1044,187 @@ impl Network {
     pub fn predict(&self, input: &Array1<f64>) -> Array1<f64> {
         let activations = self.forward(input);
         activations.last().unwrap().clone()
+    }
+    
+    /// Entraîne le réseau avec support des callbacks
+    /// 
+    /// Cette méthode high-level gère l'entraînement avec :
+    /// - Support complet des callbacks (EarlyStopping, ModelCheckpoint, etc.)
+    /// - Validation automatique
+    /// - Shuffle automatique entre epochs
+    /// - Progress tracking
+    /// 
+    /// # Arguments
+    /// - `train_dataset`: Dataset d'entraînement
+    /// - `val_dataset`: Dataset de validation (optionnel)
+    /// - `epochs`: Nombre d'epochs
+    /// - `batch_size`: Taille des batches
+    /// - `callbacks`: Vec de callbacks à appliquer
+    /// 
+    /// # Returns
+    /// Vec des (train_loss, val_loss) pour chaque epoch
+    /// 
+    /// # Example
+    /// ```
+    /// use test_neural::network::{Network, Activation, LossFunction};
+    /// use test_neural::optimizer::OptimizerType;
+    /// use test_neural::dataset::Dataset;
+    /// use test_neural::callbacks::{EarlyStopping, ModelCheckpoint, ProgressBar};
+    /// 
+    /// let mut network = Network::new(
+    ///     2, 8, 1,
+    ///     Activation::Tanh,
+    ///     Activation::Sigmoid,
+    ///     LossFunction::BinaryCrossEntropy,
+    ///     OptimizerType::adam(0.01)
+    /// );
+    /// 
+    /// let dataset = Dataset::new(inputs, targets);
+    /// let (train, val) = dataset.split(0.8);
+    /// 
+    /// let mut callbacks: Vec<Box<dyn crate::callbacks::Callback>> = vec![
+    ///     Box::new(EarlyStopping::new(10, 0.0001)),
+    ///     Box::new(ModelCheckpoint::new("best_model.json", true)),
+    ///     Box::new(ProgressBar::new(100)),
+    /// ];
+    /// 
+    /// let history = network.fit(&train, Some(&val), 100, 32, &mut callbacks);
+    /// ```
+    pub fn fit(
+        &mut self,
+        train_dataset: &crate::dataset::Dataset,
+        val_dataset: Option<&crate::dataset::Dataset>,
+        epochs: usize,
+        batch_size: usize,
+        callbacks: &mut Vec<Box<dyn crate::callbacks::Callback>>,
+    ) -> Vec<(f64, Option<f64>)> {
+        // Appel on_train_begin
+        for callback in callbacks.iter_mut() {
+            callback.on_train_begin(self);
+        }
+        
+        let mut history = Vec::new();
+        let mut train_data = train_dataset.clone();
+        
+        for epoch in 0..epochs {
+            // Appel on_epoch_begin
+            for callback in callbacks.iter_mut() {
+                callback.on_epoch_begin(epoch, self);
+            }
+            
+            // Shuffle et entraînement
+            train_data.shuffle();
+            
+            for (batch_inputs, batch_targets) in train_data.batches(batch_size) {
+                self.train_batch(&batch_inputs, &batch_targets);
+            }
+            
+            // Calcul des losses
+            let train_loss = self.evaluate(train_dataset.inputs(), train_dataset.targets());
+            let val_loss = val_dataset.map(|val| self.evaluate(val.inputs(), val.targets()));
+            
+            history.push((train_loss, val_loss));
+            
+            // Appel on_epoch_end
+            let mut should_continue = true;
+            for callback in callbacks.iter_mut() {
+                if !callback.on_epoch_end(epoch, self, train_loss, val_loss) {
+                    should_continue = false;
+                    break;
+                }
+            }
+            
+            if !should_continue {
+                break;
+            }
+        }
+        
+        // Appel on_train_end
+        for callback in callbacks.iter_mut() {
+            callback.on_train_end(self);
+        }
+        
+        history
+    }
+    
+    /// Entraîne avec un learning rate scheduler
+    /// 
+    /// Version spécialisée de fit() qui accepte un LearningRateScheduler
+    /// et met automatiquement à jour le learning rate.
+    pub fn fit_with_scheduler(
+        &mut self,
+        train_dataset: &crate::dataset::Dataset,
+        val_dataset: Option<&crate::dataset::Dataset>,
+        epochs: usize,
+        batch_size: usize,
+        scheduler: &mut crate::callbacks::LearningRateScheduler,
+        callbacks: &mut Vec<Box<dyn crate::callbacks::Callback>>,
+    ) -> Vec<(f64, Option<f64>)> {
+        // Initialise le scheduler avec le LR actuel
+        scheduler.current_lr = match &self.optimizer {
+            crate::optimizer::OptimizerType::SGD { learning_rate } => *learning_rate,
+            crate::optimizer::OptimizerType::Momentum { learning_rate, .. } => *learning_rate,
+            crate::optimizer::OptimizerType::RMSprop { learning_rate, .. } => *learning_rate,
+            crate::optimizer::OptimizerType::Adam { learning_rate, .. } => *learning_rate,
+            crate::optimizer::OptimizerType::AdamW { learning_rate, .. } => *learning_rate,
+        };
+        
+        scheduler.on_train_begin(self);
+        
+        // Appel on_train_begin pour les autres callbacks
+        for callback in callbacks.iter_mut() {
+            callback.on_train_begin(self);
+        }
+        
+        let mut history = Vec::new();
+        let mut train_data = train_dataset.clone();
+        
+        for epoch in 0..epochs {
+            // Appel on_epoch_begin
+            scheduler.on_epoch_begin(epoch, self);
+            for callback in callbacks.iter_mut() {
+                callback.on_epoch_begin(epoch, self);
+            }
+            
+            // Shuffle et entraînement
+            train_data.shuffle();
+            
+            for (batch_inputs, batch_targets) in train_data.batches(batch_size) {
+                self.train_batch(&batch_inputs, &batch_targets);
+            }
+            
+            // Calcul des losses
+            let train_loss = self.evaluate(train_dataset.inputs(), train_dataset.targets());
+            let val_loss = val_dataset.map(|val| self.evaluate(val.inputs(), val.targets()));
+            
+            history.push((train_loss, val_loss));
+            
+            // Appel scheduler on_epoch_end
+            scheduler.on_epoch_end(epoch, self, train_loss, val_loss);
+            
+            // Met à jour le learning rate
+            scheduler.update_optimizer_lr(&mut self.optimizer);
+            
+            // Appel on_epoch_end pour les autres callbacks
+            let mut should_continue = true;
+            for callback in callbacks.iter_mut() {
+                if !callback.on_epoch_end(epoch, self, train_loss, val_loss) {
+                    should_continue = false;
+                    break;
+                }
+            }
+            
+            if !should_continue {
+                break;
+            }
+        }
+        
+        // Appel on_train_end
+        scheduler.on_train_end(self);
+        for callback in callbacks.iter_mut() {
+            callback.on_train_end(self);
+        }
+        
+        history
     }
 }
