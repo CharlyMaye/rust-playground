@@ -223,6 +223,259 @@ let network = Network::new(2, 5, 1,
 
 ---
 
+## Régularisation
+
+La régularisation permet de **prévenir l'overfitting** en pénalisant les modèles trop complexes qui "mémorisent" les données d'entraînement au lieu de généraliser.
+
+### Qu'est-ce que l'Overfitting ?
+
+**Overfitting** = Le modèle performe très bien sur les données d'entraînement mais mal sur de nouvelles données.
+
+**Signes d'overfitting :**
+- Loss d'entraînement très faible mais loss de validation élevée
+- Prédictions parfaites sur le training set, mauvaises sur le test set
+- Poids très grands dans le réseau
+
+**Solution : Régularisation** 🛡️
+
+### Types de Régularisation
+
+#### 1. **Dropout** - Désactivation Aléatoire de Neurones
+
+```rust
+use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::optimizer::OptimizerType;
+
+let network = Network::new(
+    2, 20, 1,
+    Activation::ReLU,
+    Activation::Sigmoid,
+    LossFunction::BinaryCrossEntropy,
+    OptimizerType::adam(0.001)
+).with_dropout(0.3);  // 30% des neurones désactivés pendant training
+```
+
+**Comment ça marche :**
+- **Training** : Désactive aléatoirement 30% des neurones (rate=0.3)
+- **Inference** : Tous les neurones actifs (mise à l'échelle automatique)
+- Force le réseau à ne pas dépendre d'un seul neurone
+
+**Quand l'utiliser :**
+- Dataset petit (risque d'overfitting élevé)
+- Réseaux profonds ou larges
+- Typiquement : **0.2 - 0.5** pour couches cachées
+
+**Avantages :**
+- Très efficace contre l'overfitting
+- Équivalent à entraîner un ensemble de modèles
+- Pas de coût computationnel en inference
+
+#### 2. **L2 Regularization (Weight Decay)** - Pénalise les Grands Poids
+
+```rust
+let network = Network::new(
+    2, 20, 1,
+    Activation::ReLU,
+    Activation::Sigmoid,
+    LossFunction::BinaryCrossEntropy,
+    OptimizerType::adam(0.001)
+).with_l2(0.01);  // Lambda = 0.01
+```
+
+**Comment ça marche :**
+- Ajoute une pénalité proportionnelle au carré des poids : `loss += 0.5 * lambda * Σ(w²)`
+- Pousse les poids vers zéro (mais jamais exactement zéro)
+- Favorise des solutions plus "lisses" et simples
+
+**Quand l'utiliser :**
+- **Par défaut** pour la plupart des modèles
+- Lambda typique : **0.0001 - 0.01**
+- Plus lambda est grand, plus la régularisation est forte
+
+**Avantages :**
+- Simple et efficace
+- Stabilise l'entraînement
+- Améliore la généralisation
+
+#### 3. **L1 Regularization (Lasso)** - Encourage la Sparsité
+
+```rust
+let network = Network::new(
+    2, 50, 1,
+    Activation::ReLU,
+    Activation::Sigmoid,
+    LossFunction::BinaryCrossEntropy,
+    OptimizerType::adam(0.001)
+).with_l1(0.01);  // Lambda = 0.01
+```
+
+**Comment ça marche :**
+- Ajoute une pénalité proportionnelle à la valeur absolue des poids : `loss += lambda * Σ|w|`
+- Pousse de nombreux poids **exactement à zéro**
+- Sélection automatique de features
+
+**Quand l'utiliser :**
+- Besoin de **sparsité** (poids à zéro)
+- Sélection de features automatique
+- Interprétabilité du modèle
+
+**Avantages :**
+- Modèles plus compacts (beaucoup de poids à 0)
+- Feature selection intégrée
+- Meilleure interprétabilité
+
+#### 4. **Elastic Net** - Combine L1 et L2
+
+```rust
+let network = Network::new(
+    2, 50, 1,
+    Activation::ReLU,
+    Activation::Sigmoid,
+    LossFunction::BinaryCrossEntropy,
+    OptimizerType::adam(0.001)
+).with_elastic_net(0.5, 0.01);  // 50% L1, 50% L2
+```
+
+**Comment ça marche :**
+- Combine les avantages de L1 et L2
+- `l1_ratio` contrôle la balance (0.0 = pur L2, 1.0 = pur L1)
+
+**Quand l'utiliser :**
+- Quand vous voulez sparsité ET stabilité
+- Features corrélées
+
+### Modes Training vs Eval
+
+**Important** : Le dropout doit être désactivé lors de l'inférence !
+
+```rust
+// Training
+network.train_mode();  // Active le dropout
+for epoch in 0..1000 {
+    for (input, target) in train_data {
+        network.train(&input, &target);
+    }
+}
+
+// Evaluation/Inference
+network.eval_mode();  // Désactive le dropout
+let predictions = test_data.iter()
+    .map(|input| network.predict(input))
+    .collect();
+```
+
+### Combiner Plusieurs Régularisations
+
+```rust
+// Dropout + L2 (approche recommandée)
+let network = Network::new(
+    2, 100, 1,
+    Activation::ReLU,
+    Activation::Sigmoid,
+    LossFunction::BinaryCrossEntropy,
+    OptimizerType::adam(0.001)
+)
+.with_dropout(0.2)   // Dropout léger
+.with_l2(0.005);     // L2 modéré
+
+// Entraînement
+network.train_mode();
+// ... training loop ...
+
+// Inference
+network.eval_mode();
+let prediction = network.predict(&input);
+```
+
+### Guide de Sélection
+
+| Situation | Régularisation Recommandée | Paramètres |
+|-----------|---------------------------|------------|
+| **Dataset petit (<1000 exemples)** | Dropout + L2 | dropout=0.3-0.5, λ=0.01 |
+| **Dataset moyen (1k-100k)** | L2 ou Dropout léger | dropout=0.2, λ=0.001-0.01 |
+| **Dataset grand (>100k)** | L2 faible | λ=0.0001-0.001 |
+| **Réseau très large** | Dropout fort | dropout=0.4-0.5 |
+| **Besoin de sparsité** | L1 | λ=0.01-0.1 |
+| **Features corrélées** | Elastic Net | l1_ratio=0.5, λ=0.01 |
+
+### Conseils Pratiques
+
+**Diagnostic de l'overfitting :**
+1. Split vos données : train (70%), validation (15%), test (15%)
+2. Surveillez train_loss vs val_loss
+3. Si val_loss monte pendant que train_loss baisse → **Overfitting !**
+
+**Solutions par ordre de priorité :**
+1. **Plus de données** (si possible)
+2. **Dropout** (0.3-0.5) - Le plus efficace
+3. **L2 regularization** (0.001-0.01)
+4. **Réduire la taille du réseau**
+5. **Early stopping**
+
+**Tuning des hyperparamètres :**
+- Commencer sans régularisation
+- Si overfitting : ajouter Dropout (0.3)
+- Si encore overfitting : augmenter dropout (0.4-0.5) ou ajouter L2
+- Si underfitting : réduire la régularisation
+
+### Exemple Complet
+
+```rust
+use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::optimizer::OptimizerType;
+
+// Créer un réseau avec régularisation
+let mut network = Network::new(
+    784,    // MNIST input size
+    128,    // Hidden layer (large)
+    10,     // 10 classes
+    Activation::ReLU,
+    Activation::Softmax,
+    LossFunction::CategoricalCrossEntropy,
+    OptimizerType::adam(0.001)
+)
+.with_dropout(0.3)   // Prevent overfitting
+.with_l2(0.001);     // Weight decay
+
+// Training mode
+network.train_mode();
+for epoch in 0..epochs {
+    for (input, target) in train_data.iter() {
+        network.train(input, target);
+    }
+    
+    // Validation (en mode eval)
+    network.eval_mode();
+    let val_loss = network.evaluate(&val_inputs, &val_targets);
+    println!("Epoch {}: val_loss = {:.4}", epoch, val_loss);
+    network.train_mode();  // Retour en mode training
+}
+
+// Final evaluation
+network.eval_mode();
+let test_accuracy = accuracy(&test_predictions, &test_targets, 0.5);
+println!("Test Accuracy: {:.2}%", test_accuracy * 100.0);
+```
+
+### Démo
+
+```bash
+cargo run --example regularization_demo --release
+```
+
+Résultats sur XOR avec réseau surdimensionné (2 → [20] → 1) :
+| Méthode | Loss Finale | Convergence | Généralisation |
+|---------|-------------|-------------|----------------|
+| Sans régularisation | 0.000000 | Très rapide | Risque d'overfitting |
+| Dropout (0.3) | 0.000001 | Stable | Excellente |
+| L2 (0.01) | 0.135389 | Lente | Très bonne |
+| L1 (0.01) | Variable | Instable | Bonne avec sparsité |
+| Combiné | 0.00001 | **Optimale** | **Meilleure** |
+
+**Conclusion** : Sur les petits datasets, **Dropout + L2** offre le meilleur compromis.
+
+---
+
 ## Métriques d'Évaluation
 
 Le module `metrics` fournit des outils complets pour évaluer la performance de vos modèles.

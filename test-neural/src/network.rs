@@ -4,6 +4,87 @@ use rand::Rng;
 use serde::{Serialize, Deserialize};
 use crate::optimizer::{OptimizerType, OptimizerState1D, OptimizerState2D};
 
+/// Type de régularisation pour éviter l'overfitting
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+pub enum RegularizationType {
+    /// Aucune régularisation
+    None,
+    /// L1 regularization (Lasso) - encourage la sparsité
+    L1 { lambda: f64 },
+    /// L2 regularization (Ridge/Weight Decay) - pénalise les grands poids
+    L2 { lambda: f64 },
+    /// Elastic Net - combine L1 et L2
+    ElasticNet { l1_ratio: f64, lambda: f64 },
+}
+
+impl RegularizationType {
+    /// Crée une régularisation L1 avec le lambda spécifié
+    pub fn l1(lambda: f64) -> Self {
+        RegularizationType::L1 { lambda }
+    }
+    
+    /// Crée une régularisation L2 avec le lambda spécifié (typique: 0.0001 - 0.01)
+    pub fn l2(lambda: f64) -> Self {
+        RegularizationType::L2 { lambda }
+    }
+    
+    /// Crée une régularisation Elastic Net
+    pub fn elastic_net(l1_ratio: f64, lambda: f64) -> Self {
+        RegularizationType::ElasticNet { l1_ratio, lambda }
+    }
+    
+    /// Calcule la pénalité de régularisation sur les poids
+    pub fn penalty(&self, weights: &Array2<f64>) -> f64 {
+        match self {
+            RegularizationType::None => 0.0,
+            RegularizationType::L1 { lambda } => {
+                lambda * weights.mapv(|w| w.abs()).sum()
+            }
+            RegularizationType::L2 { lambda } => {
+                0.5 * lambda * weights.mapv(|w| w * w).sum()
+            }
+            RegularizationType::ElasticNet { l1_ratio, lambda } => {
+                let l1_part = l1_ratio * weights.mapv(|w| w.abs()).sum();
+                let l2_part = 0.5 * (1.0 - l1_ratio) * weights.mapv(|w| w * w).sum();
+                lambda * (l1_part + l2_part)
+            }
+        }
+    }
+    
+    /// Calcule le gradient de régularisation à ajouter aux gradients des poids
+    pub fn gradient(&self, weights: &Array2<f64>) -> Array2<f64> {
+        match self {
+            RegularizationType::None => Array2::zeros(weights.dim()),
+            RegularizationType::L1 { lambda } => {
+                weights.mapv(|w| lambda * w.signum())
+            }
+            RegularizationType::L2 { lambda } => {
+                weights.mapv(|w| lambda * w)
+            }
+            RegularizationType::ElasticNet { l1_ratio, lambda } => {
+                let l1_grad = weights.mapv(|w| w.signum());
+                let l2_grad = weights.clone();
+                *lambda * (*l1_ratio * l1_grad + (1.0 - l1_ratio) * l2_grad)
+            }
+        }
+    }
+}
+
+/// Configuration de dropout pour une couche
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct DropoutConfig {
+    /// Probabilité de désactiver un neurone (0.0 = pas de dropout, 0.5 = 50% désactivés)
+    pub rate: f64,
+}
+
+impl DropoutConfig {
+    /// Crée une configuration de dropout avec le taux spécifié
+    pub fn new(rate: f64) -> Self {
+        assert!(rate >= 0.0 && rate < 1.0, "Dropout rate must be in [0.0, 1.0)");
+        DropoutConfig { rate }
+    }
+}
+
 /// Weight initialization methods for neural networks.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum WeightInit {
@@ -313,6 +394,7 @@ struct Layer {
     weights: Array2<f64>,
     biases: Array1<f64>,
     activation: Activation,
+    dropout: Option<DropoutConfig>,
 }
 
 /// A feedforward neural network with configurable depth.
@@ -355,6 +437,10 @@ pub struct Network {
     optimizer_states_weights: Vec<OptimizerState2D>,
     /// Optimizer states for biases
     optimizer_states_biases: Vec<OptimizerState1D>,
+    /// Regularization type (L1, L2, None)
+    regularization: RegularizationType,
+    /// Training mode (true = apply dropout, false = inference mode)
+    training_mode: bool,
 }
 
 impl Network {
@@ -533,6 +619,7 @@ impl Network {
                 weights,
                 biases,
                 activation: hidden_activations[i],
+                dropout: None,  // Pas de dropout par défaut
             });
             
             prev_size = size;
@@ -546,6 +633,7 @@ impl Network {
             weights,
             biases,
             activation: output_activation,
+            dropout: None,  // Pas de dropout sur la couche de sortie
         });
 
         // Initialize optimizer states for all layers
@@ -570,7 +658,46 @@ impl Network {
             optimizer,
             optimizer_states_weights,
             optimizer_states_biases,
+            regularization: RegularizationType::None,
+            training_mode: true,
         }
+    }
+    
+    /// Configure dropout pour les couches cachées
+    pub fn with_dropout(mut self, dropout_rate: f64) -> Self {
+        let num_layers = self.layers.len();
+        for i in 0..num_layers - 1 {  // Pas de dropout sur la couche de sortie
+            self.layers[i].dropout = Some(DropoutConfig::new(dropout_rate));
+        }
+        self
+    }
+    
+    /// Configure la régularisation L1
+    pub fn with_l1(mut self, lambda: f64) -> Self {
+        self.regularization = RegularizationType::l1(lambda);
+        self
+    }
+    
+    /// Configure la régularisation L2 (weight decay)
+    pub fn with_l2(mut self, lambda: f64) -> Self {
+        self.regularization = RegularizationType::l2(lambda);
+        self
+    }
+    
+    /// Configure la régularisation Elastic Net
+    pub fn with_elastic_net(mut self, l1_ratio: f64, lambda: f64) -> Self {
+        self.regularization = RegularizationType::elastic_net(l1_ratio, lambda);
+        self
+    }
+    
+    /// Passe en mode training (active le dropout)
+    pub fn train_mode(&mut self) {
+        self.training_mode = true;
+    }
+    
+    /// Passe en mode eval/inference (désactive le dropout)
+    pub fn eval_mode(&mut self) {
+        self.training_mode = false;
     }
 }
 
@@ -590,12 +717,35 @@ impl Network {
     /// let prediction = activations.last().unwrap();
     /// ```
     fn forward(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
+        self.forward_with_dropout(input, &mut rng())
+    }
+    
+    /// Forward pass avec support explicite du dropout et masques
+    fn forward_with_dropout(&self, input: &Array1<f64>, rng: &mut impl Rng) -> Vec<Array1<f64>> {
         let mut activations = vec![input.clone()];
         
         // Forward pass through all layers
         for layer in &self.layers {
             let z = layer.weights.dot(activations.last().unwrap()) + &layer.biases;
-            let a = layer.activation.apply(&z);
+            let mut a = layer.activation.apply(&z);
+            
+            // Apply dropout si en mode training
+            if self.training_mode {
+                if let Some(dropout_config) = layer.dropout {
+                    let keep_prob = 1.0 - dropout_config.rate;
+                    // Créer un masque de dropout
+                    let mask: Array1<f64> = Array1::from_shape_fn(a.len(), |_| {
+                        if rng.random::<f64>() < keep_prob {
+                            1.0 / keep_prob  // Inverted dropout (scaling pendant training)
+                        } else {
+                            0.0
+                        }
+                    });
+                    a = a * mask;
+                }
+            }
+            // En mode eval, pas de dropout (déjà mis à l'échelle pendant training)
+            
             activations.push(a);
         }
         
@@ -684,9 +834,12 @@ impl Network {
             let prev_activation = &activations[i];
             
             // Compute gradients (negative because delta already has correct sign)
-            let weights_gradient = -delta.view().insert_axis(Axis(1))
+            let mut weights_gradient = -delta.view().insert_axis(Axis(1))
                 .dot(&prev_activation.view().insert_axis(Axis(0)));
             let biases_gradient = -delta;
+            
+            // Add regularization gradient
+            weights_gradient = weights_gradient + self.regularization.gradient(&self.layers[i].weights);
             
             // Update using optimizer
             self.optimizer_states_weights[i].step(
@@ -728,7 +881,14 @@ impl Network {
             total_loss += self.loss_function.compute(prediction, target);
         }
         
-        total_loss / inputs.len() as f64
+        let base_loss = total_loss / inputs.len() as f64;
+        
+        // Add regularization penalty
+        let reg_penalty: f64 = self.layers.iter()
+            .map(|layer| self.regularization.penalty(&layer.weights))
+            .sum();
+        
+        base_loss + reg_penalty / inputs.len() as f64
     }
 
     /// Makes a prediction for a single input without requiring a target.
