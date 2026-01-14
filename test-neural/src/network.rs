@@ -391,11 +391,11 @@ impl Activation {
 
 /// A layer in the neural network.
 #[derive(Clone, Serialize, Deserialize)]
-struct Layer {
-    weights: Array2<f64>,
-    biases: Array1<f64>,
-    activation: Activation,
-    dropout: Option<DropoutConfig>,
+pub(crate) struct Layer {
+    pub(crate) weights: Array2<f64>,
+    pub(crate) biases: Array1<f64>,
+    pub(crate) activation: Activation,
+    pub(crate) dropout: Option<DropoutConfig>,
 }
 
 /// A feedforward neural network with configurable depth.
@@ -427,21 +427,21 @@ struct Layer {
 #[derive(Serialize, Deserialize)]
 pub struct Network {
     /// All layers (hidden + output)
-    layers: Vec<Layer>,
+    pub(crate) layers: Vec<Layer>,
     /// Input size for reference
-    input_size: usize,
+    pub(crate) input_size: usize,
     /// Loss function for training
-    loss_function: LossFunction,
+    pub(crate) loss_function: LossFunction,
     /// Optimizer type
-    optimizer: OptimizerType,
+    pub(crate) optimizer: OptimizerType,
     /// Optimizer states for weights
-    optimizer_states_weights: Vec<OptimizerState2D>,
+    pub(crate) optimizer_states_weights: Vec<OptimizerState2D>,
     /// Optimizer states for biases
-    optimizer_states_biases: Vec<OptimizerState1D>,
+    pub(crate) optimizer_states_biases: Vec<OptimizerState1D>,
     /// Regularization type (L1, L2, None)
-    regularization: RegularizationType,
+    pub(crate) regularization: RegularizationType,
     /// Training mode (true = apply dropout, false = inference mode)
-    training_mode: bool,
+    pub(crate) training_mode: bool,
 }
 
 impl Network {
@@ -471,121 +471,20 @@ impl Network {
     ///     OptimizerType::adam(0.001)
     /// );
     /// ```
-    pub fn new(
-        input_size: usize, 
-        hidden_size: usize, 
-        output_size: usize,
-        hidden_activation: Activation,
-        output_activation: Activation,
-        loss_function: LossFunction,
-        optimizer: OptimizerType,
-    ) -> Self {
-        // Use recommended initialization for each activation
-        let hidden_init = WeightInit::for_activation(hidden_activation);
-        let output_init = WeightInit::for_activation(output_activation);
-        
-        Self::new_deep_with_init(
-            input_size,
-            vec![hidden_size],
-            output_size,
-            vec![hidden_activation],
-            output_activation,
-            loss_function,
-            vec![hidden_init],
-            output_init,
-            optimizer,
-        )
-    }
-
-    /// Creates a new deep neural network with multiple hidden layers.
-    ///
-    /// Uses automatic weight initialization based on activation functions.
-    ///
-    /// # Arguments
-    /// - `input_size`: Number of input neurons
-    /// - `hidden_sizes`: Vector of sizes for each hidden layer (e.g., [10, 8, 5] for 3 layers)
-    /// - `output_size`: Number of output neurons
-    /// - `hidden_activations`: Activation function for each hidden layer
-    /// - `output_activation`: Activation function for output layer
-    /// - `loss_function`: Loss function for training
-    ///
-    /// # Panics
-    /// Panics if `hidden_sizes.len() != hidden_activations.len()`
-    ///
-    /// # Example
+    /// Internal constructor - Use NetworkBuilder instead
+    /// 
+    /// **⚠️ INTERNAL METHOD**: Use `NetworkBuilder` for construction:
     /// ```
-    /// // Deep network with 3 hidden layers
-    /// let network = Network::new_deep(
-    ///     2,                                      // 2 inputs
-    ///     vec![10, 8, 5],                        // 3 hidden layers
-    ///     1,                                      // 1 output
-    ///     vec![Activation::ReLU, Activation::ReLU, Activation::ReLU],
-    ///     Activation::Sigmoid,
-    ///     LossFunction::BinaryCrossEntropy,
-    ///     OptimizerType::adam(0.001)
-    /// );
+    /// use test_neural::builder::NetworkBuilder;
+    /// 
+    /// let network = NetworkBuilder::new(2, 1)
+    ///     .hidden_layer(8, Activation::Tanh)
+    ///     .output_activation(Activation::Sigmoid)
+    ///     .loss(LossFunction::BinaryCrossEntropy)
+    ///     .optimizer(OptimizerType::adam(0.01))
+    ///     .build();
     /// ```
-    pub fn new_deep(
-        input_size: usize,
-        hidden_sizes: Vec<usize>,
-        output_size: usize,
-        hidden_activations: Vec<Activation>,
-        output_activation: Activation,
-        loss_function: LossFunction,
-        optimizer: OptimizerType,
-    ) -> Self {
-        // Use recommended initialization for each activation
-        let hidden_inits: Vec<WeightInit> = hidden_activations.iter()
-            .map(|&act| WeightInit::for_activation(act))
-            .collect();
-        let output_init = WeightInit::for_activation(output_activation);
-        
-        Self::new_deep_with_init(
-            input_size,
-            hidden_sizes,
-            output_size,
-            hidden_activations,
-            output_activation,
-            loss_function,
-            hidden_inits,
-            output_init,
-            optimizer,
-        )
-    }
-
-    /// Creates a new deep neural network with custom weight initialization.
-    ///
-    /// This method gives full control over weight initialization for each layer.
-    ///
-    /// # Arguments
-    /// - `input_size`: Number of input neurons
-    /// - `hidden_sizes`: Vector of sizes for each hidden layer
-    /// - `output_size`: Number of output neurons
-    /// - `hidden_activations`: Activation function for each hidden layer
-    /// - `output_activation`: Activation function for output layer
-    /// - `loss_function`: Loss function for training
-    /// - `hidden_inits`: Weight initialization method for each hidden layer
-    /// - `output_init`: Weight initialization method for output layer
-    ///
-    /// # Panics
-    /// Panics if lengths don't match
-    ///
-    /// # Example
-    /// ```
-    /// // Deep network with custom initialization
-    /// let network = Network::new_deep_with_init(
-    ///     2,
-    ///     vec![10, 8],
-    ///     1,
-    ///     vec![Activation::ReLU, Activation::ReLU],
-    ///     Activation::Sigmoid,
-    ///     LossFunction::BinaryCrossEntropy,
-    ///     vec![WeightInit::He, WeightInit::He],
-    ///     WeightInit::Xavier,
-    ///     OptimizerType::adam(0.001)
-    /// );
-    /// ```
-    pub fn new_deep_with_init(
+    pub(crate) fn new_deep_with_init(
         input_size: usize,
         hidden_sizes: Vec<usize>,
         output_size: usize,
@@ -662,33 +561,6 @@ impl Network {
             regularization: RegularizationType::None,
             training_mode: true,
         }
-    }
-    
-    /// Configure dropout pour les couches cachées
-    pub fn with_dropout(mut self, dropout_rate: f64) -> Self {
-        let num_layers = self.layers.len();
-        for i in 0..num_layers - 1 {  // Pas de dropout sur la couche de sortie
-            self.layers[i].dropout = Some(DropoutConfig::new(dropout_rate));
-        }
-        self
-    }
-    
-    /// Configure la régularisation L1
-    pub fn with_l1(mut self, lambda: f64) -> Self {
-        self.regularization = RegularizationType::l1(lambda);
-        self
-    }
-    
-    /// Configure la régularisation L2 (weight decay)
-    pub fn with_l2(mut self, lambda: f64) -> Self {
-        self.regularization = RegularizationType::l2(lambda);
-        self
-    }
-    
-    /// Configure la régularisation Elastic Net
-    pub fn with_elastic_net(mut self, l1_ratio: f64, lambda: f64) -> Self {
-        self.regularization = RegularizationType::elastic_net(l1_ratio, lambda);
-        self
     }
     
     /// Passe en mode training (active le dropout)
@@ -1046,58 +918,33 @@ impl Network {
         activations.last().unwrap().clone()
     }
     
-    /// Entraîne le réseau avec support des callbacks
+    /// Entraîne le réseau avec support des callbacks et scheduler optionnel (MÉTHODE UNIFIÉE)
     /// 
-    /// Cette méthode high-level gère l'entraînement avec :
-    /// - Support complet des callbacks (EarlyStopping, ModelCheckpoint, etc.)
-    /// - Validation automatique
-    /// - Shuffle automatique entre epochs
-    /// - Progress tracking
+    /// **⚠️ MÉTHODE INTERNE**: Utilisez `network.trainer().fit()` à la place.
     /// 
-    /// # Arguments
-    /// - `train_dataset`: Dataset d'entraînement
-    /// - `val_dataset`: Dataset de validation (optionnel)
-    /// - `epochs`: Nombre d'epochs
-    /// - `batch_size`: Taille des batches
-    /// - `callbacks`: Vec de callbacks à appliquer
-    /// 
-    /// # Returns
-    /// Vec des (train_loss, val_loss) pour chaque epoch
-    /// 
-    /// # Example
-    /// ```
-    /// use test_neural::network::{Network, Activation, LossFunction};
-    /// use test_neural::optimizer::OptimizerType;
-    /// use test_neural::dataset::Dataset;
-    /// use test_neural::callbacks::{EarlyStopping, ModelCheckpoint, ProgressBar};
-    /// 
-    /// let mut network = Network::new(
-    ///     2, 8, 1,
-    ///     Activation::Tanh,
-    ///     Activation::Sigmoid,
-    ///     LossFunction::BinaryCrossEntropy,
-    ///     OptimizerType::adam(0.01)
-    /// );
-    /// 
-    /// let dataset = Dataset::new(inputs, targets);
-    /// let (train, val) = dataset.split(0.8);
-    /// 
-    /// let mut callbacks: Vec<Box<dyn crate::callbacks::Callback>> = vec![
-    ///     Box::new(EarlyStopping::new(10, 0.0001)),
-    ///     Box::new(ModelCheckpoint::new("best_model.json", true)),
-    ///     Box::new(ProgressBar::new(100)),
-    /// ];
-    /// 
-    /// let history = network.fit(&train, Some(&val), 100, 32, &mut callbacks);
-    /// ```
-    pub fn fit(
+    /// Cette méthode unique gère l'entraînement avec ou sans scheduler,
+    /// unifiant les anciennes méthodes fit() et fit_with_scheduler().
+    pub(crate) fn fit(
         &mut self,
         train_dataset: &crate::dataset::Dataset,
         val_dataset: Option<&crate::dataset::Dataset>,
         epochs: usize,
         batch_size: usize,
+        mut scheduler: Option<&mut crate::callbacks::LearningRateScheduler>,
         callbacks: &mut Vec<Box<dyn crate::callbacks::Callback>>,
     ) -> Vec<(f64, Option<f64>)> {
+        // Initialise le scheduler s'il existe
+        if let Some(sched) = scheduler.as_mut() {
+            sched.current_lr = match &self.optimizer {
+                crate::optimizer::OptimizerType::SGD { learning_rate } => *learning_rate,
+                crate::optimizer::OptimizerType::Momentum { learning_rate, .. } => *learning_rate,
+                crate::optimizer::OptimizerType::RMSprop { learning_rate, .. } => *learning_rate,
+                crate::optimizer::OptimizerType::Adam { learning_rate, .. } => *learning_rate,
+                crate::optimizer::OptimizerType::AdamW { learning_rate, .. } => *learning_rate,
+            };
+            sched.on_train_begin(self);
+        }
+        
         // Appel on_train_begin
         for callback in callbacks.iter_mut() {
             callback.on_train_begin(self);
@@ -1108,6 +955,9 @@ impl Network {
         
         for epoch in 0..epochs {
             // Appel on_epoch_begin
+            if let Some(sched) = scheduler.as_mut() {
+                sched.on_epoch_begin(epoch, self);
+            }
             for callback in callbacks.iter_mut() {
                 callback.on_epoch_begin(epoch, self);
             }
@@ -1124,6 +974,12 @@ impl Network {
             let val_loss = val_dataset.map(|val| self.evaluate(val.inputs(), val.targets()));
             
             history.push((train_loss, val_loss));
+            
+            // Appel scheduler on_epoch_end et update
+            if let Some(sched) = scheduler.as_mut() {
+                sched.on_epoch_end(epoch, self, train_loss, val_loss);
+                sched.update_optimizer_lr(&mut self.optimizer);
+            }
             
             // Appel on_epoch_end
             let mut should_continue = true;
@@ -1140,87 +996,9 @@ impl Network {
         }
         
         // Appel on_train_end
-        for callback in callbacks.iter_mut() {
-            callback.on_train_end(self);
+        if let Some(sched) = scheduler.as_mut() {
+            sched.on_train_end(self);
         }
-        
-        history
-    }
-    
-    /// Entraîne avec un learning rate scheduler
-    /// 
-    /// Version spécialisée de fit() qui accepte un LearningRateScheduler
-    /// et met automatiquement à jour le learning rate.
-    pub fn fit_with_scheduler(
-        &mut self,
-        train_dataset: &crate::dataset::Dataset,
-        val_dataset: Option<&crate::dataset::Dataset>,
-        epochs: usize,
-        batch_size: usize,
-        scheduler: &mut crate::callbacks::LearningRateScheduler,
-        callbacks: &mut Vec<Box<dyn crate::callbacks::Callback>>,
-    ) -> Vec<(f64, Option<f64>)> {
-        // Initialise le scheduler avec le LR actuel
-        scheduler.current_lr = match &self.optimizer {
-            crate::optimizer::OptimizerType::SGD { learning_rate } => *learning_rate,
-            crate::optimizer::OptimizerType::Momentum { learning_rate, .. } => *learning_rate,
-            crate::optimizer::OptimizerType::RMSprop { learning_rate, .. } => *learning_rate,
-            crate::optimizer::OptimizerType::Adam { learning_rate, .. } => *learning_rate,
-            crate::optimizer::OptimizerType::AdamW { learning_rate, .. } => *learning_rate,
-        };
-        
-        scheduler.on_train_begin(self);
-        
-        // Appel on_train_begin pour les autres callbacks
-        for callback in callbacks.iter_mut() {
-            callback.on_train_begin(self);
-        }
-        
-        let mut history = Vec::new();
-        let mut train_data = train_dataset.clone();
-        
-        for epoch in 0..epochs {
-            // Appel on_epoch_begin
-            scheduler.on_epoch_begin(epoch, self);
-            for callback in callbacks.iter_mut() {
-                callback.on_epoch_begin(epoch, self);
-            }
-            
-            // Shuffle et entraînement
-            train_data.shuffle();
-            
-            for (batch_inputs, batch_targets) in train_data.batches(batch_size) {
-                self.train_batch(&batch_inputs, &batch_targets);
-            }
-            
-            // Calcul des losses
-            let train_loss = self.evaluate(train_dataset.inputs(), train_dataset.targets());
-            let val_loss = val_dataset.map(|val| self.evaluate(val.inputs(), val.targets()));
-            
-            history.push((train_loss, val_loss));
-            
-            // Appel scheduler on_epoch_end
-            scheduler.on_epoch_end(epoch, self, train_loss, val_loss);
-            
-            // Met à jour le learning rate
-            scheduler.update_optimizer_lr(&mut self.optimizer);
-            
-            // Appel on_epoch_end pour les autres callbacks
-            let mut should_continue = true;
-            for callback in callbacks.iter_mut() {
-                if !callback.on_epoch_end(epoch, self, train_loss, val_loss) {
-                    should_continue = false;
-                    break;
-                }
-            }
-            
-            if !should_continue {
-                break;
-            }
-        }
-        
-        // Appel on_train_end
-        scheduler.on_train_end(self);
         for callback in callbacks.iter_mut() {
             callback.on_train_end(self);
         }

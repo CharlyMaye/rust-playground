@@ -6,7 +6,8 @@
 /// - Impact of different batch sizes on training speed and convergence
 /// - Benefits of shuffling data between epochs
 
-use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::builder::NetworkBuilder;
+use test_neural::network::{ Activation, LossFunction};
 use test_neural::optimizer::OptimizerType;
 use test_neural::dataset::Dataset;
 use ndarray::array;
@@ -50,13 +51,12 @@ fn main() {
     
     // ===== 1. Single-sample training (baseline) =====
     println!("--- 1. Entraînement échantillon par échantillon ---");
-    let mut network_single = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.001)
-    );
+    let mut network_single = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.001))
+        .build();
     
     let start = Instant::now();
     let epochs = 50;
@@ -81,13 +81,12 @@ fn main() {
     
     // ===== 2. Mini-batch training (batch_size = 32) =====
     println!("--- 2. Entraînement par mini-batch (batch_size=32) ---");
-    let mut network_batch32 = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01)  // Increased learning rate for batch training
-    );
+    let mut network_batch32 = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))  // Increased learning rate for batch training
+        .build();
     
     let start = Instant::now();
     let batch_size = 32;
@@ -118,18 +117,15 @@ fn main() {
     
     // ===== 3. Mini-batch training (batch_size = 64) =====
     println!("--- 3. Entraînement par mini-batch (batch_size=64) ---");
-    let mut network_batch64 = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01)  // Increased learning rate for batch training
-    );
+    let mut network_batch64 = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .build();
     
     let start = Instant::now();
     let batch_size = 64;
-    
-    let mut train_data_shuffleable = train_dataset.clone();
     
     for epoch in 0..epochs {
         train_data_shuffleable.shuffle();
@@ -151,20 +147,19 @@ fn main() {
     println!("✓ Loss finale (test): {:.6}", test_loss_batch64);
     println!("✓ Speedup: {:.2}x plus rapide\n", duration_single.as_secs_f64() / duration_batch64.as_secs_f64());
     
+    
+    
     // ===== 4. Mini-batch training (batch_size = 128) =====
     println!("--- 4. Entraînement par mini-batch (batch_size=128) ---");
-    let mut network_batch128 = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01)  // Increased learning rate for batch training
-    );
+    let mut network_batch128 = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .build();
     
     let start = Instant::now();
     let batch_size = 128;
-    
-    let mut train_data_shuffleable = train_dataset.clone();
     
     for epoch in 0..epochs {
         train_data_shuffleable.shuffle();
@@ -186,10 +181,11 @@ fn main() {
     println!("✓ Loss finale (test): {:.6}", test_loss_batch128);
     println!("✓ Speedup: {:.2}x plus rapide\n", duration_single.as_secs_f64() / duration_batch128.as_secs_f64());
     
+    
+    
     // ===== Summary =====
-    println!("=== Résumé ===");
-    println!("\n📈 Temps d'entraînement:");
-    println!("  • Échantillon par échantillon: {:.2}s", duration_single.as_secs_f64());
+    println!("\n=== Résumé des performances ===");
+    println!("  • Single sample:               {:.2}s (baseline)", duration_single.as_secs_f64());
     println!("  • Mini-batch (32):             {:.2}s ({:.1}x speedup)", 
              duration_batch32.as_secs_f64(), 
              duration_single.as_secs_f64() / duration_batch32.as_secs_f64());
@@ -198,18 +194,7 @@ fn main() {
              duration_single.as_secs_f64() / duration_batch64.as_secs_f64());
     println!("  • Mini-batch (128):            {:.2}s ({:.1}x speedup)", 
              duration_batch128.as_secs_f64(), 
-             duration_single.as_secs_f64() / duration_batch128.as_secs_f64());
+             duration_single.as_secs_f64() / duration_batch128.as_secs_f64()); 
     
-    println!("\n🎯 Loss finale (test):");
-    println!("  • Échantillon par échantillon: {:.6}", test_loss_single);
-    println!("  • Mini-batch (32):             {:.6}", test_loss_batch32);
-    println!("  • Mini-batch (64):             {:.6}", test_loss_batch64);
-    println!("  • Mini-batch (128):            {:.6}", test_loss_batch128);
     
-    println!("\n💡 Recommandations:");
-    println!("  • Pour datasets < 1000:    batch_size = 16-32");
-    println!("  • Pour datasets 1000-10k:  batch_size = 32-64");
-    println!("  • Pour datasets > 10k:     batch_size = 64-128");
-    println!("  • Toujours shuffle entre epochs!");
-    println!("  • Mini-batch = meilleur compromis vitesse/stabilité");
 }

@@ -3,6 +3,7 @@
 /// Montre comment la régularisation aide à prévenir l'overfitting
 /// en pénalisant les modèles trop complexes.
 
+use test_neural::builder::NetworkBuilder;
 use test_neural::network::{Network, Activation, LossFunction};
 use test_neural::optimizer::OptimizerType;
 use ndarray::array;
@@ -35,71 +36,61 @@ fn main() {
 
     // Test 1: Sans régularisation
     println!("--- 1. Sans Régularisation (Baseline) ---");
-    let mut network_baseline = Network::new(
-        2,
-        hidden_size,
-        1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01),
-    );
+    let mut network_baseline = NetworkBuilder::new(2, 1)
+        .hidden_layer(hidden_size, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .build();
 
     train_and_evaluate(&mut network_baseline, "Baseline", &inputs, &targets, epochs);
 
     // Test 2: Avec Dropout
     println!("\n--- 2. Avec Dropout (rate=0.3) ---");
-    let mut network_dropout = Network::new(
-        2,
-        hidden_size,
-        1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01),
-    ).with_dropout(0.3);  // 30% des neurones désactivés
+    let mut network_dropout = NetworkBuilder::new(2, 1)
+        .hidden_layer(hidden_size, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .dropout(0.3)  // 30% des neurones désactivés
+        .build();
 
     train_and_evaluate(&mut network_dropout, "Dropout", &inputs, &targets, epochs);
 
     // Test 3: Avec L2 (Weight Decay)
     println!("\n--- 3. Avec L2 Regularization (lambda=0.01) ---");
-    let mut network_l2 = Network::new(
-        2,
-        hidden_size,
-        1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01),
-    ).with_l2(0.01);
+    let mut network_l2 = NetworkBuilder::new(2, 1)
+        .hidden_layer(hidden_size, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .l2(0.01)
+        .build();
 
     train_and_evaluate(&mut network_l2, "L2", &inputs, &targets, epochs);
 
     // Test 4: Avec L1 (Sparsity)
     println!("\n--- 4. Avec L1 Regularization (lambda=0.01) ---");
-    let mut network_l1 = Network::new(
-        2,
-        hidden_size,
-        1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01),
-    ).with_l1(0.01);
+    let mut network_l1 = NetworkBuilder::new(2, 1)
+        .hidden_layer(hidden_size, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .l1(0.01)
+        .build();
 
     train_and_evaluate(&mut network_l1, "L1", &inputs, &targets, epochs);
 
     // Test 5: Combiné (Dropout + L2)
     println!("\n--- 5. Dropout + L2 (Combiné) ---");
-    let mut network_combined = Network::new(
-        2,
-        hidden_size,
-        1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01),
-    ).with_dropout(0.2).with_l2(0.005);
+    let mut network_combined = NetworkBuilder::new(2, 1)
+        .hidden_layer(hidden_size, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .dropout(0.2)
+        .l2(0.005)
+        .build();
 
     train_and_evaluate(&mut network_combined, "Combined", &inputs, &targets, epochs);
 

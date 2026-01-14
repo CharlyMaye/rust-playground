@@ -214,13 +214,13 @@ mod tests {
 
     #[test]
     fn test_save_load_json() {
-        let network = Network::new(
-            2, 3, 1,
-            Activation::Tanh,
-            Activation::Sigmoid,
-            LossFunction::MSE,
-            OptimizerType::sgd(0.1)
-        );
+        use crate::builder::NetworkBuilder;
+        let network = NetworkBuilder::new(2, 1)
+            .hidden_layer(3, Activation::Tanh)
+            .output_activation(Activation::Sigmoid)
+            .loss(LossFunction::MSE)
+            .optimizer(OptimizerType::sgd(0.1))
+            .build();
 
         let path = "test_model.json";
         
@@ -241,13 +241,13 @@ mod tests {
 
     #[test]
     fn test_save_load_binary() {
-        let network = Network::new(
-            2, 3, 1,
-            Activation::Tanh,
-            Activation::Sigmoid,
-            LossFunction::MSE,
-            OptimizerType::adam(0.001)
-        );
+        use crate::builder::NetworkBuilder;
+        let network = NetworkBuilder::new(2, 1)
+            .hidden_layer(3, Activation::Tanh)
+            .output_activation(Activation::Sigmoid)
+            .loss(LossFunction::MSE)
+            .optimizer(OptimizerType::adam(0.001))
+            .build();
 
         let path = "test_model.bin";
         
@@ -267,13 +267,13 @@ mod tests {
 
     #[test]
     fn test_serialized_size() {
-        let network = Network::new(
-            2, 5, 1,
-            Activation::ReLU,
-            Activation::Sigmoid,
-            LossFunction::BinaryCrossEntropy,
-            OptimizerType::sgd(0.1)
-        );
+        use crate::builder::NetworkBuilder;
+        let network = NetworkBuilder::new(2, 1)
+            .hidden_layer(5, Activation::ReLU)
+            .output_activation(Activation::Sigmoid)
+            .loss(LossFunction::BinaryCrossEntropy)
+            .optimizer(OptimizerType::sgd(0.1))
+            .build();
 
         let (json_size, bin_size) = get_serialized_size(&network);
         

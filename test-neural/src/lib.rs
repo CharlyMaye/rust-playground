@@ -41,3 +41,4 @@ pub mod dataset;
 pub mod callbacks;
 pub mod io;
 pub mod metrics;
+pub mod builder;

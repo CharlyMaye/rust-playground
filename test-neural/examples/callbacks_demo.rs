@@ -7,12 +7,13 @@
 /// - ProgressBar: Shows training progress in real-time
 /// - Combining multiple callbacks
 
-use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::network::{Activation, LossFunction};
 use test_neural::optimizer::OptimizerType;
 use test_neural::dataset::Dataset;
+use test_neural::builder::{NetworkBuilder, NetworkTrainer};
 use test_neural::callbacks::{
     EarlyStopping, ModelCheckpoint, LearningRateScheduler, ProgressBar, 
-    LRSchedule, Callback
+    LRSchedule
 };
 use ndarray::array;
 
@@ -41,100 +42,96 @@ fn main() {
     
     // ===== 1. Sans callbacks (baseline) =====
     println!("--- 1. Sans Callbacks (Baseline) ---");
-    let mut network_baseline = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01)
-    );
+    let mut network_baseline = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .build();
     
-    let mut train_data = train.clone();
-    for epoch in 0..100 {
-        train_data.shuffle();
-        for (batch_inputs, batch_targets) in train_data.batches(32) {
-            network_baseline.train_batch(&batch_inputs, &batch_targets);
-        }
-        
-        if (epoch + 1) % 20 == 0 {
-            let val_loss = network_baseline.evaluate(val.inputs(), val.targets());
-            println!("Epoch {}: val_loss = {:.6}", epoch + 1, val_loss);
-        }
-    }
+    let history = network_baseline.trainer()
+        .train_data(&train)
+        .validation_data(&val)
+        .epochs(100)
+        .batch_size(32)
+        .fit();
     
-    let final_loss = network_baseline.evaluate(val.inputs(), val.targets());
+    let final_loss = history.last().unwrap().1.unwrap();
     println!("✓ Loss finale: {:.6}\n", final_loss);
     
     // ===== 2. Avec EarlyStopping =====
     println!("--- 2. Avec EarlyStopping (patience=10) ---");
-    let mut network_early = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01)
-    );
+    let mut network_early = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .build();
     
-    let mut callbacks: Vec<Box<dyn Callback>> = vec![
-        Box::new(EarlyStopping::new(10, 0.0001)),
-    ];
-    
-    let history = network_early.fit(&train, Some(&val), 100, 32, &mut callbacks);
+    let history = network_early.trainer()
+        .train_data(&train)
+        .validation_data(&val)
+        .epochs(100)
+        .batch_size(32)
+        .callback(Box::new(EarlyStopping::new(10, 0.0001)))
+        .fit();
     
     println!("✓ Arrêté après {} epochs", history.len());
     println!("✓ Loss finale: {:.6}\n", history.last().unwrap().1.unwrap());
     
     // ===== 3. Avec ModelCheckpoint =====
     println!("--- 3. Avec ModelCheckpoint ---");
-    let mut network_checkpoint = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01)
-    );
+    let mut network_checkpoint = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .build();
     
-    let mut callbacks: Vec<Box<dyn Callback>> = vec![
-        Box::new(ModelCheckpoint::new("best_xor_model.json", true)),
-    ];
-    
-    let history = network_checkpoint.fit(&train, Some(&val), 50, 32, &mut callbacks);
+    let history = network_checkpoint.trainer()
+        .train_data(&train)
+        .validation_data(&val)
+        .epochs(50)
+        .batch_size(32)
+        .callback(Box::new(ModelCheckpoint::new("best_xor_model.json", true)))
+        .fit();
     
     println!("✓ Entraînement terminé ({} epochs)", history.len());
     println!("✓ Meilleur modèle sauvegardé dans best_xor_model.json\n");
     
     // ===== 4. Avec LearningRateScheduler (StepLR) =====
     println!("--- 4. Avec LearningRateScheduler (StepLR) ---");
-    let mut network_step = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.1)  // LR plus élevé au départ
-    );
+    let mut network_step = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.1))
+        .build();
     
-    let mut scheduler = LearningRateScheduler::new(
+    let scheduler = LearningRateScheduler::new(
         LRSchedule::StepLR { step_size: 15, gamma: 0.5 }
     );
     
-    let mut callbacks: Vec<Box<dyn Callback>> = vec![];
-    
-    let history = network_step.fit_with_scheduler(&train, Some(&val), 50, 32, &mut scheduler, &mut callbacks);
+    let history = network_step.trainer()
+        .train_data(&train)
+        .validation_data(&val)
+        .epochs(50)
+        .batch_size(32)
+        .scheduler(scheduler)
+        .fit();
     
     println!("✓ Loss finale: {:.6}", history.last().unwrap().1.unwrap());
-    println!("✓ LR final: {:.6}\n", scheduler.current_lr());
     
     // ===== 5. Avec LearningRateScheduler (ReduceOnPlateau) =====
     println!("--- 5. Avec LearningRateScheduler (ReduceOnPlateau) ---");
-    let mut network_plateau = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01)
-    );
+    let mut network_plateau = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .build();
     
-    let mut scheduler = LearningRateScheduler::new(
+    let scheduler = LearningRateScheduler::new(
         LRSchedule::ReduceOnPlateau { 
             patience: 5, 
             factor: 0.5, 
@@ -142,66 +139,71 @@ fn main() {
         }
     );
     
-    let mut callbacks: Vec<Box<dyn Callback>> = vec![];
+    let history = network_plateau.trainer()
+        .train_data(&train)
+        .validation_data(&val)
+        .epochs(50)
+        .batch_size(32)
+        .scheduler(scheduler)
+        .fit();
     
-    let history = network_plateau.fit_with_scheduler(&train, Some(&val), 50, 32, &mut scheduler, &mut callbacks);
-    
-    println!("✓ Loss finale: {:.6}", history.last().unwrap().1.unwrap());
-    println!("✓ LR final: {:.6}\n", scheduler.current_lr());
+    println!("✓ Loss finale: {:.6}\n", history.last().unwrap().1.unwrap());
     
     // ===== 6. Avec LearningRateScheduler (ExponentialLR) =====
     println!("--- 6. Avec LearningRateScheduler (ExponentialLR) ---");
-    let mut network_exp = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.05)  // LR plus élevé au départ
-    );
+    let mut network_exp = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.05))
+        .build();
     
-    let mut scheduler = LearningRateScheduler::new(
+    let scheduler = LearningRateScheduler::new(
         LRSchedule::ExponentialLR { gamma: 0.95 }
     );
     
-    let mut callbacks: Vec<Box<dyn Callback>> = vec![];
+    let history = network_exp.trainer()
+        .train_data(&train)
+        .validation_data(&val)
+        .epochs(50)
+        .batch_size(32)
+        .scheduler(scheduler)
+        .fit();
     
-    let history = network_exp.fit_with_scheduler(&train, Some(&val), 50, 32, &mut scheduler, &mut callbacks);
-    
-    println!("✓ Loss finale: {:.6}", history.last().unwrap().1.unwrap());
-    println!("✓ LR final: {:.6}\n", scheduler.current_lr());
+    println!("✓ Loss finale: {:.6}\n", history.last().unwrap().1.unwrap());
     
     // ===== 7. Combinaison: EarlyStopping + ModelCheckpoint + ProgressBar =====
     println!("--- 7. Combinaison Optimale: EarlyStopping + ModelCheckpoint + ProgressBar ---");
-    let mut network_combined = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01)
-    );
+    let mut network_combined = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .build();
     
-    let mut callbacks: Vec<Box<dyn Callback>> = vec![
-        Box::new(EarlyStopping::new(15, 0.0001)),
-        Box::new(ModelCheckpoint::new("best_combined_model.json", true)),
-        Box::new(ProgressBar::new(100)),
-    ];
-    
-    let history = network_combined.fit(&train, Some(&val), 100, 32, &mut callbacks);
+    let history = network_combined.trainer()
+        .train_data(&train)
+        .validation_data(&val)
+        .epochs(100)
+        .batch_size(32)
+        .callback(Box::new(EarlyStopping::new(15, 0.0001)))
+        .callback(Box::new(ModelCheckpoint::new("best_combined_model.json", true)))
+        .callback(Box::new(ProgressBar::new(100)))
+        .fit();
     
     println!("\n✓ Entraînement terminé ({} epochs)", history.len());
     println!("✓ Loss finale: {:.6}\n", history.last().unwrap().1.unwrap());
     
     // ===== 8. Combinaison ultime: Tous les callbacks =====
     println!("--- 8. Combinaison Ultime: LR Scheduler + All Callbacks ---");
-    let mut network_ultimate = Network::new(
-        2, 8, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.05)  // LR élevé car géré par scheduler
-    );
+    let mut network_ultimate = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.05))
+        .build();
     
-    let mut scheduler = LearningRateScheduler::new(
+    let scheduler = LearningRateScheduler::new(
         LRSchedule::ReduceOnPlateau { 
             patience: 10, 
             factor: 0.5, 
@@ -209,17 +211,19 @@ fn main() {
         }
     );
     
-    let mut callbacks: Vec<Box<dyn Callback>> = vec![
-        Box::new(EarlyStopping::new(20, 0.00001)),
-        Box::new(ModelCheckpoint::new("best_ultimate_model.json", true)),
-        Box::new(ProgressBar::new(100)),
-    ];
-    
-    let history = network_ultimate.fit_with_scheduler(&train, Some(&val), 100, 32, &mut scheduler, &mut callbacks);
+    let history = network_ultimate.trainer()
+        .train_data(&train)
+        .validation_data(&val)
+        .epochs(100)
+        .batch_size(32)
+        .scheduler(scheduler)
+        .callback(Box::new(EarlyStopping::new(20, 0.00001)))
+        .callback(Box::new(ModelCheckpoint::new("best_ultimate_model.json", true)))
+        .callback(Box::new(ProgressBar::new(100)))
+        .fit();
     
     println!("\n✓ Entraînement terminé ({} epochs)", history.len());
-    println!("✓ Loss finale: {:.6}", history.last().unwrap().1.unwrap());
-    println!("✓ LR final: {:.6}\n", scheduler.current_lr());
+    println!("✓ Loss finale: {:.6}\n", history.last().unwrap().1.unwrap());
     
     // ===== Summary =====
     println!("=== Résumé ===\n");

@@ -5,6 +5,7 @@ fn main() {
     println!("This is a library for building neural networks in Rust.");
     println!();
     println!("Features:");
+    println!("  • Builder Pattern: Fluent API for easy construction");
     println!("  • 15 activation functions (Sigmoid, ReLU, Tanh, GELU, Mish, etc.)");
     println!("  • 5 loss functions (MSE, MAE, BCE, CCE, Huber)");
     println!("  • 5 optimizers (SGD, Momentum, RMSprop, Adam, AdamW)");
@@ -17,6 +18,7 @@ fn main() {
     println!("  • Evaluation metrics (accuracy, precision, recall, F1, ROC/AUC)");
     println!();
     println!("To see examples, run:");
+    println!("  cargo run --example builder_showcase     - ⭐ Builder Pattern showcase (START HERE!)");
     println!("  cargo run --example xor_tests            - Test all loss functions and deep networks");
     println!("  cargo run --example serialization        - Demo save/load functionality");
     println!("  cargo run --example metrics_demo         - Demo evaluation metrics (accuracy, F1, etc.)");

@@ -444,9 +444,14 @@ mod tests {
 
     #[test]
     fn test_early_stopping_triggers() {
+        use crate::builder::NetworkBuilder;
         let mut early_stop = EarlyStopping::new(3, 0.001);
-        let network = Network::new(2, 5, 1, Activation::Sigmoid, Activation::Sigmoid, 
-                                   LossFunction::MSE, OptimizerType::sgd(0.1));
+        let network = NetworkBuilder::new(2, 1)
+            .hidden_layer(5, Activation::Sigmoid)
+            .output_activation(Activation::Sigmoid)
+            .loss(LossFunction::MSE)
+            .optimizer(OptimizerType::sgd(0.1))
+            .build();
         
         early_stop.on_train_begin(&network);
         
@@ -461,9 +466,14 @@ mod tests {
 
     #[test]
     fn test_early_stopping_improvement() {
+        use crate::builder::NetworkBuilder;
         let mut early_stop = EarlyStopping::new(3, 0.001);
-        let network = Network::new(2, 5, 1, Activation::Sigmoid, Activation::Sigmoid,
-                                   LossFunction::MSE, OptimizerType::sgd(0.1));
+        let network = NetworkBuilder::new(2, 1)
+            .hidden_layer(5, Activation::Sigmoid)
+            .output_activation(Activation::Sigmoid)
+            .loss(LossFunction::MSE)
+            .optimizer(OptimizerType::sgd(0.1))
+            .build();
         
         early_stop.on_train_begin(&network);
         
@@ -478,12 +488,17 @@ mod tests {
 
     #[test]
     fn test_lr_scheduler_step() {
+        use crate::builder::NetworkBuilder;
         let mut scheduler = LearningRateScheduler::new(
             LRSchedule::StepLR { step_size: 2, gamma: 0.5 }
         );
         
-        let network = Network::new(2, 5, 1, Activation::Sigmoid, Activation::Sigmoid,
-                                   LossFunction::MSE, OptimizerType::sgd(1.0));
+        let network = NetworkBuilder::new(2, 1)
+            .hidden_layer(5, Activation::Sigmoid)
+            .output_activation(Activation::Sigmoid)
+            .loss(LossFunction::MSE)
+            .optimizer(OptimizerType::sgd(1.0))
+            .build();
         
         // Initialise manuellement le LR (normalement fait par fit())
         scheduler.current_lr = 1.0;

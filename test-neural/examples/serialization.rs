@@ -1,4 +1,5 @@
-use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::builder::NetworkBuilder;
+use test_neural::network::{Activation, LossFunction};
 use test_neural::optimizer::OptimizerType;
 use test_neural::io;
 use ndarray::array;
@@ -8,13 +9,12 @@ fn main() {
     
     // 1. Create and train a network
     println!("1. Creating and training network on XOR...");
-    let mut network = Network::new(
-        2, 5, 1,
-        Activation::Tanh,
-        Activation::Sigmoid,
-        LossFunction::BinaryCrossEntropy,
-        OptimizerType::adam(0.01)
-    );
+    let mut network = NetworkBuilder::new(2, 1)
+        .hidden_layer(5, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .build();
     
     let inputs = vec![
         array![0.0, 0.0],

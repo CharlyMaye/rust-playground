@@ -1,5 +1,6 @@
-use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::network::{Activation, LossFunction};
 use test_neural::optimizer::OptimizerType;
+use test_neural::builder::NetworkBuilder;
 use ndarray::array;
 
 fn main() {
@@ -20,7 +21,7 @@ fn main() {
     ];
     
     let learning_rate = 0.5;
-    let epochs = 50_000;
+    let _epochs = 50_000;
     
     // Test 1: MSE
     test_loss("MSE", 
@@ -105,7 +106,12 @@ fn test_loss(
     learning_rate: f64,
     epochs: usize,
 ) {
-    let mut network = Network::new(2, 5, 1, hidden_act, output_act, loss, OptimizerType::sgd(learning_rate));
+    let mut network = NetworkBuilder::new(2, 1)
+        .hidden_layer(5, hidden_act)
+        .output_activation(output_act)
+        .loss(loss)
+        .optimizer(OptimizerType::sgd(learning_rate))
+        .build();
     
     println!("--- {} ---", name);
     let initial_loss = network.evaluate(inputs, targets);
@@ -150,7 +156,16 @@ fn test_loss_deep(
     learning_rate: f64,
     epochs: usize,
 ) {
-    let mut network = Network::new_deep(2, hidden_sizes.clone(), 1, hidden_acts, output_act, loss, OptimizerType::sgd(learning_rate));
+    // Ajouter les couches cachées
+    let mut builder = NetworkBuilder::new(2, 1);
+    for (size, act) in hidden_sizes.iter().zip(hidden_acts.iter()) {
+        builder = builder.hidden_layer(*size, *act);
+    }
+    let mut network = builder
+        .output_activation(output_act)
+        .loss(loss)
+        .optimizer(OptimizerType::sgd(learning_rate))
+        .build();
     
     println!("--- {} ---", name);
     let initial_loss = network.evaluate(inputs, targets);

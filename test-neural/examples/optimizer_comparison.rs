@@ -3,7 +3,8 @@
 /// Compare SGD, Momentum, RMSprop, Adam et AdamW pour montrer
 /// les différences de vitesse de convergence.
 
-use test_neural::network::{Network, Activation, LossFunction};
+use test_neural::builder::NetworkBuilder;
+use test_neural::network::{ Activation, LossFunction};
 use test_neural::optimizer::OptimizerType;
 use ndarray::array;
 
@@ -42,15 +43,12 @@ fn main() {
         println!("--- {} ---", name);
         
         // Créer le réseau avec cet optimiseur
-        let mut network = Network::new(
-            2,
-            hidden_size,
-            1,
-            Activation::Tanh,
-            Activation::Sigmoid,
-            LossFunction::BinaryCrossEntropy,
-            optimizer,
-        );
+        let mut network = NetworkBuilder::new(2, 1)
+            .hidden_layer(hidden_size, Activation::Tanh)
+            .output_activation(Activation::Sigmoid)
+            .loss(LossFunction::BinaryCrossEntropy)
+            .optimizer(optimizer.clone())
+            .build();
 
         // Entraînement
         let mut final_loss = 0.0;
