@@ -11,7 +11,7 @@ use test_neural::builder::{NetworkBuilder, NetworkTrainer};
 use test_neural::network::{Activation, LossFunction};
 use test_neural::optimizer::OptimizerType;
 use test_neural::dataset::Dataset;
-use test_neural::callbacks::{EarlyStopping, LearningRateScheduler, LRSchedule, ProgressBar};
+use test_neural::callbacks::{EarlyStopping, DeltaMode, LearningRateScheduler, LRSchedule, ProgressBar};
 use test_neural::metrics::{accuracy, binary_metrics};
 use test_neural::io;
 use ndarray::array;
@@ -136,17 +136,17 @@ fn main() {
         .build();
 
     println!("   Configuration:");
-    println!("   • EarlyStopping (patience=15)");
-    println!("   • ModelCheckpoint (saves best model)");
+    println!("   • EarlyStopping (patience=15, 0.1% relative improvement)");
     println!("   • LR Scheduler (ReduceOnPlateau)\n");
-    
+
+    let epoch = 1_000;
     let history = network.trainer()
         .train_data(&train)
         .validation_data(&val)
-        .epochs(100)
+        .epochs(epoch)
         .batch_size(32)
-        .callback(Box::new(EarlyStopping::new(15, 0.00001)))
-        .callback(Box::new(ProgressBar::new(100)))
+        .callback(Box::new(EarlyStopping::new(15, 0.001).mode(DeltaMode::Relative)))  // 0.1% improvement
+        .callback(Box::new(ProgressBar::new(epoch)))
         .scheduler(LearningRateScheduler::new(
             LRSchedule::ReduceOnPlateau {
                 patience: 10,

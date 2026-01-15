@@ -53,27 +53,52 @@ pub trait Callback {
 ///
 /// # Example
 /// ```rust
-/// use test_neural::callbacks::EarlyStopping;
+/// use test_neural::callbacks::{EarlyStopping, DeltaMode};
 ///
-/// let early_stop = EarlyStopping::new(10, 0.0001);  // patience=10, min_delta=0.0001
+/// // Absolute comparison (default): improvement if loss decreases by at least min_delta
+/// let early_stop = EarlyStopping::new(10, 0.0001);
+///
+/// // Relative comparison: improvement if loss decreases by at least min_delta * best_loss
+/// let early_stop_relative = EarlyStopping::new(10, 0.01)  // 1% improvement required
+///     .mode(DeltaMode::Relative);
 /// ```
+
+/// Comparison mode for determining improvement.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DeltaMode {
+    /// Absolute comparison: improvement if `loss < best_loss - min_delta`
+    Absolute,
+    /// Relative comparison: improvement if `loss < best_loss * (1 - min_delta)`
+    /// Use min_delta as a percentage (e.g., 0.01 for 1%)
+    Relative,
+}
+
+impl Default for DeltaMode {
+    fn default() -> Self {
+        DeltaMode::Absolute
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct EarlyStopping {
     /// Number of epochs to wait without improvement before stopping
     patience: usize,
-    
+
     /// Minimum improvement required to count as improvement
     min_delta: f64,
-    
+
+    /// Comparison mode (absolute or relative)
+    delta_mode: DeltaMode,
+
     /// Best loss observed
     best_loss: f64,
-    
+
     /// Number of epochs without improvement
     wait: usize,
-    
+
     /// Indicates if training should stop
     stopped: bool,
-    
+
     /// Epoch where the best model was found
     best_epoch: usize,
 }
@@ -83,18 +108,39 @@ impl EarlyStopping {
     ///
     /// # Arguments
     /// - `patience`: Number of epochs to wait without improvement
-    /// - `min_delta`: Minimum required improvement (e.g., 0.0001)
+    /// - `min_delta`: Minimum required improvement
+    ///   - In Absolute mode (default): absolute value (e.g., 0.0001)
+    ///   - In Relative mode: percentage (e.g., 0.01 for 1%)
     pub fn new(patience: usize, min_delta: f64) -> Self {
         EarlyStopping {
             patience,
             min_delta,
+            delta_mode: DeltaMode::default(),
             best_loss: f64::INFINITY,
             wait: 0,
             stopped: false,
             best_epoch: 0,
         }
     }
-    
+
+    /// Sets the comparison mode (builder pattern).
+    ///
+    /// # Arguments
+    /// - `mode`: `DeltaMode::Absolute` or `DeltaMode::Relative`
+    ///
+    /// # Example
+    /// ```rust
+    /// use test_neural::callbacks::{EarlyStopping, DeltaMode};
+    ///
+    /// // Require 1% relative improvement
+    /// let early_stop = EarlyStopping::new(10, 0.01)
+    ///     .mode(DeltaMode::Relative);
+    /// ```
+    pub fn mode(mut self, mode: DeltaMode) -> Self {
+        self.delta_mode = mode;
+        self
+    }
+
     /// Returns whether training was stopped.
     pub fn stopped(&self) -> bool {
         self.stopped
@@ -121,8 +167,19 @@ impl Callback for EarlyStopping {
     
     fn on_epoch_end(&mut self, epoch: usize, _network: &Network, _train_loss: f64, val_loss: Option<f64>) -> bool {
         if let Some(loss) = val_loss {
-            // Amélioration si loss diminue de plus de min_delta
-            if loss < self.best_loss - self.min_delta {
+            // Check improvement based on delta mode
+            let improved = match self.delta_mode {
+                DeltaMode::Absolute => loss < self.best_loss - self.min_delta,
+                DeltaMode::Relative => {
+                    if self.best_loss.is_infinite() {
+                        true  // First epoch is always an improvement
+                    } else {
+                        loss < self.best_loss * (1.0 - self.min_delta)
+                    }
+                }
+            };
+
+            if improved {
                 self.best_loss = loss;
                 self.best_epoch = epoch;
                 self.wait = 0;
@@ -130,9 +187,9 @@ impl Callback for EarlyStopping {
                 self.wait += 1;
                 if self.wait >= self.patience {
                     self.stopped = true;
-                    println!("⚠️ EarlyStopping: Arrêt à l'epoch {} (meilleur epoch: {}, loss: {:.6})", 
+                    println!("\n⚠️ EarlyStopping: Stopped at epoch {} (best epoch: {}, loss: {:.6})",
                              epoch, self.best_epoch, self.best_loss);
-                    return false;  // Arrête l'entraînement
+                    return false;  // Stop training
                 }
             }
         }

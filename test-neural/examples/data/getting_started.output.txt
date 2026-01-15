@@ -1,0 +1,124 @@
+╔══════════════════════════════════════════════════════════════╗
+║         Test Neural - Getting Started Guide                  ║
+╚══════════════════════════════════════════════════════════════╝
+
+📦 1. Data preparation (XOR problem)
+
+   Train: 320 samples | Validation: 80 samples
+
+🔧 2. Building a network with the Builder Pattern
+
+   ✓ Network created: 2 → [8] → 1
+   ✓ Activation: Tanh → Sigmoid
+   ✓ Optimizer: Adam (lr=0.01)
+
+🛡️  3. Network with regularization (Dropout + L2)
+
+   ✓ Architecture: 2 → [16, 8] → 1
+   ✓ Dropout: 0.2 (prevents overfitting)
+   ✓ L2: 0.001 (penalizes large weights)
+
+⚡ 4. Quick optimizer comparison
+
+   SGD        → Final loss: 0.693186
+   Momentum   → Final loss: 0.000458
+   Adam       → Final loss: 0.002354
+
+📊 5. Training with callbacks
+
+   Configuration:
+   • EarlyStopping (patience=15, 0.1% relative improvement)
+   • LR Scheduler (ReduceOnPlateau)
+
+🚀 Début de l'entraînement (1000 epochs)
+Epoch 10/1000 [1.0%] - train_loss: 0.008165 - val_loss: 0.008165 - ETA: 22s   
+Epoch 20/1000 [2.0%] - train_loss: 0.001830 - val_loss: 0.001830 - ETA: 21s   
+Epoch 30/1000 [3.0%] - train_loss: 0.000852 - val_loss: 0.000852 - ETA: 21s   
+Epoch 40/1000 [4.0%] - train_loss: 0.000509 - val_loss: 0.000509 - ETA: 21s   
+Epoch 50/1000 [5.0%] - train_loss: 0.000345 - val_loss: 0.000345 - ETA: 20s   
+Epoch 60/1000 [6.0%] - train_loss: 0.000251 - val_loss: 0.000251 - ETA: 20s   
+Epoch 64/1000 [6.4%] - train_loss: 0.000225 - val_loss: 0.000225 - ETA: 20s   
+📉 LR Scheduler: Epoch 64 - Plateau detected, reducing LR 0.050000 → 0.025000
+Epoch 70/1000 [7.0%] - train_loss: 0.000205 - val_loss: 0.000205 - ETA: 20s   
+Epoch 74/1000 [7.4%] - train_loss: 0.000195 - val_loss: 0.000195 - ETA: 20s   
+📉 LR Scheduler: Epoch 74 - Plateau detected, reducing LR 0.025000 → 0.012500
+Epoch 80/1000 [8.0%] - train_loss: 0.000186 - val_loss: 0.000186 - ETA: 20s   
+Epoch 85/1000 [8.5%] - train_loss: 0.000180 - val_loss: 0.000180 - ETA: 20s   
+📉 LR Scheduler: Epoch 85 - Plateau detected, reducing LR 0.012500 → 0.006250
+Epoch 90/1000 [9.0%] - train_loss: 0.000177 - val_loss: 0.000177 - ETA: 20s   
+Epoch 95/1000 [9.5%] - train_loss: 0.000174 - val_loss: 0.000174 - ETA: 20s   
+📉 LR Scheduler: Epoch 95 - Plateau detected, reducing LR 0.006250 → 0.003125
+Epoch 100/1000 [10.0%] - train_loss: 0.000172 - val_loss: 0.000172 - ETA: 19s   
+Epoch 105/1000 [10.5%] - train_loss: 0.000170 - val_loss: 0.000170 - ETA: 19s   
+📉 LR Scheduler: Epoch 105 - Plateau detected, reducing LR 0.003125 → 0.001563
+Epoch 110/1000 [11.0%] - train_loss: 0.000170 - val_loss: 0.000170 - ETA: 19s   
+Epoch 115/1000 [11.5%] - train_loss: 0.000169 - val_loss: 0.000169 - ETA: 19s   
+📉 LR Scheduler: Epoch 115 - Plateau detected, reducing LR 0.001563 → 0.000781
+Epoch 120/1000 [12.0%] - train_loss: 0.000168 - val_loss: 0.000168 - ETA: 19s   
+Epoch 125/1000 [12.5%] - train_loss: 0.000168 - val_loss: 0.000168 - ETA: 19s   
+📉 LR Scheduler: Epoch 125 - Plateau detected, reducing LR 0.000781 → 0.000391
+Epoch 130/1000 [13.0%] - train_loss: 0.000168 - val_loss: 0.000168 - ETA: 19s   
+Epoch 135/1000 [13.5%] - train_loss: 0.000167 - val_loss: 0.000167 - ETA: 19s   
+📉 LR Scheduler: Epoch 135 - Plateau detected, reducing LR 0.000391 → 0.000195
+Epoch 140/1000 [14.0%] - train_loss: 0.000167 - val_loss: 0.000167 - ETA: 19s   
+Epoch 145/1000 [14.5%] - train_loss: 0.000167 - val_loss: 0.000167 - ETA: 18s   
+📉 LR Scheduler: Epoch 145 - Plateau detected, reducing LR 0.000195 → 0.000098
+Epoch 150/1000 [15.0%] - train_loss: 0.000167 - val_loss: 0.000167 - ETA: 18s   
+Epoch 155/1000 [15.5%] - train_loss: 0.000167 - val_loss: 0.000167 - ETA: 18s   
+📉 LR Scheduler: Epoch 155 - Plateau detected, reducing LR 0.000098 → 0.000049
+Epoch 160/1000 [16.0%] - train_loss: 0.000167 - val_loss: 0.000167 - ETA: 18s   
+Epoch 162/1000 [16.2%] - train_loss: 0.000167 - val_loss: 0.000167 - ETA: 18s   
+⚠️ EarlyStopping: Stopped at epoch 162 (best epoch: 147, loss: 0.000167)
+✅ Entraînement terminé en 3.52s
+
+   ✓ Training completed in 163 epochs
+   ✓ Final loss - Train: 0.000167 | Val: 0.000167
+
+📈 6. Evaluation and metrics
+
+   Predictions:
+   [0, 0] → 0.000 (expected 0) ✓
+   [0, 1] → 1.000 (expected 1) ✓
+   [1, 0] → 1.000 (expected 1) ✓
+   [1, 1] → 0.000 (expected 0) ✓
+
+   Metrics:
+   • Accuracy:  100.0%
+   • Precision: 1.000
+   • Recall:    1.000
+   • F1-Score:  1.000
+
+🔄 7. Model comparison
+
+   ┌─────────────────────┬───────────────┬───────────────┐
+   │      Model          │     Loss      │   Accuracy    │
+   ├─────────────────────┼───────────────┼───────────────┤
+   │ Previous (saved)    │   0.000158    │    100.0%      │
+   │ Current  (new)      │   0.000167    │    100.0%      │
+   └─────────────────────┴───────────────┴───────────────┘
+
+   ❌ Analysis: Previous model is still better.
+      • Loss: 0.000158 (previous) vs 0.000167 (current)
+      • Accuracy: 100.0% (previous) vs 100.0% (current)
+   💾 Keeping previous model.
+
+╔══════════════════════════════════════════════════════════════╗
+║                        SUMMARY                               ║
+╠══════════════════════════════════════════════════════════════╣
+║ • NetworkBuilder::new(input, output)                         ║
+║     .hidden_layer(size, activation)                          ║
+║     .optimizer(OptimizerType::adam(lr))                      ║
+║     .dropout(rate).l2(lambda)                                ║
+║     .build()                                                 ║
+║                                                              ║
+║ • network.trainer()                                          ║
+║     .train_data(&dataset)                                    ║
+║     .epochs(100).batch_size(32)                              ║
+║     .callback(Box::new(...))                                 ║
+║     .fit()                                                   ║
+╚══════════════════════════════════════════════════════════════╝
+
+📚 Other examples:
+   cargo run --example serialization   - Save/Load models
+   cargo run --example minibatch_demo  - Mini-batch training
+   cargo run --example metrics_demo    - Detailed metrics
