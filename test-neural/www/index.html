@@ -426,6 +426,7 @@
             const weights = JSON.parse(network.get_weights());
             
             const svg = document.getElementById('networkViz');
+            const NS = 'http://www.w3.org/2000/svg';
             const layerSizes = [2, ...weights.layers.map(l => l.shape[0])];
             const layerX = [60, 250, 440];
             const colors = {
@@ -434,73 +435,146 @@
                 neutral: '#64748b'
             };
             
-            let html = '';
+            // Clear previous content
+            while (svg.firstChild) {
+                svg.removeChild(svg.firstChild);
+            }
             
-            // Draw connections with weights
-            // Input to hidden
+            // Helper to create SVG elements safely
+            function createLine(x1, y1, x2, y2, stroke, strokeWidth, strokeOpacity) {
+                const line = document.createElementNS(NS, 'line');
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', stroke);
+                line.setAttribute('stroke-width', strokeWidth);
+                line.setAttribute('stroke-opacity', strokeOpacity);
+                return line;
+            }
+            
+            function createCircle(cx, cy, r, fill, stroke, strokeWidth) {
+                const circle = document.createElementNS(NS, 'circle');
+                circle.setAttribute('cx', cx);
+                circle.setAttribute('cy', cy);
+                circle.setAttribute('r', r);
+                circle.setAttribute('fill', fill);
+                circle.setAttribute('stroke', stroke);
+                circle.setAttribute('stroke-width', strokeWidth);
+                return circle;
+            }
+            
+            function createText(x, y, content, options = {}) {
+                const text = document.createElementNS(NS, 'text');
+                text.setAttribute('x', x);
+                text.setAttribute('y', y);
+                text.setAttribute('text-anchor', options.anchor || 'middle');
+                text.setAttribute('fill', options.fill || 'white');
+                if (options.fontSize) text.setAttribute('font-size', options.fontSize);
+                if (options.fontWeight) text.setAttribute('font-weight', options.fontWeight);
+                text.textContent = content;
+                return text;
+            }
+            
+            // Calculate positions
             const hiddenY = getNeuronYPositions(layerSizes[1], 280);
             const inputY = getNeuronYPositions(2, 280);
             const outputY = [140];
             
-            // Connections: input → hidden
+            // Draw connections: input → hidden
             for (let i = 0; i < layerSizes[1]; i++) {
                 for (let j = 0; j < 2; j++) {
                     const w = weights.layers[0].weights[i * 2 + j];
                     const opacity = Math.min(Math.abs(w) / 5, 1);
                     const color = w > 0 ? colors.positive : colors.negative;
-                    html += `<line x1="${layerX[0]}" y1="${inputY[j]}" x2="${layerX[1]}" y2="${hiddenY[i]}" 
-                        stroke="${color}" stroke-width="${Math.abs(w) / 3 + 0.5}" stroke-opacity="${opacity * 0.6}"/>`;
+                    svg.appendChild(createLine(
+                        layerX[0], inputY[j], layerX[1], hiddenY[i],
+                        color, Math.abs(w) / 3 + 0.5, opacity * 0.6
+                    ));
                 }
             }
             
-            // Connections: hidden → output
+            // Draw connections: hidden → output
             for (let i = 0; i < layerSizes[1]; i++) {
                 const w = weights.layers[1].weights[i];
                 const opacity = Math.min(Math.abs(w) / 5, 1);
                 const color = w > 0 ? colors.positive : colors.negative;
-                html += `<line x1="${layerX[1]}" y1="${hiddenY[i]}" x2="${layerX[2]}" y2="${outputY[0]}" 
-                    stroke="${color}" stroke-width="${Math.abs(w) / 3 + 0.5}" stroke-opacity="${opacity * 0.6}"/>`;
+                svg.appendChild(createLine(
+                    layerX[1], hiddenY[i], layerX[2], outputY[0],
+                    color, Math.abs(w) / 3 + 0.5, opacity * 0.6
+                ));
             }
             
-            // Draw neurons
-            // Input layer
+            // Draw neurons - Input layer
             activations.inputs.forEach((val, i) => {
                 const intensity = val;
-                html += `<circle cx="${layerX[0]}" cy="${inputY[i]}" r="20" fill="${intensity > 0.5 ? colors.positive : colors.neutral}" stroke="white" stroke-width="2"/>`;
-                html += `<text x="${layerX[0]}" y="${inputY[i] + 5}" text-anchor="middle" fill="white" font-weight="bold" font-size="14">${val.toFixed(0)}</text>`;
-                html += `<text x="${layerX[0] - 35}" y="${inputY[i] + 5}" text-anchor="middle" fill="#94a3b8" font-size="11">${i === 0 ? 'A' : 'B'}</text>`;
+                svg.appendChild(createCircle(
+                    layerX[0], inputY[i], 20,
+                    intensity > 0.5 ? colors.positive : colors.neutral, 'white', 2
+                ));
+                svg.appendChild(createText(
+                    layerX[0], inputY[i] + 5, val.toFixed(0),
+                    { fontWeight: 'bold', fontSize: '14' }
+                ));
+                svg.appendChild(createText(
+                    layerX[0] - 35, inputY[i] + 5, i === 0 ? 'A' : 'B',
+                    { fill: '#94a3b8', fontSize: '11' }
+                ));
             });
             
-            // Hidden layer
+            // Draw neurons - Hidden layer
             const hiddenActivations = activations.layers[0].activation;
             hiddenActivations.forEach((val, i) => {
                 const normalized = (val + 1) / 2; // tanh output is -1 to 1
                 const r = Math.round(normalized * 34 + (1 - normalized) * 239);
                 const g = Math.round(normalized * 197 + (1 - normalized) * 68);
                 const b = Math.round(normalized * 94 + (1 - normalized) * 68);
-                html += `<circle cx="${layerX[1]}" cy="${hiddenY[i]}" r="16" fill="rgb(${r},${g},${b})" stroke="white" stroke-width="2"/>`;
-                html += `<text x="${layerX[1]}" y="${hiddenY[i] + 4}" text-anchor="middle" fill="white" font-size="9">${val.toFixed(2)}</text>`;
+                svg.appendChild(createCircle(
+                    layerX[1], hiddenY[i], 16,
+                    `rgb(${r},${g},${b})`, 'white', 2
+                ));
+                svg.appendChild(createText(
+                    layerX[1], hiddenY[i] + 4, val.toFixed(2),
+                    { fontSize: '9' }
+                ));
             });
             
-            // Output layer
+            // Draw neurons - Output layer
             const outputVal = activations.output;
             const outColor = outputVal > 0.5 ? colors.positive : colors.negative;
-            html += `<circle cx="${layerX[2]}" cy="${outputY[0]}" r="25" fill="${outColor}" stroke="white" stroke-width="3"/>`;
-            html += `<text x="${layerX[2]}" y="${outputY[0] + 6}" text-anchor="middle" fill="white" font-weight="bold" font-size="16">${outputVal.toFixed(2)}</text>`;
-            html += `<text x="${layerX[2] + 40}" y="${outputY[0] + 5}" text-anchor="start" fill="#94a3b8" font-size="11">Out</text>`;
+            svg.appendChild(createCircle(layerX[2], outputY[0], 25, outColor, 'white', 3));
+            svg.appendChild(createText(
+                layerX[2], outputY[0] + 6, outputVal.toFixed(2),
+                { fontWeight: 'bold', fontSize: '16' }
+            ));
+            svg.appendChild(createText(
+                layerX[2] + 40, outputY[0] + 5, 'Out',
+                { anchor: 'start', fill: '#94a3b8', fontSize: '11' }
+            ));
             
             // Layer labels
-            html += `<text x="${layerX[0]}" y="270" text-anchor="middle" fill="#64748b" font-size="10">Input</text>`;
-            html += `<text x="${layerX[1]}" y="270" text-anchor="middle" fill="#64748b" font-size="10">Hidden (Tanh)</text>`;
-            html += `<text x="${layerX[2]}" y="270" text-anchor="middle" fill="#64748b" font-size="10">Output (Sigmoid)</text>`;
+            svg.appendChild(createText(layerX[0], 270, 'Input', { fill: '#64748b', fontSize: '10' }));
+            svg.appendChild(createText(layerX[1], 270, 'Hidden (Tanh)', { fill: '#64748b', fontSize: '10' }));
+            svg.appendChild(createText(layerX[2], 270, 'Output (Sigmoid)', { fill: '#64748b', fontSize: '10' }));
             
-            svg.innerHTML = html;
+            // Update details (safe - using textContent for dynamic values)
+            const detailsEl = document.getElementById('activationDetails');
+            detailsEl.textContent = '';
             
-            // Update details
-            document.getElementById('activationDetails').innerHTML = `
-                <strong>Hidden layer activations:</strong> [${hiddenActivations.map(v => v.toFixed(3)).join(', ')}]<br>
-                <strong>Output:</strong> ${outputVal.toFixed(6)} → <strong>${outputVal > 0.5 ? '1' : '0'}</strong>
-            `;
+            const strong1 = document.createElement('strong');
+            strong1.textContent = 'Hidden layer activations: ';
+            detailsEl.appendChild(strong1);
+            detailsEl.appendChild(document.createTextNode('[' + hiddenActivations.map(v => v.toFixed(3)).join(', ') + ']'));
+            detailsEl.appendChild(document.createElement('br'));
+            
+            const strong2 = document.createElement('strong');
+            strong2.textContent = 'Output: ';
+            detailsEl.appendChild(strong2);
+            detailsEl.appendChild(document.createTextNode(outputVal.toFixed(6) + ' → '));
+            
+            const strong3 = document.createElement('strong');
+            strong3.textContent = outputVal > 0.5 ? '1' : '0';
+            detailsEl.appendChild(strong3);
         }
         
         function getNeuronYPositions(count, height) {

@@ -22,8 +22,7 @@ else
     echo ""
     
     # Build and run the training script
-    cargo build --bin train_xor --release
-    ../target/release/train_xor
+    cargo run --bin train_xor --release
     
     if [ -f "$MODEL_PATH" ]; then
         echo "   ✅ Model trained and saved successfully!"
