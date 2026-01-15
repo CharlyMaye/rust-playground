@@ -1,37 +1,19 @@
 //! WebAssembly Neural Network for XOR
 //!
 //! This module exposes a pre-trained XOR neural network via WebAssembly.
-//! The model is embedded at compile time from a JSON file.
+//! Uses cma_neural_network for all neural network operations.
 
 use wasm_bindgen::prelude::*;
-use serde::{Deserialize, Serialize};
+use cma_neural_network::network::Network;
+use ndarray::array;
 
 // Embed the pre-trained model at compile time
 const MODEL_JSON: &str = include_str!("xor_model.json");
 
-/// Simplified layer structure for WASM (no need for full Network complexity)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct ArrayData {
-    data: Vec<f64>,
-    dim: Vec<usize>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct Layer {
-    weights: ArrayData,
-    biases: ArrayData,
-    activation: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct NetworkData {
-    layers: Vec<Layer>,
-}
-
 /// XOR Neural Network exposed to JavaScript
 #[wasm_bindgen]
 pub struct XorNetwork {
-    network: NetworkData,
+    network: Network,
 }
 
 #[wasm_bindgen]
@@ -39,7 +21,7 @@ impl XorNetwork {
     /// Create a new XOR network by loading the embedded model
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<XorNetwork, JsValue> {
-        let network: NetworkData = serde_json::from_str(MODEL_JSON)
+        let network: Network = serde_json::from_str(MODEL_JSON)
             .map_err(|e| JsValue::from_str(&format!("Failed to load model: {}", e)))?;
         
         Ok(XorNetwork { network })
@@ -49,28 +31,23 @@ impl XorNetwork {
     /// Returns 0 or 1 (rounded prediction)
     #[wasm_bindgen]
     pub fn predict(&self, x1: f64, x2: f64) -> u8 {
-        let raw = self.predict_raw(x1, x2);
-        if raw > 0.5 { 1 } else { 0 }
+        let input = array![x1, x2];
+        let output = self.network.predict(&input);
+        if output[0] > 0.5 { 1 } else { 0 }
     }
 
     /// Get raw prediction value (0.0 to 1.0)
-    /// Useful for seeing the confidence of the prediction
     #[wasm_bindgen]
     pub fn predict_raw(&self, x1: f64, x2: f64) -> f64 {
-        let mut current = vec![x1, x2];
-
-        for layer in &self.network.layers {
-            current = self.forward_layer(&current, layer);
-        }
-
-        current[0]
+        let input = array![x1, x2];
+        let output = self.network.predict(&input);
+        output[0]
     }
 
     /// Get confidence percentage (0-100)
     #[wasm_bindgen]
     pub fn confidence(&self, x1: f64, x2: f64) -> f64 {
         let raw = self.predict_raw(x1, x2);
-        // Confidence is how far from 0.5 (uncertainty) we are
         let distance_from_uncertain = (raw - 0.5).abs();
         distance_from_uncertain * 2.0 * 100.0
     }
@@ -98,103 +75,54 @@ impl XorNetwork {
     /// Get model info
     #[wasm_bindgen]
     pub fn model_info(&self) -> String {
-        let layer_sizes: Vec<String> = self.network.layers
-            .iter()
-            .map(|l| format!("{}", l.weights.dim[0]))
-            .collect();
-        
-        format!("XOR Network: 2 → [{}] → 1", layer_sizes.join(", "))
+        format!("XOR Network: {}", self.network.architecture_string())
     }
 
     /// Get all weights and biases as JSON
-    /// Returns: { layers: [{ weights: [...], biases: [...], activation: "...", shape: [out, in] }] }
     #[wasm_bindgen]
     pub fn get_weights(&self) -> String {
-        let layers: Vec<String> = self.network.layers.iter().map(|l| {
+        let layers = self.network.get_layers_info();
+        let layer_data: Vec<String> = layers.iter().map(|(weights, biases, activation_name)| {
+            let shape = weights.shape();
+            
             format!(
                 r#"{{"weights":[{}],"biases":[{}],"activation":"{}","shape":[{},{}]}}"#,
-                l.weights.data.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
-                l.biases.data.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
-                l.activation,
-                l.weights.dim[0],
-                l.weights.dim[1]
+                weights.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
+                biases.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
+                activation_name,
+                shape[0],
+                shape[1]
             )
         }).collect();
         
-        format!(r#"{{"layers":[{}]}}"#, layers.join(","))
+        format!(r#"{{"layers":[{}]}}"#, layer_data.join(","))
     }
 
     /// Run inference and return all neuron activations for visualization
-    /// Returns: { inputs: [x1, x2], layers: [{ pre_activation: [...], activation: [...] }], output: value }
     #[wasm_bindgen]
     pub fn get_activations(&self, x1: f64, x2: f64) -> String {
-        let mut current = vec![x1, x2];
-        let inputs = format!("[{},{}]", x1, x2);
+        let input = array![x1, x2];
+        let activations = self.network.get_all_activations(&input);
         
-        let mut layer_activations: Vec<String> = Vec::new();
+        let inputs_json = format!("[{},{}]", x1, x2);
         
-        for layer in &self.network.layers {
-            let out_size = layer.weights.dim[0];
-            let in_size = layer.weights.dim[1];
-            
-            let mut pre_activation = vec![0.0; out_size];
-            let mut post_activation = vec![0.0; out_size];
-            
-            for i in 0..out_size {
-                let mut sum = layer.biases.data[i];
-                for j in 0..in_size {
-                    sum += layer.weights.data[i * in_size + j] * current[j];
-                }
-                pre_activation[i] = sum;
-                post_activation[i] = self.activate(sum, &layer.activation);
-            }
-            
-            layer_activations.push(format!(
+        let layers_json: Vec<String> = activations.iter().map(|(pre, post, activation_name)| {
+            format!(
                 r#"{{"pre_activation":[{}],"activation":[{}],"function":"{}"}}"#,
-                pre_activation.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
-                post_activation.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
-                layer.activation
-            ));
-            
-            current = post_activation;
-        }
+                pre.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
+                post.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
+                activation_name
+            )
+        }).collect();
+        
+        let output = activations.last().map(|(_, post, _)| post[0]).unwrap_or(0.0);
         
         format!(
             r#"{{"inputs":{},"layers":[{}],"output":{:.6}}}"#,
-            inputs,
-            layer_activations.join(","),
-            current[0]
+            inputs_json,
+            layers_json.join(","),
+            output
         )
-    }
-
-    /// Forward pass through a single layer
-    fn forward_layer(&self, input: &[f64], layer: &Layer) -> Vec<f64> {
-        let out_size = layer.weights.dim[0];
-        let in_size = layer.weights.dim[1];
-        
-        let mut output = vec![0.0; out_size];
-        
-        // Matrix multiplication: output = weights * input + biases
-        for i in 0..out_size {
-            let mut sum = layer.biases.data[i];
-            for j in 0..in_size {
-                sum += layer.weights.data[i * in_size + j] * input[j];
-            }
-            output[i] = self.activate(sum, &layer.activation);
-        }
-        
-        output
-    }
-
-    /// Apply activation function
-    fn activate(&self, x: f64, activation: &str) -> f64 {
-        match activation {
-            "Tanh" => x.tanh(),
-            "Sigmoid" => 1.0 / (1.0 + (-x).exp()),
-            "ReLU" => x.max(0.0),
-            "LeakyReLU" => if x > 0.0 { x } else { 0.01 * x },
-            "Linear" | _ => x,
-        }
     }
 }
 
@@ -210,8 +138,6 @@ pub fn main() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 }
-
-// Convenience functions for direct use without creating an instance
 
 /// Quick predict function
 #[wasm_bindgen]
