@@ -1,7 +1,7 @@
-/// Module pour gérer les datasets et l'entraînement par mini-batch
-/// 
-/// Ce module fournit des structures pour organiser les données d'entraînement,
-/// créer des batches, shuffle les données, et split train/val/test.
+//! Module pour gérer les datasets et l'entraînement par mini-batch
+//!
+//! Ce module fournit des structures pour organiser les données d'entraînement,
+//! créer des batches, shuffle les données, et split train/val/test.
 
 use ndarray::Array1;
 use rand::seq::SliceRandom;

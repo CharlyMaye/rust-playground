@@ -81,7 +81,7 @@ pub struct DropoutConfig {
 impl DropoutConfig {
     /// Crée une configuration de dropout avec le taux spécifié
     pub fn new(rate: f64) -> Self {
-        assert!(rate >= 0.0 && rate < 1.0, "Dropout rate must be in [0.0, 1.0)");
+        assert!((0.0..1.0).contains(&rate), "Dropout rate must be in [0.0, 1.0)");
         DropoutConfig { rate }
     }
 }
@@ -325,8 +325,8 @@ impl Activation {
             Activation::Mish => x.mapv(|x| x * ((1.0 + x.exp()).ln()).tanh()),
             Activation::Softplus => x.mapv(|x| (1.0 + x.exp()).ln()),
             Activation::Softsign => x.mapv(|x| x / (1.0 + x.abs())),
-            Activation::HardSigmoid => x.mapv(|x| (0.2 * x + 0.5).max(0.0).min(1.0)),
-            Activation::HardTanh => x.mapv(|x| x.max(-1.0).min(1.0)),
+            Activation::HardSigmoid => x.mapv(|x| (0.2 * x + 0.5).clamp(0.0, 1.0)),
+            Activation::HardTanh => x.mapv(|x| x.clamp(-1.0, 1.0)),
             Activation::Softmax => {
                 // Numerical stability: subtract max before exp
                 let max = x.fold(f64::NEG_INFINITY, |a, &b| a.max(b));
@@ -349,7 +349,8 @@ impl Activation {
             Activation::ELU => x.mapv(|x| if x > 0.0 { 1.0 } else { x + 1.0 }),
             Activation::SELU => {
                 let lambda = 1.0507;
-                x.mapv(|x| if x > 0.0 { lambda } else { lambda })
+                let alpha = 1.6733;
+                x.mapv(|x| if x > 0.0 { lambda } else { lambda * alpha * x.exp() })
             },
             Activation::Swish => {
                 let sigmoid = x.mapv(|x| 1.0 / (1.0 + (-x).exp()));
@@ -603,19 +604,19 @@ impl Network {
             let mut a = layer.activation.apply(&z);
             
             // Apply dropout si en mode training
-            if self.training_mode {
-                if let Some(dropout_config) = layer.dropout {
-                    let keep_prob = 1.0 - dropout_config.rate;
-                    // Créer un masque de dropout
-                    let mask: Array1<f64> = Array1::from_shape_fn(a.len(), |_| {
-                        if rng.random::<f64>() < keep_prob {
-                            1.0 / keep_prob  // Inverted dropout (scaling pendant training)
-                        } else {
-                            0.0
-                        }
-                    });
-                    a = a * mask;
-                }
+            if self.training_mode
+                && let Some(dropout_config) = layer.dropout
+            {
+                let keep_prob = 1.0 - dropout_config.rate;
+                // Créer un masque de dropout
+                let mask: Array1<f64> = Array1::from_shape_fn(a.len(), |_| {
+                    if rng.random::<f64>() < keep_prob {
+                        1.0 / keep_prob  // Inverted dropout (scaling pendant training)
+                    } else {
+                        0.0
+                    }
+                });
+                a = a * mask;
             }
             // En mode eval, pas de dropout (déjà mis à l'échelle pendant training)
             

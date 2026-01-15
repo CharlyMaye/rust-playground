@@ -18,14 +18,10 @@ fn main() {
     println!("  • Evaluation metrics (accuracy, precision, recall, F1, ROC/AUC)");
     println!();
     println!("To see examples, run:");
-    println!("  cargo run --example builder_showcase     - ⭐ Builder Pattern showcase (START HERE!)");
-    println!("  cargo run --example xor_tests            - Test all loss functions and deep networks");
-    println!("  cargo run --example serialization        - Demo save/load functionality");
-    println!("  cargo run --example metrics_demo         - Demo evaluation metrics (accuracy, F1, etc.)");
-    println!("  cargo run --example optimizer_comparison - Compare optimizers (SGD, Adam, RMSprop, etc.)");
-    println!("  cargo run --example regularization_demo  - Demo regularization (Dropout, L1, L2)");
-    println!("  cargo run --example minibatch_demo       - Demo mini-batch training (2x faster!)");
-    println!("  cargo run --example callbacks_demo       - Demo callbacks (EarlyStopping, etc.)");
+    println!("  cargo run --example getting_started   - ⭐ Complete guide (START HERE!)");
+    println!("  cargo run --example serialization     - Save/load models (JSON & binary)");
+    println!("  cargo run --example minibatch_demo    - Mini-batch training (2x faster!)");
+    println!("  cargo run --example metrics_demo      - Evaluation metrics (accuracy, F1, ROC)");
     println!();
     println!("For more information, see the readme.md file.");
 }

@@ -1,7 +1,7 @@
-/// Module d'optimiseurs pour l'entraînement des réseaux de neurones
-/// 
-/// Ce module fournit différents algorithmes d'optimisation pour mettre à jour
-/// les poids du réseau pendant l'entraînement.
+//! Module d'optimiseurs pour l'entraînement des réseaux de neurones
+//!
+//! Ce module fournit différents algorithmes d'optimisation pour mettre à jour
+//! les poids du réseau pendant l'entraînement.
 
 use ndarray::{Array1, Array2};
 use serde::{Deserialize, Serialize};
@@ -307,7 +307,6 @@ impl OptimizerState1D {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::array;
 
     #[test]
     fn test_sgd_update() {

@@ -207,7 +207,7 @@ pub fn get_serialized_size(network: &Network) -> (usize, usize) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::network::{Network, Activation, LossFunction};
+    use crate::network::{Activation, LossFunction};
     use crate::optimizer::OptimizerType;
     use ndarray::array;
     use std::fs;

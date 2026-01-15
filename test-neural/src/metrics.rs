@@ -1,16 +1,9 @@
-/// Module de métriques d'évaluation pour les réseaux de neurones
-/// 
-/// Ce module fournit diverses métriques pour évaluer la performance des modèles,
-/// notamment pour la classification binaire et multi-classes.
+//! Module de métriques d'évaluation pour les réseaux de neurones
+//!
+//! Ce module fournit diverses métriques pour évaluer la performance des modèles,
+//! notamment pour la classification binaire et multi-classes.
 
 use ndarray::{Array1, Array2};
-
-/// Type de prédiction pour classification
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum PredictionType {
-    Binary,      // Classification binaire (0 ou 1)
-    MultiClass,  // Classification multi-classes (argmax)
-}
 
 /// Résultat d'évaluation pour classification binaire
 #[derive(Debug, Clone)]
@@ -96,16 +89,6 @@ pub fn accuracy(
     }
     
     correct as f64 / predictions.len() as f64
-}
-
-/// Calcule l'accuracy pour un seul seuil
-/// Alias de `accuracy()` pour clarté
-pub fn binary_accuracy(
-    predictions: &[Array1<f64>],
-    targets: &[Array1<f64>],
-    threshold: f64,
-) -> f64 {
-    accuracy(predictions, targets, threshold)
 }
 
 /// Calcule les métriques complètes pour classification binaire
@@ -496,7 +479,6 @@ mod tests {
         assert_eq!(acc, 1.0);
     }
 
-    #[test]
     #[test]
     fn test_auc_roc_perfect() {
         let predictions = vec![

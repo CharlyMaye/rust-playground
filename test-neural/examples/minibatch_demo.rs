@@ -1,10 +1,10 @@
-/// Demonstration of mini-batch training
-/// 
-/// This example shows:
-/// - How to use the Dataset structure
-/// - Comparison between single-sample and mini-batch training
-/// - Impact of different batch sizes on training speed and convergence
-/// - Benefits of shuffling data between epochs
+//! Demonstration of mini-batch training
+//!
+//! This example shows:
+//! - How to use the Dataset structure
+//! - Comparison between single-sample and mini-batch training
+//! - Impact of different batch sizes on training speed and convergence
+//! - Benefits of shuffling data between epochs
 
 use test_neural::builder::NetworkBuilder;
 use test_neural::network::{ Activation, LossFunction};

@@ -1,13 +1,13 @@
-/// Module pour les callbacks d'entraînement
-/// 
-/// Les callbacks permettent d'injecter du code personnalisé à différents moments
-/// de l'entraînement : après chaque epoch, après chaque batch, etc.
-/// 
-/// Callbacks disponibles :
-/// - **EarlyStopping** : Arrête l'entraînement si la loss ne s'améliore plus
-/// - **ModelCheckpoint** : Sauvegarde automatique du meilleur modèle
-/// - **LearningRateScheduler** : Ajuste dynamiquement le learning rate
-/// - **ProgressBar** : Affiche la progression en temps réel
+//! Module pour les callbacks d'entraînement
+//!
+//! Les callbacks permettent d'injecter du code personnalisé à différents moments
+//! de l'entraînement : après chaque epoch, après chaque batch, etc.
+//!
+//! Callbacks disponibles :
+//! - **EarlyStopping** : Arrête l'entraînement si la loss ne s'améliore plus
+//! - **ModelCheckpoint** : Sauvegarde automatique du meilleur modèle
+//! - **LearningRateScheduler** : Ajuste dynamiquement le learning rate
+//! - **ProgressBar** : Affiche la progression en temps réel
 
 use crate::network::Network;
 use crate::optimizer::OptimizerType;
@@ -313,7 +313,7 @@ impl Callback for LearningRateScheduler {
         
         match &self.schedule {
             LRSchedule::StepLR { step_size, gamma } => {
-                if (epoch + 1) % step_size == 0 {
+                if (epoch + 1).is_multiple_of(*step_size) {
                     let new_lr = self.current_lr * gamma;
                     println!("📉 LR Scheduler: Epoch {} - Réduction LR {:.6} → {:.6}", 
                              epoch, self.current_lr, new_lr);
@@ -341,7 +341,7 @@ impl Callback for LearningRateScheduler {
             
             LRSchedule::ExponentialLR { gamma } => {
                 let new_lr = self.current_lr * gamma;
-                if epoch > 0 && epoch % 10 == 0 {
+                if epoch > 0 && epoch.is_multiple_of(10) {
                     println!("📉 LR Scheduler: Epoch {} - LR = {:.6}", epoch, new_lr);
                 }
                 self.current_lr = new_lr;
@@ -428,7 +428,7 @@ impl Callback for ProgressBar {
             std::io::stdout().flush().ok();
             
             // Nouvelle ligne tous les 10 epochs ou à la fin
-            if (epoch + 1) % 10 == 0 || epoch + 1 == self.total_epochs {
+            if (epoch + 1).is_multiple_of(10) || epoch + 1 == self.total_epochs {
                 println!();
             }
         }
@@ -439,7 +439,7 @@ impl Callback for ProgressBar {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::network::{Network, Activation, LossFunction};
+    use crate::network::{Activation, LossFunction};
     use crate::optimizer::OptimizerType;
 
     #[test]
