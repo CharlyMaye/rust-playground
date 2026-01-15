@@ -110,7 +110,11 @@ dependencies = [
 name = "neural-wasm"
 version = "0.1.0"
 dependencies = [
+ "cma-neural-network",
  "console_error_panic_hook",
+ "ndarray",
+ "serde",
+ "serde_json",
  "wasm-bindgen",
 ]
 

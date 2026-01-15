@@ -6,9 +6,22 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib"]
 
+[[bin]]
+name = "train_xor"
+path = "src/train_xor.rs"
+
 [dependencies]
 wasm-bindgen = "0.2"
 console_error_panic_hook = { version = "0.1", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [features]
 default = ["console_error_panic_hook"]
+
+# Dependencies only for native builds (training script)
+# The lib itself doesn't need cma-neural-network for WASM
+# since inference is done with pure Rust code
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+cma-neural-network = { path = "../cma-neural-network" }
+ndarray = { version = "0.17.1", features = ["serde"] }

@@ -1,21 +1,429 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
-    <title>Wasm Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 Neural XOR - WebAssembly Demo</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --text: #f1f5f9;
+            --muted: #94a3b8;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .subtitle {
+            color: var(--muted);
+            margin-bottom: 2rem;
+        }
+        
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        .card {
+            background: var(--card);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            color: var(--muted);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        /* Interactive Predictor */
+        .predictor {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .input-group {
+            text-align: center;
+        }
+        
+        .input-label {
+            font-size: 0.875rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+        }
+        
+        .toggle-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 1rem;
+            border: 3px solid var(--accent);
+            background: transparent;
+            color: var(--text);
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .toggle-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .toggle-btn.active {
+            background: var(--accent);
+            box-shadow: 0 0 20px var(--accent);
+        }
+        
+        .operator {
+            font-size: 2rem;
+            color: var(--muted);
+        }
+        
+        .result-box {
+            text-align: center;
+            padding: 1rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+            border-radius: 1rem;
+            min-width: 120px;
+        }
+        
+        .result-value {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--success);
+        }
+        
+        .result-confidence {
+            font-size: 0.875rem;
+            color: var(--muted);
+        }
+        
+        /* Truth Table */
+        .truth-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .truth-table th,
+        .truth-table td {
+            padding: 0.75rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        
+        .truth-table th {
+            color: var(--muted);
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        
+        .truth-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .truth-table .highlight {
+            background: rgba(59, 130, 246, 0.2);
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .badge-success {
+            background: rgba(34, 197, 94, 0.2);
+            color: var(--success);
+        }
+        
+        .confidence-bar {
+            width: 60px;
+            height: 6px;
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 3px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 0.5rem;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: var(--success);
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        
+        /* Model Info */
+        .model-info {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .info-item {
+            text-align: center;
+        }
+        
+        .info-value {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        
+        .info-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+        
+        /* Loading State */
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: var(--muted);
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--card);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            text-align: center;
+        }
+
+        footer {
+            margin-top: 2rem;
+            color: var(--muted);
+            font-size: 0.875rem;
+        }
+    </style>
 </head>
 <body>
-    <h1>WebAssembly Init Test</h1>
-    <div id="output">Loading...</div>
+    <h1>🧠 Neural XOR</h1>
+    <p class="subtitle">WebAssembly Neural Network Demo</p>
+
+    <div class="container">
+        <div id="loading" class="card loading">
+            <div class="spinner"></div>
+            <p>Loading Neural Network...</p>
+        </div>
+
+        <div id="app" style="display: none;">
+            <!-- Interactive Predictor -->
+            <div class="card">
+                <div class="card-title">⚡ Interactive Predictor</div>
+                <div class="predictor">
+                    <div class="input-group">
+                        <div class="input-label">Input A</div>
+                        <button id="inputA" class="toggle-btn" onclick="toggleInput('A')">0</button>
+                    </div>
+                    <div class="operator">⊕</div>
+                    <div class="input-group">
+                        <div class="input-label">Input B</div>
+                        <button id="inputB" class="toggle-btn" onclick="toggleInput('B')">0</button>
+                    </div>
+                    <div class="operator">=</div>
+                    <div class="result-box">
+                        <div id="result" class="result-value">0</div>
+                        <div id="confidence" class="result-confidence">99.0% confidence</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Truth Table -->
+            <div class="card">
+                <div class="card-title">📊 XOR Truth Table</div>
+                <table class="truth-table">
+                    <thead>
+                        <tr>
+                            <th>A</th>
+                            <th>B</th>
+                            <th>Expected</th>
+                            <th>Prediction</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="truthTable">
+                        <!-- Filled by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Model Info -->
+            <div class="card">
+                <div class="card-title">🔧 Model Information</div>
+                <div class="model-info">
+                    <div class="info-item">
+                        <div class="info-value" id="architecture">2 → 8 → 1</div>
+                        <div class="info-label">Architecture</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-value">Tanh → Sigmoid</div>
+                        <div class="info-label">Activations</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-value" id="accuracy">100%</div>
+                        <div class="info-label">Accuracy</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-value">WASM</div>
+                        <div class="info-label">Runtime</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="error" class="card error" style="display: none;">
+            <p>❌ Failed to load Neural Network</p>
+            <p id="errorMsg"></p>
+        </div>
+    </div>
+
+    <footer>
+        Built with Rust + WebAssembly • cma-neural-network
+    </footer>
 
     <script type="module">
-        import init, { add } from '../neural-wasm/pkg/neural_wasm.js';
+        import init, { XorNetwork } from '../neural-wasm/pkg/neural_wasm.js';
+
+        let network = null;
+        let inputA = 0;
+        let inputB = 0;
 
         async function run() {
-            await init();
-            const result = add(2, 3);
-            document.getElementById('output').textContent = `2 + 3 = ${result}`;
+            try {
+                await init();
+                network = new XorNetwork();
+                
+                // Hide loading, show app
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+                
+                // Fill truth table
+                updateTruthTable();
+                
+                // Initial prediction
+                updatePrediction();
+                
+                // Update model info
+                document.getElementById('architecture').textContent = network.model_info().replace('XOR Network: ', '');
+                
+            } catch (e) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('errorMsg').textContent = e.toString();
+                console.error(e);
+            }
         }
+
+        function updateTruthTable() {
+            const results = JSON.parse(network.test_all());
+            const tbody = document.getElementById('truthTable');
+            let correctCount = 0;
+            
+            tbody.innerHTML = results.map((r, i) => {
+                const isCorrect = r.prediction === r.expected;
+                if (isCorrect) correctCount++;
+                const isHighlight = r.a === inputA && r.b === inputB;
+                
+                return `
+                    <tr class="${isHighlight ? 'highlight' : ''}">
+                        <td>${r.a}</td>
+                        <td>${r.b}</td>
+                        <td>${r.expected}</td>
+                        <td><span class="badge badge-success">${r.prediction}</span></td>
+                        <td>
+                            ${r.confidence.toFixed(1)}%
+                            <div class="confidence-bar">
+                                <div class="confidence-fill" style="width: ${r.confidence}%"></div>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            
+            document.getElementById('accuracy').textContent = `${(correctCount / 4 * 100).toFixed(0)}%`;
+        }
+
+        function updatePrediction() {
+            if (!network) return;
+            
+            const result = network.predict(inputA, inputB);
+            const confidence = network.confidence(inputA, inputB);
+            
+            document.getElementById('result').textContent = result;
+            document.getElementById('confidence').textContent = `${confidence.toFixed(1)}% confidence`;
+            
+            // Update highlight in truth table
+            updateTruthTable();
+        }
+
+        // Make toggleInput globally accessible
+        window.toggleInput = function(input) {
+            if (input === 'A') {
+                inputA = inputA === 0 ? 1 : 0;
+                const btn = document.getElementById('inputA');
+                btn.textContent = inputA;
+                btn.classList.toggle('active', inputA === 1);
+            } else {
+                inputB = inputB === 0 ? 1 : 0;
+                const btn = document.getElementById('inputB');
+                btn.textContent = inputB;
+                btn.classList.toggle('active', inputB === 1);
+            }
+            updatePrediction();
+        };
 
         run();
     </script>
