@@ -330,7 +330,7 @@ impl Callback for LearningRateScheduler {
                         self.wait += 1;
                         if self.wait >= *patience {
                             let new_lr = self.current_lr * factor;
-                            println!("📉 LR Scheduler: Epoch {} - Plateau détecté, réduction LR {:.6} → {:.6}", 
+                            println!("\n📉 LR Scheduler: Epoch {} - Plateau detected, reducing LR {:.6} → {:.6}", 
                                      epoch, self.current_lr, new_lr);
                             self.current_lr = new_lr;
                             self.wait = 0;

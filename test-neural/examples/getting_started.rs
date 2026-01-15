@@ -11,10 +11,12 @@ use test_neural::builder::{NetworkBuilder, NetworkTrainer};
 use test_neural::network::{Activation, LossFunction};
 use test_neural::optimizer::OptimizerType;
 use test_neural::dataset::Dataset;
-use test_neural::callbacks::{EarlyStopping, ModelCheckpoint, LearningRateScheduler, LRSchedule, ProgressBar};
+use test_neural::callbacks::{EarlyStopping, LearningRateScheduler, LRSchedule, ProgressBar};
 use test_neural::metrics::{accuracy, binary_metrics};
+use test_neural::io;
 use ndarray::array;
 use std::fs;
+use std::path::Path;
 
 fn main() {
     // Create data directory for output files
@@ -144,13 +146,12 @@ fn main() {
         .epochs(100)
         .batch_size(32)
         .callback(Box::new(EarlyStopping::new(15, 0.00001)))
-        .callback(Box::new(ModelCheckpoint::new(&format!("{}/best_model.json", data_dir), true)))
-        .callback(Box::new(ProgressBar::new(100).set_verbose(false)))
+        .callback(Box::new(ProgressBar::new(100)))
         .scheduler(LearningRateScheduler::new(
-            LRSchedule::ReduceOnPlateau { 
-                patience: 10, 
-                factor: 0.5, 
-                min_delta: 0.0001 
+            LRSchedule::ReduceOnPlateau {
+                patience: 10,
+                factor: 0.5,
+                min_delta: 0.0001
             }
         ))
         .fit();
@@ -192,6 +193,80 @@ fn main() {
     println!("   • F1-Score:  {:.3}", metrics.f1_score);
 
     // ═══════════════════════════════════════════════════════════════════════
+    // 7. MODEL COMPARISON AND SAVE
+    // ═══════════════════════════════════════════════════════════════════════
+    println!("\n🔄 7. Model comparison\n");
+
+    let model_path = format!("{}/best_model.json", data_dir);
+    let current_loss = network.evaluate(&test_inputs, &test_targets);
+    let current_acc = acc;
+
+    // Check if a previous model exists
+    if Path::new(&model_path).exists() {
+        match io::load_json(&model_path) {
+            Ok(previous_model) => {
+                let previous_loss = previous_model.evaluate(&test_inputs, &test_targets);
+                let previous_preds: Vec<_> = test_inputs.iter()
+                    .map(|input| previous_model.predict(input))
+                    .collect();
+                let previous_acc = accuracy(&previous_preds, &test_targets, 0.5);
+
+                println!("   ┌─────────────────────┬───────────────┬───────────────┐");
+                println!("   │      Model          │     Loss      │   Accuracy    │");
+                println!("   ├─────────────────────┼───────────────┼───────────────┤");
+                println!("   │ Previous (saved)    │   {:.6}    │    {:.1}%      │", previous_loss, previous_acc * 100.0);
+                println!("   │ Current  (new)      │   {:.6}    │    {:.1}%      │", current_loss, current_acc * 100.0);
+                println!("   └─────────────────────┴───────────────┴───────────────┘");
+
+                // Compare and decide
+                let loss_improved = current_loss < previous_loss;
+                let acc_improved = current_acc > previous_acc;
+
+                println!();
+                if loss_improved && acc_improved {
+                    println!("   ✅ Analysis: New model is BETTER on all metrics!");
+                    println!("      • Loss improved by {:.2}%", (1.0 - current_loss / previous_loss) * 100.0);
+                    println!("      • Accuracy improved by {:.1} points", (current_acc - previous_acc) * 100.0);
+                    println!("   💾 Saving new model...");
+                    io::save_json(&network, &model_path).expect("Failed to save model");
+                    println!("   ✓ Model saved to {}", model_path);
+                } else if loss_improved {
+                    println!("   🟡 Analysis: New model has LOWER loss but same/lower accuracy.");
+                    println!("      • Loss: {:.6} → {:.6} (↓ {:.2}%)", previous_loss, current_loss, (1.0 - current_loss / previous_loss) * 100.0);
+                    println!("      • Accuracy: {:.1}% → {:.1}%", previous_acc * 100.0, current_acc * 100.0);
+                    println!("   💾 Saving new model (lower loss is preferred)...");
+                    io::save_json(&network, &model_path).expect("Failed to save model");
+                    println!("   ✓ Model saved to {}", model_path);
+                } else if acc_improved {
+                    println!("   🟡 Analysis: New model has BETTER accuracy but higher loss.");
+                    println!("      • Loss: {:.6} → {:.6}", previous_loss, current_loss);
+                    println!("      • Accuracy: {:.1}% → {:.1}% (↑ {:.1} points)", previous_acc * 100.0, current_acc * 100.0, (current_acc - previous_acc) * 100.0);
+                    println!("   💾 Saving new model (better accuracy)...");
+                    io::save_json(&network, &model_path).expect("Failed to save model");
+                    println!("   ✓ Model saved to {}", model_path);
+                } else {
+                    println!("   ❌ Analysis: Previous model is still better.");
+                    println!("      • Loss: {:.6} (previous) vs {:.6} (current)", previous_loss, current_loss);
+                    println!("      • Accuracy: {:.1}% (previous) vs {:.1}% (current)", previous_acc * 100.0, current_acc * 100.0);
+                    println!("   💾 Keeping previous model.");
+                }
+            }
+            Err(e) => {
+                println!("   ⚠️  Could not load previous model: {}", e);
+                println!("   💾 Saving current model as new baseline...");
+                io::save_json(&network, &model_path).expect("Failed to save model");
+                println!("   ✓ Model saved to {}", model_path);
+            }
+        }
+    } else {
+        println!("   ℹ️  No previous model found.");
+        println!("   Current model: Loss = {:.6} | Accuracy = {:.1}%", current_loss, current_acc * 100.0);
+        println!("   💾 Saving as first baseline...");
+        io::save_json(&network, &model_path).expect("Failed to save model");
+        println!("   ✓ Model saved to {}", model_path);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // SUMMARY
     // ═══════════════════════════════════════════════════════════════════════
     println!("\n╔══════════════════════════════════════════════════════════════╗");
@@ -214,6 +289,4 @@ fn main() {
     println!("   cargo run --example serialization   - Save/Load models");
     println!("   cargo run --example minibatch_demo  - Mini-batch training");
     println!("   cargo run --example metrics_demo    - Detailed metrics\n");
-    
-    println!("💾 Model saved to: {}/best_model.json\n", data_dir);
 }
