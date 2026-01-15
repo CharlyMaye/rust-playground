@@ -165,12 +165,6 @@ impl XorNetwork {
     }
 }
 
-impl Default for XorNetwork {
-    fn default() -> Self {
-        Self::new().expect("Failed to create default XorNetwork")
-    }
-}
-
 /// Initialize the module
 #[wasm_bindgen(start)]
 pub fn main() {

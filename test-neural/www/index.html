@@ -379,26 +379,57 @@
             const tbody = document.getElementById('truthTable');
             let correctCount = 0;
             
-            tbody.innerHTML = results.map((r, i) => {
+            // Clear previous content
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
+            }
+            
+            results.forEach(r => {
                 const isCorrect = r.prediction === r.expected;
                 if (isCorrect) correctCount++;
                 const isHighlight = r.a === inputA && r.b === inputB;
                 
-                return `
-                    <tr class="${isHighlight ? 'highlight' : ''}">
-                        <td>${r.a}</td>
-                        <td>${r.b}</td>
-                        <td>${r.expected}</td>
-                        <td><span class="badge badge-success">${r.prediction}</span></td>
-                        <td>
-                            ${r.confidence.toFixed(1)}%
-                            <div class="confidence-bar">
-                                <div class="confidence-fill" style="width: ${r.confidence}%"></div>
-                            </div>
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                const tr = document.createElement('tr');
+                if (isHighlight) tr.className = 'highlight';
+                
+                // Input A
+                const tdA = document.createElement('td');
+                tdA.textContent = r.a;
+                tr.appendChild(tdA);
+                
+                // Input B
+                const tdB = document.createElement('td');
+                tdB.textContent = r.b;
+                tr.appendChild(tdB);
+                
+                // Expected
+                const tdExpected = document.createElement('td');
+                tdExpected.textContent = r.expected;
+                tr.appendChild(tdExpected);
+                
+                // Prediction with badge
+                const tdPrediction = document.createElement('td');
+                const badge = document.createElement('span');
+                badge.className = 'badge badge-success';
+                badge.textContent = r.prediction;
+                tdPrediction.appendChild(badge);
+                tr.appendChild(tdPrediction);
+                
+                // Confidence with bar
+                const tdConfidence = document.createElement('td');
+                tdConfidence.appendChild(document.createTextNode(r.confidence.toFixed(1) + '%'));
+                
+                const barContainer = document.createElement('div');
+                barContainer.className = 'confidence-bar';
+                const barFill = document.createElement('div');
+                barFill.className = 'confidence-fill';
+                barFill.style.width = r.confidence + '%';
+                barContainer.appendChild(barFill);
+                tdConfidence.appendChild(barContainer);
+                tr.appendChild(tdConfidence);
+                
+                tbody.appendChild(tr);
+            });
             
             document.getElementById('accuracy').textContent = `${(correctCount / 4 * 100).toFixed(0)}%`;
         }
