@@ -300,6 +300,13 @@
                 </table>
             </div>
 
+            <!-- Network Visualization -->
+            <div class="card">
+                <div class="card-title">🔬 Network Visualization</div>
+                <svg id="networkViz" width="100%" height="300" viewBox="0 0 500 280"></svg>
+                <div id="activationDetails" style="margin-top: 1rem; font-size: 0.8rem; color: var(--muted);"></div>
+            </div>
+
             <!-- Model Info -->
             <div class="card">
                 <div class="card-title">🔧 Model Information</div>
@@ -407,6 +414,105 @@
             
             // Update highlight in truth table
             updateTruthTable();
+            
+            // Update network visualization
+            updateNetworkViz();
+        }
+
+        function updateNetworkViz() {
+            if (!network) return;
+            
+            const activations = JSON.parse(network.get_activations(inputA, inputB));
+            const weights = JSON.parse(network.get_weights());
+            
+            const svg = document.getElementById('networkViz');
+            const layerSizes = [2, ...weights.layers.map(l => l.shape[0])];
+            const layerX = [60, 250, 440];
+            const colors = {
+                positive: '#22c55e',
+                negative: '#ef4444',
+                neutral: '#64748b'
+            };
+            
+            let html = '';
+            
+            // Draw connections with weights
+            // Input to hidden
+            const hiddenY = getNeuronYPositions(layerSizes[1], 280);
+            const inputY = getNeuronYPositions(2, 280);
+            const outputY = [140];
+            
+            // Connections: input → hidden
+            for (let i = 0; i < layerSizes[1]; i++) {
+                for (let j = 0; j < 2; j++) {
+                    const w = weights.layers[0].weights[i * 2 + j];
+                    const opacity = Math.min(Math.abs(w) / 5, 1);
+                    const color = w > 0 ? colors.positive : colors.negative;
+                    html += `<line x1="${layerX[0]}" y1="${inputY[j]}" x2="${layerX[1]}" y2="${hiddenY[i]}" 
+                        stroke="${color}" stroke-width="${Math.abs(w) / 3 + 0.5}" stroke-opacity="${opacity * 0.6}"/>`;
+                }
+            }
+            
+            // Connections: hidden → output
+            for (let i = 0; i < layerSizes[1]; i++) {
+                const w = weights.layers[1].weights[i];
+                const opacity = Math.min(Math.abs(w) / 5, 1);
+                const color = w > 0 ? colors.positive : colors.negative;
+                html += `<line x1="${layerX[1]}" y1="${hiddenY[i]}" x2="${layerX[2]}" y2="${outputY[0]}" 
+                    stroke="${color}" stroke-width="${Math.abs(w) / 3 + 0.5}" stroke-opacity="${opacity * 0.6}"/>`;
+            }
+            
+            // Draw neurons
+            // Input layer
+            activations.inputs.forEach((val, i) => {
+                const intensity = val;
+                html += `<circle cx="${layerX[0]}" cy="${inputY[i]}" r="20" fill="${intensity > 0.5 ? colors.positive : colors.neutral}" stroke="white" stroke-width="2"/>`;
+                html += `<text x="${layerX[0]}" y="${inputY[i] + 5}" text-anchor="middle" fill="white" font-weight="bold" font-size="14">${val.toFixed(0)}</text>`;
+                html += `<text x="${layerX[0] - 35}" y="${inputY[i] + 5}" text-anchor="middle" fill="#94a3b8" font-size="11">${i === 0 ? 'A' : 'B'}</text>`;
+            });
+            
+            // Hidden layer
+            const hiddenActivations = activations.layers[0].activation;
+            hiddenActivations.forEach((val, i) => {
+                const normalized = (val + 1) / 2; // tanh output is -1 to 1
+                const r = Math.round(normalized * 34 + (1 - normalized) * 239);
+                const g = Math.round(normalized * 197 + (1 - normalized) * 68);
+                const b = Math.round(normalized * 94 + (1 - normalized) * 68);
+                html += `<circle cx="${layerX[1]}" cy="${hiddenY[i]}" r="16" fill="rgb(${r},${g},${b})" stroke="white" stroke-width="2"/>`;
+                html += `<text x="${layerX[1]}" y="${hiddenY[i] + 4}" text-anchor="middle" fill="white" font-size="9">${val.toFixed(2)}</text>`;
+            });
+            
+            // Output layer
+            const outputVal = activations.output;
+            const outColor = outputVal > 0.5 ? colors.positive : colors.negative;
+            html += `<circle cx="${layerX[2]}" cy="${outputY[0]}" r="25" fill="${outColor}" stroke="white" stroke-width="3"/>`;
+            html += `<text x="${layerX[2]}" y="${outputY[0] + 6}" text-anchor="middle" fill="white" font-weight="bold" font-size="16">${outputVal.toFixed(2)}</text>`;
+            html += `<text x="${layerX[2] + 40}" y="${outputY[0] + 5}" text-anchor="start" fill="#94a3b8" font-size="11">Out</text>`;
+            
+            // Layer labels
+            html += `<text x="${layerX[0]}" y="270" text-anchor="middle" fill="#64748b" font-size="10">Input</text>`;
+            html += `<text x="${layerX[1]}" y="270" text-anchor="middle" fill="#64748b" font-size="10">Hidden (Tanh)</text>`;
+            html += `<text x="${layerX[2]}" y="270" text-anchor="middle" fill="#64748b" font-size="10">Output (Sigmoid)</text>`;
+            
+            svg.innerHTML = html;
+            
+            // Update details
+            document.getElementById('activationDetails').innerHTML = `
+                <strong>Hidden layer activations:</strong> [${hiddenActivations.map(v => v.toFixed(3)).join(', ')}]<br>
+                <strong>Output:</strong> ${outputVal.toFixed(6)} → <strong>${outputVal > 0.5 ? '1' : '0'}</strong>
+            `;
+        }
+        
+        function getNeuronYPositions(count, height) {
+            const margin = 30;
+            const available = height - 2 * margin - 40;
+            const spacing = count > 1 ? available / (count - 1) : 0;
+            const positions = [];
+            const startY = margin + (height - 2 * margin - 40 - spacing * (count - 1)) / 2;
+            for (let i = 0; i < count; i++) {
+                positions.push(startY + i * spacing);
+            }
+            return positions;
         }
 
         // Make toggleInput globally accessible

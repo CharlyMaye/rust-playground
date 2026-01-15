@@ -105,9 +105,68 @@ impl XorNetwork {
         
         format!("XOR Network: 2 → [{}] → 1", layer_sizes.join(", "))
     }
-}
 
-impl XorNetwork {
+    /// Get all weights and biases as JSON
+    /// Returns: { layers: [{ weights: [...], biases: [...], activation: "...", shape: [out, in] }] }
+    #[wasm_bindgen]
+    pub fn get_weights(&self) -> String {
+        let layers: Vec<String> = self.network.layers.iter().map(|l| {
+            format!(
+                r#"{{"weights":[{}],"biases":[{}],"activation":"{}","shape":[{},{}]}}"#,
+                l.weights.data.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
+                l.biases.data.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
+                l.activation,
+                l.weights.dim[0],
+                l.weights.dim[1]
+            )
+        }).collect();
+        
+        format!(r#"{{"layers":[{}]}}"#, layers.join(","))
+    }
+
+    /// Run inference and return all neuron activations for visualization
+    /// Returns: { inputs: [x1, x2], layers: [{ pre_activation: [...], activation: [...] }], output: value }
+    #[wasm_bindgen]
+    pub fn get_activations(&self, x1: f64, x2: f64) -> String {
+        let mut current = vec![x1, x2];
+        let inputs = format!("[{},{}]", x1, x2);
+        
+        let mut layer_activations: Vec<String> = Vec::new();
+        
+        for layer in &self.network.layers {
+            let out_size = layer.weights.dim[0];
+            let in_size = layer.weights.dim[1];
+            
+            let mut pre_activation = vec![0.0; out_size];
+            let mut post_activation = vec![0.0; out_size];
+            
+            for i in 0..out_size {
+                let mut sum = layer.biases.data[i];
+                for j in 0..in_size {
+                    sum += layer.weights.data[i * in_size + j] * current[j];
+                }
+                pre_activation[i] = sum;
+                post_activation[i] = self.activate(sum, &layer.activation);
+            }
+            
+            layer_activations.push(format!(
+                r#"{{"pre_activation":[{}],"activation":[{}],"function":"{}"}}"#,
+                pre_activation.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
+                post_activation.iter().map(|v| format!("{:.6}", v)).collect::<Vec<_>>().join(","),
+                layer.activation
+            ));
+            
+            current = post_activation;
+        }
+        
+        format!(
+            r#"{{"inputs":{},"layers":[{}],"output":{:.6}}}"#,
+            inputs,
+            layer_activations.join(","),
+            current[0]
+        )
+    }
+
     /// Forward pass through a single layer
     fn forward_layer(&self, input: &[f64], layer: &Layer) -> Vec<f64> {
         let out_size = layer.weights.dim[0];
