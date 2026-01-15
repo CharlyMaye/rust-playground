@@ -6,10 +6,10 @@
 //! - Impact of different batch sizes on training speed and convergence
 //! - Benefits of shuffling data between epochs
 
-use test_neural::builder::NetworkBuilder;
-use test_neural::network::{ Activation, LossFunction};
-use test_neural::optimizer::OptimizerType;
-use test_neural::dataset::Dataset;
+use cma_neural_network::builder::NetworkBuilder;
+use cma_neural_network::network::{ Activation, LossFunction};
+use cma_neural_network::optimizer::OptimizerType;
+use cma_neural_network::dataset::Dataset;
 use ndarray::array;
 use std::time::Instant;
 

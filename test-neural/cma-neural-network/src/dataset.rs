@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```rust
-//! use test_neural::dataset::Dataset;
+//! use cma_neural_network::dataset::Dataset;
 //! use ndarray::array;
 //!
 //! let inputs = vec![array![0.0, 0.0], array![0.0, 1.0]];
@@ -47,7 +47,7 @@ impl Dataset {
     ///
     /// # Example
     /// ```rust
-    /// use test_neural::dataset::Dataset;
+    /// use cma_neural_network::dataset::Dataset;
     /// use ndarray::array;
     ///
     /// let inputs = vec![array![0.0, 0.0], array![0.0, 1.0]];
@@ -93,7 +93,7 @@ impl Dataset {
     ///
     /// # Example
     /// ```rust
-    /// use test_neural::dataset::Dataset;
+    /// use cma_neural_network::dataset::Dataset;
     /// use ndarray::array;
     ///
     /// let inputs = vec![array![1.0], array![2.0], array![3.0]];
@@ -127,7 +127,7 @@ impl Dataset {
     ///
     /// # Example
     /// ```rust
-    /// use test_neural::dataset::Dataset;
+    /// use cma_neural_network::dataset::Dataset;
     /// use ndarray::array;
     ///
     /// let inputs = vec![array![1.0], array![2.0], array![3.0], array![4.0], array![5.0]];
@@ -166,7 +166,7 @@ impl Dataset {
     ///
     /// # Example
     /// ```rust
-    /// use test_neural::dataset::Dataset;
+    /// use cma_neural_network::dataset::Dataset;
     /// use ndarray::array;
     ///
     /// let inputs: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
@@ -211,7 +211,7 @@ impl Dataset {
     ///
     /// # Example
     /// ```rust
-    /// use test_neural::dataset::Dataset;
+    /// use cma_neural_network::dataset::Dataset;
     /// use ndarray::array;
     ///
     /// let inputs: Vec<_> = (0..10).map(|i| array![i as f64]).collect();

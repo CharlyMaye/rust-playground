@@ -1,7 +1,7 @@
-use test_neural::builder::NetworkBuilder;
-use test_neural::network::{Activation, LossFunction};
-use test_neural::optimizer::OptimizerType;
-use test_neural::io;
+use cma_neural_network::builder::NetworkBuilder;
+use cma_neural_network::network::{Activation, LossFunction};
+use cma_neural_network::optimizer::OptimizerType;
+use cma_neural_network::io;
 use ndarray::array;
 use std::fs;
 

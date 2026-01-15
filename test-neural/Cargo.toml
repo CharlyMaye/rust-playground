@@ -1,15 +1,33 @@
+[workspace]
+members = ["cma-neural-network"]
+resolver = "2"
+
 [package]
 name = "test-neural"
 version = "0.1.0"
 edition = "2024"
 
-[lib]
-name = "test_neural"
-path = "src/lib.rs"
+[[bin]]
+name = "test-neural"
+path = "src/main.rs"
+
+[[example]]
+name = "getting_started"
+path = "examples/getting_started.rs"
+
+[[example]]
+name = "serialization"
+path = "examples/serialization.rs"
+
+[[example]]
+name = "minibatch_demo"
+path = "examples/minibatch_demo.rs"
+
+[[example]]
+name = "metrics_demo"
+path = "examples/metrics_demo.rs"
 
 [dependencies]
+cma-neural-network = { path = "cma-neural-network" }
 ndarray = { version = "0.17.1", features = ["serde"] }
 rand = "0.9.2"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-bincode = "1.3"

@@ -1,7 +1,7 @@
-use test_neural::builder::NetworkBuilder;
-use test_neural::network::{Activation, LossFunction};
-use test_neural::optimizer::OptimizerType;
-use test_neural::metrics::{accuracy, binary_metrics, confusion_matrix_binary, format_confusion_matrix, auc_roc};
+use cma_neural_network::builder::NetworkBuilder;
+use cma_neural_network::network::{Activation, LossFunction};
+use cma_neural_network::optimizer::OptimizerType;
+use cma_neural_network::metrics::{accuracy, binary_metrics, confusion_matrix_binary, format_confusion_matrix, auc_roc};
 use ndarray::array;
 
 fn main() {
