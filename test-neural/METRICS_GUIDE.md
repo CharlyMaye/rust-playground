@@ -1,58 +1,58 @@
-# Guide des Métriques d'Évaluation - Approches et Approfondissements
+# Evaluation Metrics Guide - Approaches and Deep Dives
 
-Ce document détaille les différentes approches pour évaluer un réseau de neurones et comment approfondir chaque métrique.
+This document details the different approaches to evaluating neural networks and how to leverage each metric.
 
-## 📊 Vue d'Ensemble
+## 📊 Overview
 
-### Métriques Implémentées
+### Implemented Metrics
 
-| Métrique | Usage | Binaire | Multi-Classe | Complexité |
-|----------|-------|---------|--------------|------------|
-| **Accuracy** | Pourcentage correct | ✅ | ✅ | Simple |
-| **Precision** | Vrais positifs / Prédits positifs | ✅ | ✅ | Moyen |
-| **Recall** | Vrais positifs / Réels positifs | ✅ | ✅ | Moyen |
-| **F1-Score** | Moyenne harmonique P/R | ✅ | ✅ | Moyen |
-| **Confusion Matrix** | Vue détaillée erreurs | ✅ | ✅ | Simple |
-| **ROC Curve** | Performance à tous seuils | ✅ | 🔶 | Avancé |
-| **AUC** | Aire sous courbe ROC | ✅ | 🔶 | Avancé |
+| Metric | Usage | Binary | Multi-Class | Complexity |
+|--------|-------|--------|-------------|------------|
+| **Accuracy** | Percentage correct | ✅ | ✅ | Simple |
+| **Precision** | True positives / Predicted positives | ✅ | ✅ | Medium |
+| **Recall** | True positives / Actual positives | ✅ | ✅ | Medium |
+| **F1-Score** | Harmonic mean P/R | ✅ | ✅ | Medium |
+| **Confusion Matrix** | Detailed error view | ✅ | ✅ | Simple |
+| **ROC Curve** | Performance at all thresholds | ✅ | 🔶 | Advanced |
+| **AUC** | Area under ROC curve | ✅ | 🔶 | Advanced |
 
 ---
 
-## 1. Accuracy (Exactitude)
+## 1. Accuracy
 
-### Définition
+### Definition
 ```
-Accuracy = (Prédictions Correctes) / (Total Prédictions)
+Accuracy = (Correct Predictions) / (Total Predictions)
          = (TP + TN) / (TP + TN + FP + FN)
 ```
 
-### Quand l'utiliser
-- ✅ **Dataset équilibré** (50% classe A, 50% classe B)
-- ✅ **Première métrique** à regarder (simple et intuitive)
-- ✅ **Validation rapide** pendant l'entraînement
+### When to Use
+- ✅ **Balanced dataset** (50% class A, 50% class B)
+- ✅ **First metric** to look at (simple and intuitive)
+- ✅ **Quick validation** during training
 
-### Quand NE PAS l'utiliser
-- ❌ **Dataset déséquilibré** (99% classe A, 1% classe B)
-  - Exemple: Détection de fraude (fraudes rares)
-  - Un modèle qui prédit toujours "pas de fraude" aura 99% accuracy mais est inutile
-- ❌ **Coûts asymétriques** (faux négatif ≠ faux positif)
-  - Exemple: Diagnostic médical (manquer un cancer est pire qu'un faux positif)
+### When NOT to Use
+- ❌ **Imbalanced dataset** (99% class A, 1% class B)
+  - Example: Fraud detection (fraud is rare)
+  - A model that always predicts "no fraud" will have 99% accuracy but is useless
+- ❌ **Asymmetric costs** (false negative ≠ false positive)
+  - Example: Medical diagnosis (missing cancer is worse than false positive)
 
-### Implémentation Actuelle
+### Current Implementation
 ```rust
 pub fn accuracy(predictions: &[Array1<f64>], targets: &[Array1<f64>], threshold: f64) -> f64
 ```
-- Supporte binaire (seuil) et multi-classes (argmax)
-- Simple et rapide
-- Pas de dépendances externes
+- Supports binary (threshold) and multi-class (argmax)
+- Simple and fast
+- No external dependencies
 
-### Approfondissements Possibles
+### Possible Extensions
 
 #### 1.1 Balanced Accuracy
-Pour datasets déséquilibrés :
+For imbalanced datasets:
 ```rust
 pub fn balanced_accuracy(predictions, targets, threshold) -> f64 {
-    // Moyenne du recall par classe
+    // Average recall per class
     // = (Sensitivity + Specificity) / 2
     let metrics = binary_metrics(predictions, targets, threshold);
     let sensitivity = metrics.recall;
@@ -61,93 +61,93 @@ pub fn balanced_accuracy(predictions, targets, threshold) -> f64 {
     (sensitivity + specificity) / 2.0
 }
 ```
-**Usage:** Détection d'anomalies, datasets médicaux
+**Use case:** Anomaly detection, medical datasets
 
 #### 1.2 Top-K Accuracy
-Pour classification multi-classes :
+For multi-class classification:
 ```rust
 pub fn top_k_accuracy(predictions: &[Array1<f64>], targets: &[Array1<f64>], k: usize) -> f64 {
-    // Correct si la vraie classe est dans les k prédictions les plus probables
-    // Utilisé dans ImageNet (top-5 accuracy)
+    // Correct if true class is in top k most probable predictions
+    // Used in ImageNet (top-5 accuracy)
 }
 ```
-**Usage:** ImageNet, classification sur beaucoup de classes (1000+)
+**Use case:** ImageNet, classification with many classes (1000+)
 
 #### 1.3 Per-Class Accuracy
 ```rust
 pub fn per_class_accuracy(predictions, targets) -> Vec<f64> {
-    // Accuracy séparée pour chaque classe
-    // Identifie les classes problématiques
+    // Separate accuracy for each class
+    // Identifies problematic classes
 }
 ```
-**Usage:** Débogage, analyse de performance par classe
+**Use case:** Debugging, per-class performance analysis
 
 ---
 
 ## 2. Precision, Recall, F1-Score
 
-### Définitions
+### Definitions
 
-**Precision (Précision):**
+**Precision:**
 ```
 Precision = TP / (TP + FP)
-= "Quand je prédis positif, à quelle fréquence ai-je raison?"
+= "When I predict positive, how often am I right?"
 ```
 
-**Recall (Rappel / Sensibilité):**
+**Recall (Sensitivity):**
 ```
 Recall = TP / (TP + FN)
-= "Je capture quel % de tous les positifs réels?"
+= "What % of all actual positives do I capture?"
 ```
 
 **F1-Score:**
 ```
 F1 = 2 × (Precision × Recall) / (Precision + Recall)
-= Moyenne harmonique de Precision et Recall
+= Harmonic mean of Precision and Recall
 ```
 
-### Trade-off Precision vs Recall
+### Precision vs Recall Trade-off
 
-| Seuil | Precision | Recall | Usage |
-|-------|-----------|--------|-------|
-| **Élevé (0.9)** | ⬆️ Haute | ⬇️ Basse | Éviter faux positifs (spam filter) |
-| **Moyen (0.5)** | ➡️ Équilibré | ➡️ Équilibré | Général |
-| **Bas (0.1)** | ⬇️ Basse | ⬆️ Haute | Capturer tous les positifs (diagnostic médical) |
+| Threshold | Precision | Recall | Use Case |
+|-----------|-----------|--------|----------|
+| **High (0.9)** | ⬆️ High | ⬇️ Low | Avoid false positives (spam filter) |
+| **Medium (0.5)** | ➡️ Balanced | ➡️ Balanced | General |
+| **Low (0.1)** | ⬇️ Low | ⬆️ High | Capture all positives (medical diagnosis) |
 
-### Cas d'Usage
+### Use Cases
 
-| Contexte | Priorité | Raison |
-|----------|----------|--------|
-| **Spam Filter** | 🔴 Precision | Ne pas bloquer vrais emails |
-| **Détection Cancer** | 🔴 Recall | Ne pas manquer de malades |
-| **Recommandations** | 🔴 Precision | Montrer contenu pertinent |
-| **Moteur Recherche** | 🟡 F1 (équilibré) | Pertinence et couverture |
+| Context | Priority | Reason |
+|---------|----------|--------|
+| **Spam Filter** | 🔴 Precision | Don't block real emails |
+| **Cancer Detection** | 🔴 Recall | Don't miss sick patients |
+| **Recommendations** | 🔴 Precision | Show relevant content |
+| **Search Engine** | 🟡 F1 (balanced) | Relevance and coverage |
 
-### Implémentation Actuelle
+### Current Implementation
 ```rust
 pub fn binary_metrics(predictions, targets, threshold) -> BinaryMetrics {
-    // Retourne struct avec accuracy, precision, recall, f1_score, TP/FP/TN/FN
+    // Returns struct with accuracy, precision, recall, f1_score, TP/FP/TN/FN
 }
 ```
 
-### Approfondissements Possibles
+### Possible Extensions
 
 #### 2.1 Precision-Recall Curve
 ```rust
 pub fn precision_recall_curve(predictions, targets, num_thresholds) 
     -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     // (precision_values, recall_values, thresholds)
-    // Visualise trade-off precision/recall
-    // Utile pour choisir le bon seuil
+    // Visualizes precision/recall trade-off
+    // Useful for choosing the right threshold
 }
 ```
 
 #### 2.2 Average Precision (AP)
 ```rust
 pub fn average_precision(predictions, targets) -> f64 {
-    // Aire sous la courbe Precision-Recall
-    // Métrique standard pour Object Detection
-    // Utilisé dans COCO dataset, PASCAL VOC
+    // Area under the Precision-Recall curve
+    // Standard metric for Object Detection
+    // Used in COCO dataset, PASCAL VOC
 }
 ```
 
@@ -155,84 +155,84 @@ pub fn average_precision(predictions, targets) -> f64 {
 ```rust
 pub fn f_beta_score(precision: f64, recall: f64, beta: f64) -> f64 {
     // F_β = (1 + β²) × (P × R) / (β² × P + R)
-    // β = 0.5: Favorise Precision
-    // β = 1.0: F1 (équilibré)
-    // β = 2.0: Favorise Recall
+    // β = 0.5: Favors Precision
+    // β = 1.0: F1 (balanced)
+    // β = 2.0: Favors Recall
 }
 ```
-**Usage:** Ajuster l'importance de P vs R selon le contexte
+**Use case:** Adjust importance of P vs R based on context
 
-#### 2.4 Macro/Micro/Weighted Averages (Multi-Classe)
+#### 2.4 Macro/Micro/Weighted Averages (Multi-Class)
 ```rust
 pub enum AverageMethod {
-    Macro,    // Moyenne simple des métriques par classe
-    Micro,    // Calculer sur TP/FP/FN globaux
-    Weighted, // Moyenne pondérée par nombre d'exemples
+    Macro,    // Simple average of per-class metrics
+    Micro,    // Calculate on global TP/FP/FN
+    Weighted, // Weighted average by number of examples
 }
 
 pub fn precision_multiclass(predictions, targets, method: AverageMethod) -> f64
 ```
 
-**Exemple:**
+**Example:**
 ```
 Classes: A (100 ex), B (10 ex)
 Precision_A = 0.9, Precision_B = 0.5
 
-Macro:    (0.9 + 0.5) / 2 = 0.70  // Traite classes également
-Weighted: (0.9×100 + 0.5×10) / 110 = 0.86  // Pondère par fréquence
+Macro:    (0.9 + 0.5) / 2 = 0.70  // Treats classes equally
+Weighted: (0.9×100 + 0.5×10) / 110 = 0.86  // Weighted by frequency
 ```
 
 ---
 
 ## 3. Confusion Matrix
 
-### Définition
+### Definition
 
-**Binaire (2x2):**
+**Binary (2x2):**
 ```
-                Prédit
+                Predicted
              Neg    Pos
-Réel  Neg [  TN  |  FP  ]
-      Pos [  FN  |  TP  ]
+Actual  Neg [  TN  |  FP  ]
+        Pos [  FN  |  TP  ]
 ```
 
-**Multi-Classe (NxN):**
+**Multi-Class (NxN):**
 ```
-matrix[i][j] = nombre d'exemples de classe i prédits comme classe j
+matrix[i][j] = number of examples of class i predicted as class j
 ```
 
-### Interprétation
+### Interpretation
 
-| Métrique | Formule | Signification |
-|----------|---------|---------------|
+| Metric | Formula | Meaning |
+|--------|---------|---------|
 | **True Positive Rate** | TP / (TP + FN) | = Recall = Sensitivity |
-| **False Positive Rate** | FP / (FP + TN) | Taux fausses alarmes |
+| **False Positive Rate** | FP / (FP + TN) | False alarm rate |
 | **True Negative Rate** | TN / (TN + FP) | = Specificity |
-| **False Negative Rate** | FN / (FN + TP) | Taux manqués |
+| **False Negative Rate** | FN / (FN + TP) | Miss rate |
 
-### Implémentation Actuelle
+### Current Implementation
 ```rust
 pub fn confusion_matrix_binary(predictions, targets, threshold) -> Array2<usize>
 pub fn confusion_matrix_multiclass(predictions, targets, num_classes) -> Array2<usize>
 pub fn format_confusion_matrix(matrix, class_names) -> String
 ```
 
-### Approfondissements Possibles
+### Possible Extensions
 
 #### 3.1 Normalized Confusion Matrix
 ```rust
 pub fn confusion_matrix_normalized(predictions, targets, num_classes, 
                                    normalize: NormalizeMethod) -> Array2<f64> {
     enum NormalizeMethod {
-        True,   // Normaliser par ligne (somme = 1 par vraie classe)
-        Pred,   // Normaliser par colonne (somme = 1 par prédiction)
-        All,    // Normaliser par total (toute matrice somme = 1)
+        True,   // Normalize by row (sum = 1 per true class)
+        Pred,   // Normalize by column (sum = 1 per prediction)
+        All,    // Normalize by total (entire matrix sums to 1)
     }
 }
 ```
-**Usage:** Visualisation, comparaison entre datasets de tailles différentes
+**Use case:** Visualization, comparison between datasets of different sizes
 
-#### 3.2 Métriques Dérivées de la Matrice
+#### 3.2 Derived Metrics from Matrix
 ```rust
 pub struct ConfusionMetrics {
     pub sensitivity: f64,     // = Recall = TPR
@@ -246,12 +246,12 @@ pub struct ConfusionMetrics {
 #### 3.3 Cohen's Kappa
 ```rust
 pub fn cohens_kappa(confusion_matrix: &Array2<usize>) -> f64 {
-    // Mesure accord au-delà du hasard
+    // Measures agreement beyond chance
     // κ = (p_o - p_e) / (1 - p_e)
-    // 1.0 = accord parfait, 0 = accord aléatoire
+    // 1.0 = perfect agreement, 0 = random agreement
 }
 ```
-**Usage:** Inter-rater reliability, annoter qualité
+**Use case:** Inter-rater reliability, annotation quality
 
 ---
 
@@ -259,11 +259,11 @@ pub fn cohens_kappa(confusion_matrix: &Array2<usize>) -> f64 {
 
 ### ROC Curve (Receiver Operating Characteristic)
 
-**Définition:**
-- Graphique: FPR (x-axis) vs TPR (y-axis) à différents seuils
-- Montre trade-off entre sensibilité et spécificité
+**Definition:**
+- Graph: FPR (x-axis) vs TPR (y-axis) at different thresholds
+- Shows trade-off between sensitivity and specificity
 
-**Implémentation Actuelle:**
+**Current Implementation:**
 ```rust
 pub fn roc_curve(predictions, targets, num_thresholds) 
     -> (Vec<f64>, Vec<f64>, Vec<f64>)  // (FPR, TPR, thresholds)
@@ -271,43 +271,43 @@ pub fn roc_curve(predictions, targets, num_thresholds)
 
 ### AUC (Area Under Curve)
 
-**Définition:**
-- Aire sous la courbe ROC
-- **1.0** = Prédictions parfaites (tous les positifs avant tous les négatifs)
-- **0.5** = Performance aléatoire (ligne diagonale)
-- **< 0.5** = Pire que random (modèle inversé!)
+**Definition:**
+- Area under the ROC curve
+- **1.0** = Perfect predictions (all positives before all negatives)
+- **0.5** = Random performance (diagonal line)
+- **< 0.5** = Worse than random (inverted model!)
 
-**Interprétation:**
+**Interpretation:**
 ```
-AUC = Probabilité qu'un exemple positif aléatoire 
-      ait un score plus élevé qu'un exemple négatif aléatoire
+AUC = Probability that a random positive example 
+      has a higher score than a random negative example
 ```
 
-**Implémentation Actuelle:**
+**Current Implementation:**
 ```rust
 pub fn auc_roc(predictions, targets) -> f64
 ```
 
-### Avantages ROC/AUC
+### Advantages of ROC/AUC
 
-✅ **Indépendant du seuil** - Évalue performance globale
-✅ **Résistant déséquilibre** - Contrairement à accuracy
-✅ **Standard industrie** - Benchmarking, publications
+✅ **Threshold independent** - Evaluates global performance
+✅ **Resistant to imbalance** - Unlike accuracy
+✅ **Industry standard** - Benchmarking, publications
 
-### Limites
+### Limitations
 
-❌ **Datasets très déséquilibrés** - Préférer Precision-Recall
-❌ **Multi-classes** - Nécessite One-vs-Rest ou One-vs-One
-❌ **Petit dataset** - Courbe instable (peu de points)
+❌ **Very imbalanced datasets** - Prefer Precision-Recall
+❌ **Multi-class** - Requires One-vs-Rest or One-vs-One
+❌ **Small dataset** - Unstable curve (few points)
 
-### Approfondissements Possibles
+### Possible Extensions
 
 #### 4.1 Partial AUC
 ```rust
 pub fn partial_auc(predictions, targets, fpr_range: (f64, f64)) -> f64 {
-    // AUC dans une région spécifique de FPR
-    // Utile si on s'intéresse à un taux FPR spécifique
-    // Ex: Partial AUC entre FPR 0.0-0.1 pour high-precision tasks
+    // AUC in a specific region of FPR
+    // Useful if interested in specific FPR rate
+    // Ex: Partial AUC between FPR 0.0-0.1 for high-precision tasks
 }
 ```
 
@@ -316,8 +316,8 @@ pub fn partial_auc(predictions, targets, fpr_range: (f64, f64)) -> f64 {
 pub fn roc_auc_multiclass(predictions, targets, num_classes, 
                           method: MultiClassMethod) -> f64 {
     enum MultiClassMethod {
-        OneVsRest,  // N courbes ROC (classe i vs reste)
-        OneVsOne,   // N×(N-1)/2 courbes (toutes paires)
+        OneVsRest,  // N ROC curves (class i vs rest)
+        OneVsOne,   // N×(N-1)/2 curves (all pairs)
     }
 }
 ```
@@ -328,29 +328,29 @@ pub fn auc_confidence_interval(predictions, targets,
                                 num_bootstraps: usize, 
                                 confidence: f64) -> (f64, f64, f64) {
     // (lower_bound, auc, upper_bound)
-    // Donne incertitude sur l'AUC
-    // Utile pour petits datasets
+    // Gives uncertainty on AUC
+    // Useful for small datasets
 }
 ```
 
 ---
 
-## 5. Métriques Avancées (Non Implémentées)
+## 5. Advanced Metrics (Not Implemented)
 
 ### 5.1 Log Loss (Cross-Entropy Loss)
 ```rust
 pub fn log_loss(predictions: &[Array1<f64>], targets: &[Array1<f64>]) -> f64 {
-    // Pénalise fortement prédictions confiantes mais fausses
-    // Standard pour compétitions (Kaggle)
-    // Meilleur que accuracy car prend en compte probabilités
+    // Heavily penalizes confident but wrong predictions
+    // Standard for competitions (Kaggle)
+    // Better than accuracy because it accounts for probabilities
 }
 ```
 
 ### 5.2 Brier Score
 ```rust
 pub fn brier_score(predictions: &[Array1<f64>], targets: &[Array1<f64>]) -> f64 {
-    // = Mean Squared Error entre probabilités prédites et réelles
-    // Plus sensible aux prédictions extrêmes que log loss
+    // = Mean Squared Error between predicted and actual probabilities
+    // More sensitive to extreme predictions than log loss
 }
 ```
 
@@ -359,8 +359,8 @@ pub fn brier_score(predictions: &[Array1<f64>], targets: &[Array1<f64>]) -> f64 
 pub fn calibration_curve(predictions, targets, num_bins: usize) 
     -> (Vec<f64>, Vec<f64>) {
     // (mean_predicted_probability, fraction_of_positives)
-    // Vérifie si probabilités prédites sont calibrées
-    // Ex: Parmi toutes les prédictions à 70%, 70% doivent être positives
+    // Checks if predicted probabilities are calibrated
+    // Ex: Among all predictions at 70%, 70% should be positive
 }
 ```
 
@@ -369,14 +369,14 @@ pub fn calibration_curve(predictions, targets, num_bins: usize)
 pub fn matthews_correlation_coefficient(confusion_matrix: &Array2<usize>) -> f64 {
     // MCC = (TP×TN - FP×FN) / sqrt((TP+FP)(TP+FN)(TN+FP)(TN+FN))
     // Range: [-1, 1]
-    // Prend en compte toutes les 4 valeurs (TP/TN/FP/FN)
-    // Meilleur que accuracy pour datasets déséquilibrés
+    // Takes into account all 4 values (TP/TN/FP/FN)
+    // Better than accuracy for imbalanced datasets
 }
 ```
 
 ---
 
-## 6. Métriques Spécialisées
+## 6. Specialized Metrics
 
 ### 6.1 Object Detection
 ```rust
@@ -397,52 +397,52 @@ pub fn iou(pred_mask: &Array2<bool>, true_mask: &Array2<bool>) -> f64 {
 
 pub fn dice_coefficient(pred_mask: &Array2<bool>, true_mask: &Array2<bool>) -> f64 {
     // = 2 × |A ∩ B| / (|A| + |B|)
-    // Équivalent à F1 pour pixels
+    // Equivalent to F1 for pixels
 }
 ```
 
 ### 6.3 Ranking Metrics
 ```rust
 pub fn mean_average_precision(predictions: &[Vec<f64>], targets: &[Vec<usize>]) -> f64 {
-    // Pour systèmes de recommandation
+    // For recommendation systems
 }
 
 pub fn ndcg(predictions: &[f64], relevances: &[f64], k: usize) -> f64 {
     // Normalized Discounted Cumulative Gain
-    // Pour ranking et moteurs de recherche
+    // For ranking and search engines
 }
 ```
 
 ---
 
-## 7. Choix de Métrique par Domaine
+## 7. Metric Selection by Domain
 
-### Machine Learning Général
+### General Machine Learning
 
-| Problème | Métrique Principale | Métriques Secondaires |
-|----------|---------------------|----------------------|
-| **Classification Binaire Équilibrée** | Accuracy | Precision, Recall, F1 |
-| **Classification Binaire Déséquilibrée** | F1, AUPRC | Recall, MCC |
-| **Classification Multi-Classe** | Accuracy (macro) | Confusion Matrix, per-class F1 |
-| **Ranking / Recommandation** | MAP, NDCG | Precision@K, Recall@K |
-| **Probabilités Calibrées** | Log Loss, Brier Score | Calibration Curve |
+| Problem | Primary Metric | Secondary Metrics |
+|---------|----------------|-------------------|
+| **Balanced Binary Classification** | Accuracy | Precision, Recall, F1 |
+| **Imbalanced Binary Classification** | F1, AUPRC | Recall, MCC |
+| **Multi-Class Classification** | Accuracy (macro) | Confusion Matrix, per-class F1 |
+| **Ranking / Recommendation** | MAP, NDCG | Precision@K, Recall@K |
+| **Calibrated Probabilities** | Log Loss, Brier Score | Calibration Curve |
 
-### Domaines Spécifiques
+### Specific Domains
 
-| Domaine | Métrique | Pourquoi |
-|---------|----------|----------|
-| **Détection Fraude** | Recall, AUPRC | Ne pas manquer fraudes (coûteux) |
-| **Spam Filter** | Precision | Ne pas bloquer vrais emails |
-| **Diagnostic Médical** | Sensitivity (Recall) | Ne pas manquer malades |
-| **Vision par Ordinateur** | mAP, IoU | Standard pour benchmarks |
-| **NLP (Sentiment Analysis)** | Accuracy, F1 (macro) | Classes peuvent être déséquilibrées |
-| **Search Engine** | NDCG, MAP | Ordre des résultats important |
+| Domain | Metric | Why |
+|--------|--------|-----|
+| **Fraud Detection** | Recall, AUPRC | Don't miss fraud (costly) |
+| **Spam Filter** | Precision | Don't block real emails |
+| **Medical Diagnosis** | Sensitivity (Recall) | Don't miss sick patients |
+| **Computer Vision** | mAP, IoU | Standard for benchmarks |
+| **NLP (Sentiment Analysis)** | Accuracy, F1 (macro) | Classes may be imbalanced |
+| **Search Engine** | NDCG, MAP | Result order matters |
 
 ---
 
-## 8. Bonnes Pratiques
+## 8. Best Practices
 
-### 8.1 Toujours Rapporter Plusieurs Métriques
+### 8.1 Always Report Multiple Metrics
 ```rust
 pub struct EvaluationReport {
     pub accuracy: f64,
@@ -453,26 +453,26 @@ pub struct EvaluationReport {
     pub confusion_matrix: Array2<usize>,
 }
 ```
-**Pourquoi:** Une seule métrique peut être trompeuse
+**Why:** A single metric can be misleading
 
-### 8.2 Utiliser Cross-Validation
+### 8.2 Use Cross-Validation
 ```rust
 pub fn cross_validate_metrics(
     model_builder: impl Fn() -> Network,
     dataset: &Dataset,
     k_folds: usize
 ) -> Vec<EvaluationReport> {
-    // Retourne métriques pour chaque fold
-    // Donne incertitude sur performance
+    // Returns metrics for each fold
+    // Gives uncertainty on performance
 }
 ```
 
-### 8.3 Stratification pour Datasets Déséquilibrés
+### 8.3 Stratification for Imbalanced Datasets
 ```rust
 pub fn stratified_split(dataset: &Dataset, test_ratio: f64) 
     -> (Dataset, Dataset) {
-    // Maintient proportions de classes dans train/test
-    // Critique pour datasets déséquilibrés
+    // Maintains class proportions in train/test
+    // Critical for imbalanced datasets
 }
 ```
 
@@ -484,28 +484,28 @@ pub fn find_optimal_threshold(
     metric: MetricType
 ) -> f64 {
     enum MetricType {
-        MaxF1,          // Maximiser F1
-        MaxAccuracy,    // Maximiser Accuracy
-        TargetRecall(f64),  // Atteindre recall minimum
-        TargetPrecision(f64), // Atteindre precision minimum
+        MaxF1,          // Maximize F1
+        MaxAccuracy,    // Maximize Accuracy
+        TargetRecall(f64),  // Achieve minimum recall
+        TargetPrecision(f64), // Achieve minimum precision
     }
 }
 ```
 
 ---
 
-## 9. Visualisation des Métriques
+## 9. Metric Visualization
 
-### 9.1 Plots à Implémenter
+### 9.1 Plots to Implement
 ```rust
-// Nécessite intégration avec plotters ou similar
+// Requires integration with plotters or similar
 pub fn plot_roc_curve(fpr: &[f64], tpr: &[f64]) -> Result<(), Error>
 pub fn plot_precision_recall_curve(precision: &[f64], recall: &[f64]) -> Result<(), Error>
 pub fn plot_confusion_matrix_heatmap(matrix: &Array2<usize>) -> Result<(), Error>
 pub fn plot_learning_curve(train_metrics: &[f64], val_metrics: &[f64]) -> Result<(), Error>
 ```
 
-### 9.2 Export pour Outils Externes
+### 9.2 Export for External Tools
 ```rust
 pub fn export_metrics_csv(metrics: &EvaluationReport, path: &str) -> Result<(), Error>
 pub fn export_metrics_json(metrics: &EvaluationReport, path: &str) -> Result<(), Error>
@@ -513,27 +513,27 @@ pub fn export_metrics_json(metrics: &EvaluationReport, path: &str) -> Result<(),
 
 ---
 
-## 10. Roadmap Métriques
+## 10. Metrics Roadmap
 
-### Phase 1: ✅ Complétée
-- [x] Accuracy (binaire + multi-classes)
+### Phase 1: ✅ Completed
+- [x] Accuracy (binary + multi-class)
 - [x] Precision, Recall, F1
 - [x] Confusion Matrix
 - [x] ROC Curve & AUC
 
-### Phase 2: Recommandé Prochainement
+### Phase 2: Recommended Next
 - [ ] Log Loss / Cross-Entropy
 - [ ] Precision-Recall Curve & Average Precision
 - [ ] Matthews Correlation Coefficient (MCC)
-- [ ] Per-Class Metrics (multi-classe)
+- [ ] Per-Class Metrics (multi-class)
 
-### Phase 3: Avancé
+### Phase 3: Advanced
 - [ ] Calibration Curve & Brier Score
 - [ ] Bootstrap Confidence Intervals
 - [ ] Multi-Class ROC (One-vs-Rest, One-vs-One)
 - [ ] Threshold Optimization
 
-### Phase 4: Spécialisé
+### Phase 4: Specialized
 - [ ] Object Detection (mAP, IoU)
 - [ ] Ranking (NDCG, MAP)
 - [ ] Regression (MAE, MSE, R²)
@@ -541,7 +541,7 @@ pub fn export_metrics_json(metrics: &EvaluationReport, path: &str) -> Result<(),
 
 ---
 
-## Références
+## References
 
 1. **Scikit-learn Metrics** - https://scikit-learn.org/stable/modules/model_evaluation.html
 2. **ROC Analysis** - Fawcett, T. (2006). "An introduction to ROC analysis"

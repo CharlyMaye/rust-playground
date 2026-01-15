@@ -1,41 +1,41 @@
 # 🏗️ Builder Pattern Guide
 
-Le Builder Pattern est l'API recommandée pour construire et entraîner des réseaux de neurones avec `test-neural`. Il offre une interface fluide et intuitive qui remplace les multiples méthodes de construction traditionnelles.
+The Builder Pattern is the recommended API for building and training neural networks with `test-neural`. It provides a fluent, intuitive interface that replaces multiple traditional construction methods.
 
-## Table des matières
+## Table of Contents
 
-- [Pourquoi le Builder Pattern ?](#pourquoi-le-builder-pattern-)
+- [Why the Builder Pattern?](#why-the-builder-pattern)
 - [NetworkBuilder](#networkbuilder)
 - [TrainingBuilder](#trainingbuilder)
-- [Exemples complets](#exemples-complets)
-- [Comparaison avec l'API traditionnelle](#comparaison-avec-lapi-traditionnelle)
+- [Complete Examples](#complete-examples)
+- [Comparison with Traditional API](#comparison-with-traditional-api)
 
 ---
 
-## Pourquoi le Builder Pattern ?
+## Why the Builder Pattern?
 
-### Problèmes résolus
+### Problems Solved
 
-❌ **Avant** - Prolifération de méthodes:
-- `Network::new()` - réseau simple (1 couche cachée)
-- `Network::new_deep()` - réseau profond (init auto)
-- `Network::new_deep_with_init()` - réseau profond (init manuelle)
-- `Network::fit()` - entraînement avec callbacks
-- `Network::fit_with_scheduler()` - entraînement avec scheduler
-- Gestion manuelle de `Vec<Box<dyn Callback>>`
-- Confusion sur quelle méthode utiliser
+❌ **Before** - Method proliferation:
+- `Network::new()` - simple network (1 hidden layer)
+- `Network::new_deep()` - deep network (auto init)
+- `Network::new_deep_with_init()` - deep network (manual init)
+- `Network::fit()` - training with callbacks
+- `Network::fit_with_scheduler()` - training with scheduler
+- Manual management of `Vec<Box<dyn Callback>>`
+- Confusion about which method to use
 
-✅ **Après** - Une seule manière:
-- `NetworkBuilder` - construction intuitive par chaînage
-- `.trainer()` - entraînement unifié
-- Plus besoin de gérer les Vec manuellement
-- API auto-documentée
+✅ **After** - One unified way:
+- `NetworkBuilder` - intuitive construction via chaining
+- `.trainer()` - unified training
+- No need to manage Vec manually
+- Self-documenting API
 
 ---
 
 ## NetworkBuilder
 
-### Construction simple
+### Simple Construction
 
 ```rust
 use test_neural::builder::NetworkBuilder;
@@ -43,11 +43,11 @@ use test_neural::network::{Activation, LossFunction};
 use test_neural::optimizer::OptimizerType;
 
 let network = NetworkBuilder::new(2, 1)  // input_size, output_size
-    .hidden_layer(8, Activation::Tanh)   // 1 couche cachée
+    .hidden_layer(8, Activation::Tanh)   // 1 hidden layer
     .build();
 ```
 
-### Réseau profond
+### Deep Network
 
 ```rust
 let network = NetworkBuilder::new(2, 1)
@@ -57,54 +57,54 @@ let network = NetworkBuilder::new(2, 1)
     .build();
 ```
 
-### Configuration complète
+### Complete Configuration
 
 ```rust
 let network = NetworkBuilder::new(input_size, output_size)
-    // Couches cachées
+    // Hidden layers
     .hidden_layer(64, Activation::ReLU)
     .hidden_layer(32, Activation::ReLU)
     .hidden_layer(16, Activation::Tanh)
     
-    // Sortie
-    .output_activation(Activation::Sigmoid)  // défaut: Sigmoid
-    .loss(LossFunction::BinaryCrossEntropy)  // défaut: BCE
+    // Output
+    .output_activation(Activation::Sigmoid)  // default: Sigmoid
+    .loss(LossFunction::BinaryCrossEntropy)  // default: BCE
     
     // Optimizer
-    .optimizer(OptimizerType::adam(0.001))   // défaut: Adam(0.001)
+    .optimizer(OptimizerType::adam(0.001))   // default: Adam(0.001)
     
-    // Régularisation
-    .dropout(0.3)           // appliqué aux couches cachées
+    // Regularization
+    .dropout(0.3)           // applied to hidden layers
     .l2(0.01)               // L2 regularization
     
-    // Initialisation optionnelle
-    .weight_init(WeightInit::He)  // sinon: auto selon activation
+    // Optional initialization
+    .weight_init(WeightInit::He)  // otherwise: auto based on activation
     
     .build();
 ```
 
-### Options de régularisation
+### Regularization Options
 
 ```rust
-// L1 (Lasso) - encourage la sparsité
+// L1 (Lasso) - encourages sparsity
 let network = NetworkBuilder::new(2, 1)
     .hidden_layer(8, Activation::Tanh)
     .l1(0.001)
     .build();
 
-// L2 (Ridge) - pénalise les grands poids
+// L2 (Ridge) - penalizes large weights
 let network = NetworkBuilder::new(2, 1)
     .hidden_layer(8, Activation::Tanh)
     .l2(0.01)
     .build();
 
-// Elastic Net - combine L1 et L2
+// Elastic Net - combines L1 and L2
 let network = NetworkBuilder::new(2, 1)
     .hidden_layer(8, Activation::Tanh)
     .elastic_net(0.5, 0.01)  // l1_ratio=0.5, lambda=0.01
     .build();
 
-// Dropout + L2 (recommandé)
+// Dropout + L2 (recommended)
 let network = NetworkBuilder::new(2, 1)
     .hidden_layer(16, Activation::ReLU)
     .hidden_layer(8, Activation::ReLU)
@@ -113,24 +113,24 @@ let network = NetworkBuilder::new(2, 1)
     .build();
 ```
 
-### Valeurs par défaut
+### Default Values
 
-Si vous n'spécifiez pas certaines options, les valeurs par défaut sont:
+If you don't specify certain options, the defaults are:
 - `output_activation`: `Activation::Sigmoid`
 - `loss`: `LossFunction::BinaryCrossEntropy`
 - `optimizer`: `OptimizerType::adam(0.001)`
-- `weight_init`: Auto-détection selon l'activation
-- `dropout`: Aucun
-- `regularization`: Aucune
+- `weight_init`: Auto-detection based on activation
+- `dropout`: None
+- `regularization`: None
 
 ---
 
 ## TrainingBuilder
 
-### Entraînement simple
+### Simple Training
 
 ```rust
-use test_neural::builder::NetworkTrainer;  // Trait pour .trainer()
+use test_neural::builder::NetworkTrainer;  // Trait for .trainer()
 
 let history = network.trainer()
     .train_data(&train_dataset)
@@ -138,7 +138,7 @@ let history = network.trainer()
     .fit();
 ```
 
-### Avec validation
+### With Validation
 
 ```rust
 let history = network.trainer()
@@ -149,7 +149,7 @@ let history = network.trainer()
     .fit();
 ```
 
-### Avec callbacks
+### With Callbacks
 
 ```rust
 use test_neural::callbacks::{EarlyStopping, ModelCheckpoint, ProgressBar};
@@ -165,12 +165,12 @@ let history = network.trainer()
     .fit();
 ```
 
-### Avec Learning Rate Scheduler
+### With Learning Rate Scheduler
 
 ```rust
 use test_neural::callbacks::{LearningRateScheduler, LRSchedule};
 
-// StepLR: réduit le LR tous les N epochs
+// StepLR: reduces LR every N epochs
 let history = network.trainer()
     .train_data(&train_dataset)
     .validation_data(&val_dataset)
@@ -178,13 +178,13 @@ let history = network.trainer()
     .batch_size(32)
     .scheduler(LearningRateScheduler::new(
         LRSchedule::StepLR { 
-            step_size: 30,  // tous les 30 epochs
-            gamma: 0.1      // multiplier par 0.1
+            step_size: 30,  // every 30 epochs
+            gamma: 0.1      // multiply by 0.1
         }
     ))
     .fit();
 
-// ReduceOnPlateau: réduit le LR quand loss stagne (recommandé!)
+// ReduceOnPlateau: reduces LR when loss plateaus (recommended!)
 let history = network.trainer()
     .train_data(&train_dataset)
     .validation_data(&val_dataset)
@@ -192,14 +192,14 @@ let history = network.trainer()
     .batch_size(32)
     .scheduler(LearningRateScheduler::new(
         LRSchedule::ReduceOnPlateau { 
-            patience: 10,          // attendre 10 epochs
-            factor: 0.5,           // diviser par 2
-            min_delta: 0.0001     // amélioration minimale
+            patience: 10,          // wait 10 epochs
+            factor: 0.5,           // divide by 2
+            min_delta: 0.0001     // minimum improvement
         }
     ))
     .fit();
 
-// ExponentialLR: décroissance exponentielle
+// ExponentialLR: exponential decay
 let history = network.trainer()
     .train_data(&train_dataset)
     .validation_data(&val_dataset)
@@ -211,15 +211,15 @@ let history = network.trainer()
     .fit();
 ```
 
-### Configuration complète (tout combiné)
+### Complete Configuration (all combined)
 
 ```rust
 let history = network.trainer()
-    // Données
+    // Data
     .train_data(&train_dataset)
     .validation_data(&val_dataset)
     
-    // Hyperparamètres
+    // Hyperparameters
     .epochs(200)
     .batch_size(32)
     
@@ -232,22 +232,22 @@ let history = network.trainer()
         }
     ))
     
-    // Callbacks (dans l'ordre d'exécution)
+    // Callbacks (in execution order)
     .callback(Box::new(ProgressBar::new(200)))
     .callback(Box::new(ModelCheckpoint::new("best_model.json", true)))
     .callback(Box::new(EarlyStopping::new(20, 0.00001)))
     
     .fit();
 
-// history contient (train_loss, val_loss) pour chaque epoch
-println!("Loss finale: {:.6}", history.last().unwrap().1.unwrap());
+// history contains (train_loss, val_loss) for each epoch
+println!("Final loss: {:.6}", history.last().unwrap().1.unwrap());
 ```
 
 ---
 
-## Exemples complets
+## Complete Examples
 
-### Exemple 1: Classification binaire (XOR)
+### Example 1: Binary Classification (XOR)
 
 ```rust
 use test_neural::builder::{NetworkBuilder, NetworkTrainer};
@@ -258,7 +258,7 @@ use test_neural::callbacks::{EarlyStopping, ModelCheckpoint};
 use ndarray::array;
 
 fn main() {
-    // Données XOR
+    // XOR data
     let inputs = vec![
         array![0.0, 0.0],
         array![0.0, 1.0],
@@ -276,7 +276,7 @@ fn main() {
     let dataset = Dataset::new(inputs.clone(), targets.clone());
     let (train, val) = dataset.split(0.75);
     
-    // Construction du réseau
+    // Build the network
     let mut network = NetworkBuilder::new(2, 1)
         .hidden_layer(8, Activation::Tanh)
         .output_activation(Activation::Sigmoid)
@@ -284,7 +284,7 @@ fn main() {
         .optimizer(OptimizerType::adam(0.01))
         .build();
     
-    // Entraînement
+    // Training
     let history = network.trainer()
         .train_data(&train)
         .validation_data(&val)
@@ -294,16 +294,16 @@ fn main() {
         .callback(Box::new(ModelCheckpoint::new("best_xor.json", true)))
         .fit();
     
-    // Prédictions
+    // Predictions
     for (input, target) in inputs.iter().zip(targets.iter()) {
         let prediction = network.predict(input);
-        println!("[{:.0}, {:.0}] → {:.3} (attendu {:.0})", 
+        println!("[{:.0}, {:.0}] → {:.3} (expected {:.0})", 
             input[0], input[1], prediction[0], target[0]);
     }
 }
 ```
 
-### Exemple 2: Réseau profond avec régularisation
+### Example 2: Deep Network with Regularization
 
 ```rust
 use test_neural::builder::{NetworkBuilder, NetworkTrainer};
@@ -338,17 +338,17 @@ fn main() {
         .callback(Box::new(ProgressBar::new(100)))
         .fit();
     
-    println!("Entraînement terminé: {} epochs", history.len());
+    println!("Training completed: {} epochs", history.len());
 }
 ```
 
 ---
 
-## Comparaison avec l'API traditionnelle
+## Comparison with Traditional API
 
 ### Construction
 
-**Traditionnelle**:
+**Traditional**:
 ```rust
 // Simple
 let network = Network::new(
@@ -359,7 +359,7 @@ let network = Network::new(
     OptimizerType::adam(0.01)
 );
 
-// Profond
+// Deep
 let network = Network::new_deep(
     2,
     vec![16, 8, 4],           // Vec<usize>
@@ -378,7 +378,7 @@ let network = NetworkBuilder::new(2, 1)
     .hidden_layer(8, Activation::Tanh)
     .build();
 
-// Profond
+// Deep
 let network = NetworkBuilder::new(2, 1)
     .hidden_layer(16, Activation::ReLU)
     .hidden_layer(8, Activation::ReLU)
@@ -386,17 +386,17 @@ let network = NetworkBuilder::new(2, 1)
     .build();
 ```
 
-### Entraînement
+### Training
 
-**Traditionnelle**:
+**Traditional**:
 ```rust
-// Sans scheduler
+// Without scheduler
 let mut callbacks: Vec<Box<dyn Callback>> = vec![
     Box::new(EarlyStopping::new(10, 0.0001)),
 ];
 let history = network.fit(&train, Some(&val), 100, 32, &mut callbacks);
 
-// Avec scheduler
+// With scheduler
 let mut scheduler = LearningRateScheduler::new(...);
 let mut callbacks: Vec<Box<dyn Callback>> = vec![...];
 let history = network.fit_with_scheduler(
@@ -406,7 +406,7 @@ let history = network.fit_with_scheduler(
 
 **Builder**:
 ```rust
-// Tout unifié
+// All unified
 let history = network.trainer()
     .train_data(&train)
     .validation_data(&val)
@@ -421,13 +421,13 @@ let history = network.trainer()
 
 ## Conclusion
 
-Le Builder Pattern offre:
+The Builder Pattern offers:
 
-✅ **API intuitive** - Code auto-documenté  
-✅ **Moins d'erreurs** - Plus de Vec à gérer  
-✅ **Flexibilité** - Combinez n'importe quelles options  
-✅ **Unification** - Une seule manière de faire  
-✅ **Évolutivité** - Facile d'ajouter de nouvelles options  
-✅ **Backward compatible** - L'ancienne API reste disponible
+✅ **Intuitive API** - Self-documenting code  
+✅ **Fewer errors** - No more Vec to manage  
+✅ **Flexibility** - Combine any options  
+✅ **Unification** - One way to do things  
+✅ **Extensibility** - Easy to add new options  
+✅ **Backward compatible** - Old API still available
 
-🚀 **Commencez ici**: `cargo run --example builder_showcase`
+🚀 **Start here**: `cargo run --example getting_started`
