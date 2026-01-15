@@ -14,8 +14,12 @@ use test_neural::dataset::Dataset;
 use test_neural::callbacks::{EarlyStopping, ModelCheckpoint, LearningRateScheduler, LRSchedule, ProgressBar};
 use test_neural::metrics::{accuracy, binary_metrics};
 use ndarray::array;
+use std::fs;
 
 fn main() {
+    // Create data directory for output files
+    let data_dir = "examples/data";
+    fs::create_dir_all(data_dir).expect("Failed to create data directory");
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║         Test Neural - Getting Started Guide                  ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
@@ -140,7 +144,7 @@ fn main() {
         .epochs(100)
         .batch_size(32)
         .callback(Box::new(EarlyStopping::new(15, 0.00001)))
-        .callback(Box::new(ModelCheckpoint::new("best_model.json", true)))
+        .callback(Box::new(ModelCheckpoint::new(&format!("{}/best_model.json", data_dir), true)))
         .callback(Box::new(ProgressBar::new(100).set_verbose(false)))
         .scheduler(LearningRateScheduler::new(
             LRSchedule::ReduceOnPlateau { 
@@ -211,6 +215,5 @@ fn main() {
     println!("   cargo run --example minibatch_demo  - Mini-batch training");
     println!("   cargo run --example metrics_demo    - Detailed metrics\n");
     
-    // Cleanup
-    std::fs::remove_file("best_model.json").ok();
+    println!("💾 Model saved to: {}/best_model.json\n", data_dir);
 }

@@ -3,9 +3,14 @@ use test_neural::network::{Activation, LossFunction};
 use test_neural::optimizer::OptimizerType;
 use test_neural::io;
 use ndarray::array;
+use std::fs;
 
 fn main() {
     println!("=== Neural Network Serialization Demo ===\n");
+
+    // Create data directory for output files
+    let data_dir = "examples/data";
+    fs::create_dir_all(data_dir).expect("Failed to create data directory");
     
     // 1. Create and train a network
     println!("1. Creating and training network on XOR...");
@@ -55,15 +60,17 @@ fn main() {
     
     // 2. Save to JSON
     println!("\n3. Saving to JSON...");
-    match io::save_json(&network, "xor_model.json") {
-        Ok(_) => println!("  ✓ Saved to xor_model.json"),
+    let json_path = format!("{}/xor_model.json", data_dir);
+    match io::save_json(&network, &json_path) {
+        Ok(_) => println!("  ✓ Saved to {}", json_path),
         Err(e) => println!("  ✗ Error: {}", e),
     }
     
     // 3. Save to binary
     println!("\n4. Saving to binary...");
-    match io::save_binary(&network, "xor_model.bin") {
-        Ok(_) => println!("  ✓ Saved to xor_model.bin"),
+    let bin_path = format!("{}/xor_model.bin", data_dir);
+    match io::save_binary(&network, &bin_path) {
+        Ok(_) => println!("  ✓ Saved to {}", bin_path),
         Err(e) => println!("  ✗ Error: {}", e),
     }
     
@@ -77,9 +84,9 @@ fn main() {
     
     // 5. Load from JSON
     println!("\n6. Loading from JSON...");
-    match io::load_json("xor_model.json") {
+    match io::load_json(&json_path) {
         Ok(loaded_network) => {
-            println!("  ✓ Loaded from xor_model.json");
+            println!("  ✓ Loaded from {}", json_path);
             
             println!("\n7. Testing loaded network (JSON):");
             for (input, target) in inputs.iter().zip(targets.iter()) {
@@ -100,9 +107,9 @@ fn main() {
     
     // 6. Load from binary
     println!("\n8. Loading from binary...");
-    match io::load_binary("xor_model.bin") {
+    match io::load_binary(&bin_path) {
         Ok(loaded_network) => {
-            println!("  ✓ Loaded from xor_model.bin");
+            println!("  ✓ Loaded from {}", bin_path);
             
             println!("\n9. Testing loaded network (Binary):");
             for (input, target) in inputs.iter().zip(targets.iter()) {
@@ -123,6 +130,6 @@ fn main() {
     
     println!("\n=== Demo Complete ===");
     println!("\nGenerated files:");
-    println!("  - xor_model.json (human-readable)");
-    println!("  - xor_model.bin (compact binary)");
+    println!("  - {} (human-readable)", json_path);
+    println!("  - {} (compact binary)", bin_path);
 }
