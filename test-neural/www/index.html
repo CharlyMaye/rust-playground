@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Wasm Test</title>
+</head>
+<body>
+    <h1>WebAssembly Init Test</h1>
+    <div id="output">Loading...</div>
+
+    <script type="module">
+        import init, { add } from '../neural-wasm/pkg/neural_wasm.js';
+
+        async function run() {
+            await init();
+            const result = add(2, 3);
+            document.getElementById('output').textContent = `2 + 3 = ${result}`;
+        }
+
+        run();
+    </script>
+</body>
+</html>
