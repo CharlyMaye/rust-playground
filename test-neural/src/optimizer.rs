@@ -1,55 +1,55 @@
-//! Module d'optimiseurs pour l'entraînement des réseaux de neurones
+//! Optimizers for neural network training.
 //!
-//! Ce module fournit différents algorithmes d'optimisation pour mettre à jour
-//! les poids du réseau pendant l'entraînement.
+//! This module provides different optimization algorithms to update
+//! network weights during training.
 
 use ndarray::{Array1, Array2};
 use serde::{Deserialize, Serialize};
 
-/// Type d'optimiseur disponible
+/// Available optimizer types.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum OptimizerType {
-    /// Descente de gradient stochastique (SGD) - Simple et rapide
+    /// Stochastic Gradient Descent (SGD) - Simple and fast
     SGD { learning_rate: f64 },
     
-    /// SGD avec momentum - Accélère dans les bonnes directions
+    /// SGD with momentum - Accelerates in the right directions
     Momentum { 
         learning_rate: f64, 
-        beta: f64  // Typiquement 0.9
+        beta: f64  // Typically 0.9
     },
     
-    /// RMSprop - Adapte le learning rate par paramètre
+    /// RMSprop - Adapts learning rate per parameter
     RMSprop { 
         learning_rate: f64, 
-        beta: f64,      // Typiquement 0.9
-        epsilon: f64    // Typiquement 1e-8
+        beta: f64,      // Typically 0.9
+        epsilon: f64    // Typically 1e-8
     },
     
-    /// Adam - Adaptive Moment Estimation (standard moderne)
+    /// Adam - Adaptive Moment Estimation (modern standard)
     Adam { 
         learning_rate: f64,
-        beta1: f64,     // Typiquement 0.9 (momentum)
-        beta2: f64,     // Typiquement 0.999 (variance)
-        epsilon: f64    // Typiquement 1e-8
+        beta1: f64,     // Typically 0.9 (momentum)
+        beta2: f64,     // Typically 0.999 (variance)
+        epsilon: f64    // Typically 1e-8
     },
     
-    /// AdamW - Adam avec Weight Decay découplé
+    /// AdamW - Adam with decoupled Weight Decay
     AdamW { 
         learning_rate: f64,
         beta1: f64,
         beta2: f64,
         epsilon: f64,
-        weight_decay: f64  // Typiquement 0.01
+        weight_decay: f64  // Typically 0.01
     },
 }
 
 impl OptimizerType {
-    /// Crée un optimiseur SGD avec le learning rate spécifié
+    /// Creates an SGD optimizer with the specified learning rate.
     pub fn sgd(learning_rate: f64) -> Self {
         OptimizerType::SGD { learning_rate }
     }
     
-    /// Crée un optimiseur Momentum avec paramètres par défaut
+    /// Creates a Momentum optimizer with default parameters.
     pub fn momentum(learning_rate: f64) -> Self {
         OptimizerType::Momentum { 
             learning_rate, 
@@ -57,7 +57,7 @@ impl OptimizerType {
         }
     }
     
-    /// Crée un optimiseur RMSprop avec paramètres par défaut
+    /// Creates an RMSprop optimizer with default parameters.
     pub fn rmsprop(learning_rate: f64) -> Self {
         OptimizerType::RMSprop { 
             learning_rate, 
@@ -66,7 +66,7 @@ impl OptimizerType {
         }
     }
     
-    /// Crée un optimiseur Adam avec paramètres par défaut (recommandé)
+    /// Creates an Adam optimizer with default parameters (recommended).
     pub fn adam(learning_rate: f64) -> Self {
         OptimizerType::Adam { 
             learning_rate,
@@ -76,7 +76,7 @@ impl OptimizerType {
         }
     }
     
-    /// Crée un optimiseur AdamW avec paramètres par défaut
+    /// Creates an AdamW optimizer with default parameters.
     pub fn adamw(learning_rate: f64, weight_decay: f64) -> Self {
         OptimizerType::AdamW { 
             learning_rate,
@@ -88,21 +88,21 @@ impl OptimizerType {
     }
 }
 
-/// État de l'optimiseur pour une matrice de poids
+/// Optimizer state for a weight matrix.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptimizerState2D {
-    /// Premier moment (momentum) - utilisé par Momentum, Adam, AdamW
+    /// First moment (momentum) - used by Momentum, Adam, AdamW
     pub m: Option<Array2<f64>>,
     
-    /// Second moment (variance) - utilisé par RMSprop, Adam, AdamW
+    /// Second moment (variance) - used by RMSprop, Adam, AdamW
     pub v: Option<Array2<f64>>,
     
-    /// Nombre d'itérations (pour bias correction dans Adam)
+    /// Number of iterations (for bias correction in Adam)
     pub t: usize,
 }
 
 impl OptimizerState2D {
-    /// Crée un nouvel état pour une matrice de taille donnée
+    /// Creates a new state for a matrix of the given shape.
     pub fn new(shape: (usize, usize), optimizer: &OptimizerType) -> Self {
         let needs_m = matches!(optimizer, 
             OptimizerType::Momentum { .. } | 
@@ -123,7 +123,7 @@ impl OptimizerState2D {
         }
     }
     
-    /// Met à jour les poids avec le gradient calculé
+    /// Updates weights with the computed gradient.
     pub fn step(
         &mut self,
         weights: &mut Array2<f64>,
@@ -142,18 +142,31 @@ impl OptimizerState2D {
                 // Momentum: m = beta * m + grad
                 //           w = w - lr * m
                 let m = self.m.as_mut().expect("Momentum state not initialized");
-                *m = &(m.clone() * *beta) + gradient;
-                *weights -= &(&*m * *learning_rate);
+                // In-place: m *= beta, puis m += gradient
+                m.mapv_inplace(|x| x * *beta);
+                *m += gradient;
+                // w -= lr * m
+                weights.scaled_add(-*learning_rate, m);
             }
             
             OptimizerType::RMSprop { learning_rate, beta, epsilon } => {
                 // RMSprop: v = beta * v + (1 - beta) * grad^2
                 //          w = w - lr * grad / (sqrt(v) + epsilon)
                 let v = self.v.as_mut().expect("RMSprop state not initialized");
-                *v = &(v.clone() * *beta) + &(gradient.mapv(|g| g * g) * (1.0 - beta));
-                
-                let update = gradient / &(v.mapv(|x| x.sqrt()) + *epsilon);
-                *weights -= &(update * *learning_rate);
+                let one_minus_beta = 1.0 - beta;
+                // In-place update of v
+                ndarray::Zip::from(v.view_mut())
+                    .and(gradient.view())
+                    .for_each(|v_i, &g| {
+                        *v_i = *v_i * *beta + g * g * one_minus_beta;
+                    });
+                // Update weights in-place
+                ndarray::Zip::from(weights.view_mut())
+                    .and(gradient.view())
+                    .and(v.view())
+                    .for_each(|w, &g, &v_i| {
+                        *w -= *learning_rate * g / (v_i.sqrt() + *epsilon);
+                    });
             }
             
             OptimizerType::Adam { learning_rate, beta1, beta2, epsilon } => {
@@ -166,19 +179,28 @@ impl OptimizerState2D {
                 let m = self.m.as_mut().expect("Adam m state not initialized");
                 let v = self.v.as_mut().expect("Adam v state not initialized");
                 
-                // Update biased first moment estimate
-                *m = &(m.clone() * *beta1) + &(gradient * (1.0 - beta1));
+                let one_minus_beta1 = 1.0 - beta1;
+                let one_minus_beta2 = 1.0 - beta2;
                 
-                // Update biased second moment estimate
-                *v = &(v.clone() * *beta2) + &(gradient.mapv(|g: f64| g * g) * (1.0 - beta2));
+                // Bias correction factors
+                let bias_correction1 = 1.0 - beta1.powi(self.t as i32);
+                let bias_correction2 = 1.0 - beta2.powi(self.t as i32);
                 
-                // Compute bias-corrected moments
-                let m_hat = &*m / (1.0 - beta1.powi(self.t as i32));
-                let v_hat = &*v / (1.0 - beta2.powi(self.t as i32));
-                
-                // Update weights
-                let update = &m_hat / &(v_hat.mapv(|x: f64| x.sqrt()) + *epsilon);
-                *weights -= &(update * *learning_rate);
+                // All updates in a single pass
+                ndarray::Zip::from(weights.view_mut())
+                    .and(m.view_mut())
+                    .and(v.view_mut())
+                    .and(gradient.view())
+                    .for_each(|w, m_i, v_i, &g| {
+                        // Update moments
+                        *m_i = *m_i * *beta1 + g * one_minus_beta1;
+                        *v_i = *v_i * *beta2 + g * g * one_minus_beta2;
+                        // Bias-corrected moments
+                        let m_hat = *m_i / bias_correction1;
+                        let v_hat = *v_i / bias_correction2;
+                        // Update weight
+                        *w -= *learning_rate * m_hat / (v_hat.sqrt() + *epsilon);
+                    });
             }
             
             OptimizerType::AdamW { learning_rate, beta1, beta2, epsilon, weight_decay } => {
@@ -188,40 +210,49 @@ impl OptimizerState2D {
                 let m = self.m.as_mut().expect("AdamW m state not initialized");
                 let v = self.v.as_mut().expect("AdamW v state not initialized");
                 
-                // Update biased moments
-                *m = &(m.clone() * *beta1) + &(gradient * (1.0 - beta1));
-                *v = &(v.clone() * *beta2) + &(gradient.mapv(|g: f64| g * g) * (1.0 - beta2));
+                let one_minus_beta1 = 1.0 - beta1;
+                let one_minus_beta2 = 1.0 - beta2;
+                let weight_decay_factor = 1.0 - learning_rate * weight_decay;
                 
-                // Bias correction
-                let m_hat = &*m / (1.0 - beta1.powi(self.t as i32));
-                let v_hat = &*v / (1.0 - beta2.powi(self.t as i32));
+                // Bias correction factors
+                let bias_correction1 = 1.0 - beta1.powi(self.t as i32);
+                let bias_correction2 = 1.0 - beta2.powi(self.t as i32);
                 
-                // Weight decay (decoupled)
-                *weights *= 1.0 - learning_rate * weight_decay;
-                
-                // Adam update
-                let update = &m_hat / &(v_hat.mapv(|x: f64| x.sqrt()) + *epsilon);
-                *weights -= &(update * *learning_rate);
+                // All updates in a single pass
+                ndarray::Zip::from(weights.view_mut())
+                    .and(m.view_mut())
+                    .and(v.view_mut())
+                    .and(gradient.view())
+                    .for_each(|w, m_i, v_i, &g| {
+                        // Update moments
+                        *m_i = *m_i * *beta1 + g * one_minus_beta1;
+                        *v_i = *v_i * *beta2 + g * g * one_minus_beta2;
+                        // Bias-corrected moments
+                        let m_hat = *m_i / bias_correction1;
+                        let v_hat = *v_i / bias_correction2;
+                        // Weight decay + Adam update
+                        *w = *w * weight_decay_factor - *learning_rate * m_hat / (v_hat.sqrt() + *epsilon);
+                    });
             }
         }
     }
 }
 
-/// État de l'optimiseur pour un vecteur de biais
+/// Optimizer state for a bias vector.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptimizerState1D {
-    /// Premier moment (momentum)
+    /// First moment (momentum)
     pub m: Option<Array1<f64>>,
     
     /// Second moment (variance)
     pub v: Option<Array1<f64>>,
     
-    /// Nombre d'itérations
+    /// Number of iterations
     pub t: usize,
 }
 
 impl OptimizerState1D {
-    /// Crée un nouvel état pour un vecteur de taille donnée
+    /// Creates a new state for a vector of the given size.
     pub fn new(size: usize, optimizer: &OptimizerType) -> Self {
         let needs_m = matches!(optimizer, 
             OptimizerType::Momentum { .. } | 
@@ -242,7 +273,7 @@ impl OptimizerState1D {
         }
     }
     
-    /// Met à jour les biais avec le gradient calculé
+    /// Updates biases with the computed gradient.
     pub fn step(
         &mut self,
         biases: &mut Array1<f64>,
@@ -253,52 +284,69 @@ impl OptimizerState1D {
         
         match optimizer {
             OptimizerType::SGD { learning_rate } => {
-                *biases -= &(gradient * *learning_rate);
+                biases.scaled_add(-*learning_rate, gradient);
             }
             
             OptimizerType::Momentum { learning_rate, beta } => {
                 let m = self.m.as_mut().expect("Momentum state not initialized");
-                *m = &(m.clone() * *beta) + gradient;
-                *biases -= &(&*m * *learning_rate);
+                m.mapv_inplace(|x| x * *beta);
+                *m += gradient;
+                biases.scaled_add(-*learning_rate, m);
             }
             
             OptimizerType::RMSprop { learning_rate, beta, epsilon } => {
                 let v = self.v.as_mut().expect("RMSprop state not initialized");
-                *v = &(v.clone() * *beta) + &(gradient.mapv(|g: f64| g * g) * (1.0 - beta));
-                
-                let update = gradient / &(v.mapv(|x: f64| x.sqrt()) + *epsilon);
-                *biases -= &(update * *learning_rate);
+                let one_minus_beta = 1.0 - beta;
+                ndarray::Zip::from(biases.view_mut())
+                    .and(v.view_mut())
+                    .and(gradient.view())
+                    .for_each(|b, v_i, &g| {
+                        *v_i = *v_i * *beta + g * g * one_minus_beta;
+                        *b -= *learning_rate * g / (v_i.sqrt() + *epsilon);
+                    });
             }
             
             OptimizerType::Adam { learning_rate, beta1, beta2, epsilon } => {
                 let m = self.m.as_mut().expect("Adam m state not initialized");
                 let v = self.v.as_mut().expect("Adam v state not initialized");
+                let one_minus_beta1 = 1.0 - beta1;
+                let one_minus_beta2 = 1.0 - beta2;
+                let bias_correction1 = 1.0 - beta1.powi(self.t as i32);
+                let bias_correction2 = 1.0 - beta2.powi(self.t as i32);
                 
-                *m = &(m.clone() * *beta1) + &(gradient * (1.0 - beta1));
-                *v = &(v.clone() * *beta2) + &(gradient.mapv(|g: f64| g * g) * (1.0 - beta2));
-                
-                let m_hat = &*m / (1.0 - beta1.powi(self.t as i32));
-                let v_hat = &*v / (1.0 - beta2.powi(self.t as i32));
-                
-                let update = &m_hat / &(v_hat.mapv(|x: f64| x.sqrt()) + *epsilon);
-                *biases -= &(update * *learning_rate);
+                ndarray::Zip::from(biases.view_mut())
+                    .and(m.view_mut())
+                    .and(v.view_mut())
+                    .and(gradient.view())
+                    .for_each(|b, m_i, v_i, &g| {
+                        *m_i = *m_i * *beta1 + g * one_minus_beta1;
+                        *v_i = *v_i * *beta2 + g * g * one_minus_beta2;
+                        let m_hat = *m_i / bias_correction1;
+                        let v_hat = *v_i / bias_correction2;
+                        *b -= *learning_rate * m_hat / (v_hat.sqrt() + *epsilon);
+                    });
             }
             
             OptimizerType::AdamW { learning_rate, beta1, beta2, epsilon, weight_decay } => {
                 let m = self.m.as_mut().expect("AdamW m state not initialized");
                 let v = self.v.as_mut().expect("AdamW v state not initialized");
+                let one_minus_beta1 = 1.0 - beta1;
+                let one_minus_beta2 = 1.0 - beta2;
+                let weight_decay_factor = 1.0 - learning_rate * weight_decay;
+                let bias_correction1 = 1.0 - beta1.powi(self.t as i32);
+                let bias_correction2 = 1.0 - beta2.powi(self.t as i32);
                 
-                *m = &(m.clone() * *beta1) + &(gradient * (1.0 - beta1));
-                *v = &(v.clone() * *beta2) + &(gradient.mapv(|g: f64| g * g) * (1.0 - beta2));
-                
-                let m_hat = &*m / (1.0 - beta1.powi(self.t as i32));
-                let v_hat = &*v / (1.0 - beta2.powi(self.t as i32));
-                
-                // Weight decay pour biais (généralement pas appliqué, mais pour cohérence)
-                *biases *= 1.0 - learning_rate * weight_decay;
-                
-                let update = &m_hat / &(v_hat.mapv(|x: f64| x.sqrt()) + *epsilon);
-                *biases -= &(update * *learning_rate);
+                ndarray::Zip::from(biases.view_mut())
+                    .and(m.view_mut())
+                    .and(v.view_mut())
+                    .and(gradient.view())
+                    .for_each(|b, m_i, v_i, &g| {
+                        *m_i = *m_i * *beta1 + g * one_minus_beta1;
+                        *v_i = *v_i * *beta2 + g * g * one_minus_beta2;
+                        let m_hat = *m_i / bias_correction1;
+                        let v_hat = *v_i / bias_correction2;
+                        *b = *b * weight_decay_factor - *learning_rate * m_hat / (v_hat.sqrt() + *epsilon);
+                    });
             }
         }
     }

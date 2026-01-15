@@ -1,89 +1,89 @@
-//! Module pour les callbacks d'entraînement
+//! Training callbacks for neural networks.
 //!
-//! Les callbacks permettent d'injecter du code personnalisé à différents moments
-//! de l'entraînement : après chaque epoch, après chaque batch, etc.
+//! Callbacks allow injecting custom code at different points during training:
+//! after each epoch, after each batch, etc.
 //!
-//! Callbacks disponibles :
-//! - **EarlyStopping** : Arrête l'entraînement si la loss ne s'améliore plus
-//! - **ModelCheckpoint** : Sauvegarde automatique du meilleur modèle
-//! - **LearningRateScheduler** : Ajuste dynamiquement le learning rate
-//! - **ProgressBar** : Affiche la progression en temps réel
+//! Available callbacks:
+//! - **EarlyStopping**: Stops training if loss stops improving
+//! - **ModelCheckpoint**: Automatically saves the best model
+//! - **LearningRateScheduler**: Dynamically adjusts the learning rate
+//! - **ProgressBar**: Displays real-time training progress
 
 use crate::network::Network;
 use crate::optimizer::OptimizerType;
 use std::path::PathBuf;
 
-/// Trait de base pour tous les callbacks
-/// 
-/// Les callbacks sont appelés à différents moments de l'entraînement
-/// et peuvent modifier le comportement ou collecter des statistiques.
+/// Base trait for all callbacks.
+///
+/// Callbacks are invoked at different points during training
+/// and can modify behavior or collect statistics.
 pub trait Callback {
-    /// Appelé au début de l'entraînement
+    /// Called at the beginning of training.
     fn on_train_begin(&mut self, _network: &Network) {}
     
-    /// Appelé à la fin de l'entraînement
+    /// Called at the end of training.
     fn on_train_end(&mut self, _network: &Network) {}
     
-    /// Appelé au début de chaque epoch
-    /// 
+    /// Called at the beginning of each epoch.
+    ///
     /// # Arguments
-    /// - `epoch`: Numéro de l'epoch (0-indexed)
-    /// - `network`: Référence au réseau
+    /// - `epoch`: Epoch number (0-indexed)
+    /// - `network`: Reference to the network
     fn on_epoch_begin(&mut self, _epoch: usize, _network: &Network) {}
     
-    /// Appelé à la fin de chaque epoch
-    /// 
+    /// Called at the end of each epoch.
+    ///
     /// # Arguments
-    /// - `epoch`: Numéro de l'epoch (0-indexed)
-    /// - `network`: Référence au réseau
-    /// - `train_loss`: Loss d'entraînement
-    /// - `val_loss`: Loss de validation (None si pas de validation)
-    /// 
+    /// - `epoch`: Epoch number (0-indexed)
+    /// - `network`: Reference to the network
+    /// - `train_loss`: Training loss
+    /// - `val_loss`: Validation loss (None if no validation)
+    ///
     /// # Returns
-    /// `true` pour continuer l'entraînement, `false` pour arrêter
+    /// `true` to continue training, `false` to stop
     fn on_epoch_end(&mut self, _epoch: usize, _network: &Network, _train_loss: f64, _val_loss: Option<f64>) -> bool {
-        true  // Continue par défaut
+        true
     }
 }
 
-/// EarlyStopping - Arrête l'entraînement si la loss ne s'améliore plus
-/// 
-/// Surveille la validation loss et arrête l'entraînement après `patience`
-/// epochs sans amélioration. Évite l'overfitting.
-/// 
+/// EarlyStopping - Stops training if loss stops improving.
+///
+/// Monitors validation loss and stops training after `patience` epochs
+/// without improvement. Helps prevent overfitting.
+///
 /// # Example
-/// ```
+/// ```rust
 /// use test_neural::callbacks::EarlyStopping;
-/// 
+///
 /// let early_stop = EarlyStopping::new(10, 0.0001);  // patience=10, min_delta=0.0001
 /// ```
 #[derive(Debug, Clone)]
 pub struct EarlyStopping {
-    /// Nombre d'epochs à attendre sans amélioration avant d'arrêter
+    /// Number of epochs to wait without improvement before stopping
     patience: usize,
     
-    /// Amélioration minimale requise pour compter comme amélioration
+    /// Minimum improvement required to count as improvement
     min_delta: f64,
     
-    /// Meilleure loss observée
+    /// Best loss observed
     best_loss: f64,
     
-    /// Nombre d'epochs sans amélioration
+    /// Number of epochs without improvement
     wait: usize,
     
-    /// Indique si l'entraînement doit s'arrêter
+    /// Indicates if training should stop
     stopped: bool,
     
-    /// Epoch où le meilleur modèle a été trouvé
+    /// Epoch where the best model was found
     best_epoch: usize,
 }
 
 impl EarlyStopping {
-    /// Crée un nouveau callback EarlyStopping
-    /// 
+    /// Creates a new EarlyStopping callback.
+    ///
     /// # Arguments
-    /// - `patience`: Nombre d'epochs à attendre sans amélioration
-    /// - `min_delta`: Amélioration minimale requise (ex: 0.0001)
+    /// - `patience`: Number of epochs to wait without improvement
+    /// - `min_delta`: Minimum required improvement (e.g., 0.0001)
     pub fn new(patience: usize, min_delta: f64) -> Self {
         EarlyStopping {
             patience,
@@ -95,17 +95,17 @@ impl EarlyStopping {
         }
     }
     
-    /// Vérifie si l'entraînement a été arrêté
+    /// Returns whether training was stopped.
     pub fn stopped(&self) -> bool {
         self.stopped
     }
     
-    /// Retourne l'epoch du meilleur modèle
+    /// Returns the epoch of the best model.
     pub fn best_epoch(&self) -> usize {
         self.best_epoch
     }
     
-    /// Retourne la meilleure loss
+    /// Returns the best loss.
     pub fn best_loss(&self) -> f64 {
         self.best_loss
     }
@@ -140,38 +140,38 @@ impl Callback for EarlyStopping {
     }
 }
 
-/// ModelCheckpoint - Sauvegarde automatique du meilleur modèle
-/// 
-/// Sauvegarde le modèle quand la validation loss s'améliore.
-/// Permet de récupérer le meilleur modèle même si l'entraînement overfitte ensuite.
-/// 
+/// ModelCheckpoint - Automatically saves the best model.
+///
+/// Saves the model when validation loss improves.
+/// Allows recovering the best model even if training overfits afterwards.
+///
 /// # Example
-/// ```
+/// ```rust
 /// use test_neural::callbacks::ModelCheckpoint;
-/// 
+///
 /// let checkpoint = ModelCheckpoint::new("best_model.json", true);
 /// ```
 #[derive(Debug, Clone)]
 pub struct ModelCheckpoint {
-    /// Chemin où sauvegarder le modèle
+    /// Path where to save the model
     filepath: PathBuf,
     
-    /// Sauvegarder uniquement si amélioration
+    /// Save only if improvement
     save_best_only: bool,
     
-    /// Meilleure loss observée
+    /// Best loss observed
     best_loss: f64,
     
-    /// Format de sauvegarde (true = JSON, false = Binary)
+    /// Save format (true = JSON, false = Binary)
     use_json: bool,
 }
 
 impl ModelCheckpoint {
-    /// Crée un nouveau callback ModelCheckpoint
-    /// 
+    /// Creates a new ModelCheckpoint callback.
+    ///
     /// # Arguments
-    /// - `filepath`: Chemin du fichier (ex: "best_model.json" ou "best_model.bin")
-    /// - `save_best_only`: Si true, sauvegarde uniquement quand loss s'améliore
+    /// - `filepath`: File path (e.g., "best_model.json" or "best_model.bin")
+    /// - `save_best_only`: If true, save only when loss improves
     pub fn new(filepath: &str, save_best_only: bool) -> Self {
         let path = PathBuf::from(filepath);
         let use_json = path.extension()
@@ -187,7 +187,7 @@ impl ModelCheckpoint {
         }
     }
     
-    /// Retourne la meilleure loss
+    /// Returns the best loss.
     pub fn best_loss(&self) -> f64 {
         self.best_loss
     }
@@ -225,38 +225,38 @@ impl Callback for ModelCheckpoint {
     }
 }
 
-/// Stratégie d'ajustement du learning rate
+/// Learning rate adjustment strategy.
 #[derive(Debug, Clone)]
 pub enum LRSchedule {
-    /// Réduit LR par un facteur à des epochs fixes
-    /// Ex: StepLR { step_size: 10, gamma: 0.5 } divise LR par 2 tous les 10 epochs
+    /// Reduces LR by a factor at fixed epochs.
+    /// Example: StepLR { step_size: 10, gamma: 0.5 } divides LR by 2 every 10 epochs
     StepLR { step_size: usize, gamma: f64 },
     
-    /// Réduit LR quand la loss plateau
-    /// Ex: ReduceOnPlateau { patience: 5, factor: 0.5 } divise LR par 2 après 5 epochs sans amélioration
+    /// Reduces LR when loss plateaus.
+    /// Example: ReduceOnPlateau { patience: 5, factor: 0.5 } divides LR by 2 after 5 epochs without improvement
     ReduceOnPlateau { patience: usize, factor: f64, min_delta: f64 },
     
-    /// Décroissance exponentielle du LR
-    /// Ex: ExponentialLR { gamma: 0.95 } multiplie LR par 0.95 chaque epoch
+    /// Exponential decay of LR.
+    /// Example: ExponentialLR { gamma: 0.95 } multiplies LR by 0.95 each epoch
     ExponentialLR { gamma: f64 },
 }
 
-/// LearningRateScheduler - Ajuste dynamiquement le learning rate
-/// 
-/// Plusieurs stratégies disponibles :
-/// - **StepLR** : Réduit LR à intervalles réguliers
-/// - **ReduceOnPlateau** : Réduit LR quand la loss stagne
-/// - **ExponentialLR** : Décroissance exponentielle
-/// 
+/// LearningRateScheduler - Dynamically adjusts the learning rate.
+///
+/// Several strategies available:
+/// - **StepLR**: Reduces LR at regular intervals
+/// - **ReduceOnPlateau**: Reduces LR when loss stagnates
+/// - **ExponentialLR**: Exponential decay
+///
 /// # Example
-/// ```
+/// ```rust
 /// use test_neural::callbacks::{LearningRateScheduler, LRSchedule};
-/// 
+///
 /// let scheduler = LearningRateScheduler::new(
-///     LRSchedule::ReduceOnPlateau { 
-///         patience: 5, 
-///         factor: 0.5, 
-///         min_delta: 0.0001 
+///     LRSchedule::ReduceOnPlateau {
+///         patience: 5,
+///         factor: 0.5,
+///         min_delta: 0.0001
 ///     }
 /// );
 /// ```
@@ -264,16 +264,16 @@ pub enum LRSchedule {
 pub struct LearningRateScheduler {
     schedule: LRSchedule,
     
-    // État pour ReduceOnPlateau
+    // State for ReduceOnPlateau
     best_loss: f64,
     wait: usize,
     
-    // LR actuel (pub pour permettre l'accès depuis fit())
+    // Current LR (pub to allow access from fit())
     pub current_lr: f64,
 }
 
 impl LearningRateScheduler {
-    /// Crée un nouveau scheduler de learning rate
+    /// Creates a new learning rate scheduler.
     pub fn new(schedule: LRSchedule) -> Self {
         LearningRateScheduler {
             schedule,
@@ -283,12 +283,12 @@ impl LearningRateScheduler {
         }
     }
     
-    /// Retourne le learning rate actuel
+    /// Returns the current learning rate.
     pub fn current_lr(&self) -> f64 {
         self.current_lr
     }
     
-    /// Met à jour le learning rate de l'optimizer
+    /// Updates the optimizer's learning rate.
     pub fn update_optimizer_lr(&mut self, optimizer: &mut OptimizerType) {
         match optimizer {
             OptimizerType::SGD { learning_rate } => *learning_rate = self.current_lr,
@@ -352,17 +352,17 @@ impl Callback for LearningRateScheduler {
     }
 }
 
-/// ProgressBar - Affiche la progression de l'entraînement
-/// 
-/// Affiche en temps réel :
-/// - Progression des epochs
-/// - Loss d'entraînement et validation
-/// - Temps écoulé et temps estimé restant
-/// 
+/// ProgressBar - Displays training progress in real-time.
+///
+/// Shows in real-time:
+/// - Epoch progression
+/// - Training and validation loss
+/// - Elapsed time and estimated remaining time
+///
 /// # Example
-/// ```
+/// ```rust
 /// use test_neural::callbacks::ProgressBar;
-/// 
+///
 /// let progress = ProgressBar::new(100);  // 100 epochs
 /// ```
 #[derive(Debug, Clone)]
@@ -373,10 +373,10 @@ pub struct ProgressBar {
 }
 
 impl ProgressBar {
-    /// Crée une nouvelle barre de progression
-    /// 
+    /// Creates a new progress bar.
+    ///
     /// # Arguments
-    /// - `total_epochs`: Nombre total d'epochs
+    /// - `total_epochs`: Total number of epochs
     pub fn new(total_epochs: usize) -> Self {
         ProgressBar {
             total_epochs,
@@ -385,7 +385,7 @@ impl ProgressBar {
         }
     }
     
-    /// Active/désactive le mode verbose
+    /// Enables/disables verbose mode.
     pub fn set_verbose(mut self, verbose: bool) -> Self {
         self.verbose = verbose;
         self

@@ -1,11 +1,11 @@
-//! Module de métriques d'évaluation pour les réseaux de neurones
+//! Evaluation metrics for neural networks.
 //!
-//! Ce module fournit diverses métriques pour évaluer la performance des modèles,
-//! notamment pour la classification binaire et multi-classes.
+//! This module provides various metrics to evaluate model performance,
+//! including metrics for binary and multi-class classification.
 
 use ndarray::{Array1, Array2};
 
-/// Résultat d'évaluation pour classification binaire
+/// Evaluation results for binary classification.
 #[derive(Debug, Clone)]
 pub struct BinaryMetrics {
     pub accuracy: f64,
@@ -19,7 +19,7 @@ pub struct BinaryMetrics {
 }
 
 impl BinaryMetrics {
-    /// Affiche les métriques dans un format lisible
+    /// Returns a formatted summary of the metrics.
     pub fn summary(&self) -> String {
         format!(
             "Accuracy: {:.4} | Precision: {:.4} | Recall: {:.4} | F1: {:.4}\n\
@@ -31,18 +31,18 @@ impl BinaryMetrics {
     }
 }
 
-/// Calcule l'accuracy (pourcentage de prédictions correctes)
-/// 
+/// Computes accuracy (percentage of correct predictions).
+///
 /// # Arguments
-/// * `predictions` - Vecteur de prédictions du réseau
-/// * `targets` - Vecteur de valeurs réelles
-/// * `threshold` - Seuil de classification (par défaut 0.5)
-/// 
-/// # Exemples
-/// ```
+/// * `predictions` - Vector of network predictions
+/// * `targets` - Vector of actual values
+/// * `threshold` - Classification threshold (default 0.5)
+///
+/// # Example
+/// ```rust
 /// use ndarray::array;
 /// use test_neural::metrics::accuracy;
-/// 
+///
 /// let predictions = vec![array![0.1], array![0.9], array![0.8], array![0.2]];
 /// let targets = vec![array![0.0], array![1.0], array![1.0], array![0.0]];
 /// let acc = accuracy(&predictions, &targets, 0.5);
@@ -91,28 +91,28 @@ pub fn accuracy(
     correct as f64 / predictions.len() as f64
 }
 
-/// Calcule les métriques complètes pour classification binaire
-/// 
-/// # Retourne
-/// - Accuracy: % de prédictions correctes
-/// - Precision: TP / (TP + FP) - "quand je prédis positif, à quelle fréquence ai-je raison?"
-/// - Recall: TP / (TP + FN) - "je capture quel % de tous les positifs réels?"
-/// - F1-score: moyenne harmonique de Precision et Recall
-/// 
+/// Computes comprehensive metrics for binary classification.
+///
+/// # Returns
+/// - Accuracy: Percentage of correct predictions
+/// - Precision: TP / (TP + FP) - "When I predict positive, how often am I right?"
+/// - Recall: TP / (TP + FN) - "What percentage of actual positives do I capture?"
+/// - F1-score: Harmonic mean of Precision and Recall
+///
 /// # Arguments
-/// * `predictions` - Vecteur de prédictions
-/// * `targets` - Vecteur de valeurs réelles  
-/// * `threshold` - Seuil de classification (typiquement 0.5)
-/// 
-/// # Exemples
-/// ```
+/// * `predictions` - Vector of predictions
+/// * `targets` - Vector of actual values
+/// * `threshold` - Classification threshold (typically 0.5)
+///
+/// # Example
+/// ```rust
 /// use ndarray::array;
 /// use test_neural::metrics::binary_metrics;
-/// 
+///
 /// let predictions = vec![array![0.9], array![0.8], array![0.3], array![0.2]];
 /// let targets = vec![array![1.0], array![1.0], array![0.0], array![0.0]];
 /// let metrics = binary_metrics(&predictions, &targets, 0.5);
-/// 
+///
 /// println!("{}", metrics.summary());
 /// assert_eq!(metrics.accuracy, 1.0);
 /// ```
@@ -174,20 +174,20 @@ pub fn binary_metrics(
     }
 }
 
-/// Calcule la matrice de confusion pour classification binaire
-/// 
-/// Retourne une matrice 2x2 :
+/// Computes the confusion matrix for binary classification.
+///
+/// Returns a 2x2 matrix:
 /// ```text
-///                 Prédit
+///                 Predicted
 ///              Neg    Pos
-/// Réel  Neg [  TN  |  FP  ]
-///       Pos [  FN  |  TP  ]
+/// Actual Neg [  TN  |  FP  ]
+///        Pos [  FN  |  TP  ]
 /// ```
-/// 
+///
 /// # Arguments
-/// * `predictions` - Vecteur de prédictions
-/// * `targets` - Vecteur de valeurs réelles
-/// * `threshold` - Seuil de classification
+/// * `predictions` - Vector of predictions
+/// * `targets` - Vector of actual values
+/// * `threshold` - Classification threshold
 pub fn confusion_matrix_binary(
     predictions: &[Array1<f64>],
     targets: &[Array1<f64>],
@@ -209,15 +209,15 @@ pub fn confusion_matrix_binary(
     matrix
 }
 
-/// Calcule la matrice de confusion pour classification multi-classes
-/// 
-/// Retourne une matrice NxN où N est le nombre de classes
-/// matrix[i][j] = nombre d'exemples de classe i prédits comme classe j
-/// 
+/// Computes the confusion matrix for multi-class classification.
+///
+/// Returns an NxN matrix where N is the number of classes.
+/// matrix[i][j] = number of examples of class i predicted as class j
+///
 /// # Arguments
-/// * `predictions` - Vecteur de prédictions (probabilités par classe)
-/// * `targets` - Vecteur de valeurs réelles (one-hot ou probabilités)
-/// * `num_classes` - Nombre de classes
+/// * `predictions` - Vector of predictions (probabilities per class)
+/// * `targets` - Vector of actual values (one-hot or probabilities)
+/// * `num_classes` - Number of classes
 pub fn confusion_matrix_multiclass(
     predictions: &[Array1<f64>],
     targets: &[Array1<f64>],
@@ -248,7 +248,7 @@ pub fn confusion_matrix_multiclass(
     matrix
 }
 
-/// Affiche une matrice de confusion dans un format lisible
+/// Formats a confusion matrix in a readable format.
 pub fn format_confusion_matrix(matrix: &Array2<usize>, class_names: Option<&[&str]>) -> String {
     let size = matrix.nrows();
     let mut result = String::new();
@@ -298,15 +298,15 @@ pub fn format_confusion_matrix(matrix: &Array2<usize>, class_names: Option<&[&st
     result
 }
 
-/// Calcule la courbe ROC (Receiver Operating Characteristic)
-/// 
-/// Retourne des vecteurs (FPR, TPR) pour différents seuils
-/// Utile pour visualiser performance à différents seuils
-/// 
+/// Computes the ROC (Receiver Operating Characteristic) curve.
+///
+/// Returns (FPR, TPR) vectors for different thresholds.
+/// Useful for visualizing performance at different thresholds.
+///
 /// # Arguments
-/// * `predictions` - Scores de prédiction (probabilités)
-/// * `targets` - Valeurs réelles (0 ou 1)
-/// * `num_thresholds` - Nombre de seuils à tester
+/// * `predictions` - Prediction scores (probabilities)
+/// * `targets` - Actual values (0 or 1)
+/// * `num_thresholds` - Number of thresholds to test
 pub fn roc_curve(
     predictions: &[Array1<f64>],
     targets: &[Array1<f64>],
@@ -362,10 +362,10 @@ pub fn roc_curve(
     (fpr_values, tpr_values, thresholds)
 }
 
-/// Calcule l'AUC (Area Under Curve) pour la courbe ROC
-/// 
-/// Approximation par méthode des trapèzes
-/// Valeur parfaite = 1.0, valeur aléatoire = 0.5
+/// Computes the AUC (Area Under Curve) for the ROC curve.
+///
+/// Uses the trapezoidal method for approximation.
+/// Perfect value = 1.0, random value = 0.5
 pub fn auc_roc(
     predictions: &[Array1<f64>],
     targets: &[Array1<f64>],

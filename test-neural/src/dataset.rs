@@ -1,19 +1,34 @@
-//! Module pour gérer les datasets et l'entraînement par mini-batch
+//! Dataset management for neural network training.
 //!
-//! Ce module fournit des structures pour organiser les données d'entraînement,
-//! créer des batches, shuffle les données, et split train/val/test.
+//! This module provides structures for organizing training data, creating
+//! mini-batches, shuffling data, and splitting into train/validation/test sets.
+//!
+//! # Example
+//!
+//! ```rust
+//! use test_neural::dataset::Dataset;
+//! use ndarray::array;
+//!
+//! let inputs = vec![array![0.0, 0.0], array![0.0, 1.0]];
+//! let targets = vec![array![0.0], array![1.0]];
+//! let mut dataset = Dataset::new(inputs, targets);
+//!
+//! dataset.shuffle();
+//! for (batch_inputs, batch_targets) in dataset.batches(32) {
+//!     println!("Batch size: {}", batch_inputs.len());
+//! }
+//! ```
 
 use ndarray::Array1;
-use rand::seq::SliceRandom;
-use rand::rng;
+use rand::{rng, Rng};
 
-/// Dataset pour l'entraînement de réseaux de neurones
-/// 
-/// Gère les paires (input, target) et permet de :
-/// - Créer des batches pour l'entraînement
-/// - Shuffle les données
-/// - Split train/validation/test
-/// - Itérer sur les batches
+/// A dataset containing input-target pairs for neural network training.
+///
+/// Manages pairs of (input, target) vectors and provides utilities for:
+/// - Creating mini-batches for training
+/// - Shuffling data to prevent learning order dependencies
+/// - Splitting into train/validation/test sets
+/// - Iterating over batches
 #[derive(Debug, Clone)]
 pub struct Dataset {
     inputs: Vec<Array1<f64>>,
@@ -21,18 +36,24 @@ pub struct Dataset {
 }
 
 impl Dataset {
-    /// Crée un nouveau dataset à partir d'inputs et targets
-    /// 
+    /// Creates a new dataset from input and target vectors.
+    ///
+    /// # Arguments
+    /// * `inputs` - Vector of input arrays
+    /// * `targets` - Vector of target arrays (must have same length as inputs)
+    ///
     /// # Panics
-    /// Panic si inputs.len() != targets.len()
-    /// 
+    /// Panics if `inputs.len() != targets.len()`
+    ///
     /// # Example
-    /// ```
+    /// ```rust
+    /// use test_neural::dataset::Dataset;
     /// use ndarray::array;
-    /// 
+    ///
     /// let inputs = vec![array![0.0, 0.0], array![0.0, 1.0]];
     /// let targets = vec![array![0.0], array![1.0]];
     /// let dataset = Dataset::new(inputs, targets);
+    /// assert_eq!(dataset.len(), 2);
     /// ```
     pub fn new(inputs: Vec<Array1<f64>>, targets: Vec<Array1<f64>>) -> Self {
         assert_eq!(
@@ -43,60 +64,78 @@ impl Dataset {
         Dataset { inputs, targets }
     }
     
-    /// Retourne le nombre d'exemples dans le dataset
+    /// Returns the number of examples in the dataset.
     pub fn len(&self) -> usize {
         self.inputs.len()
     }
     
-    /// Vérifie si le dataset est vide
+    /// Returns true if the dataset is empty.
     pub fn is_empty(&self) -> bool {
         self.inputs.is_empty()
     }
     
-    /// Retourne une référence aux inputs
+    /// Returns a reference to the input vectors.
     pub fn inputs(&self) -> &Vec<Array1<f64>> {
         &self.inputs
     }
     
-    /// Retourne une référence aux targets
+    /// Returns a reference to the target vectors.
     pub fn targets(&self) -> &Vec<Array1<f64>> {
         &self.targets
     }
     
-    /// Shuffle le dataset (mélange aléatoirement l'ordre des exemples)
-    /// 
-    /// Important pour éviter que le réseau n'apprenne l'ordre des exemples.
-    /// À appeler avant chaque epoch.
-    /// 
+    /// Shuffles the dataset randomly in-place.
+    ///
+    /// This is important to prevent the network from learning the order of examples.
+    /// Should be called before each training epoch.
+    ///
+    /// Uses the Fisher-Yates algorithm for O(n) time complexity with O(1) additional memory.
+    ///
     /// # Example
-    /// ```
+    /// ```rust
+    /// use test_neural::dataset::Dataset;
+    /// use ndarray::array;
+    ///
+    /// let inputs = vec![array![1.0], array![2.0], array![3.0]];
+    /// let targets = vec![array![1.0], array![2.0], array![3.0]];
     /// let mut dataset = Dataset::new(inputs, targets);
-    /// dataset.shuffle();  // Mélange aléatoirement
+    /// dataset.shuffle();
+    /// assert_eq!(dataset.len(), 3);
     /// ```
     pub fn shuffle(&mut self) {
         let mut rng = rng();
-        let mut indices: Vec<usize> = (0..self.len()).collect();
-        indices.shuffle(&mut rng);
+        let n = self.len();
         
-        let inputs: Vec<_> = indices.iter().map(|&i| self.inputs[i].clone()).collect();
-        let targets: Vec<_> = indices.iter().map(|&i| self.targets[i].clone()).collect();
-        
-        self.inputs = inputs;
-        self.targets = targets;
+        // Fisher-Yates shuffle in-place (O(n), pas de clone!)
+        for i in (1..n).rev() {
+            let j = rng.random_range(0..=i);
+            self.inputs.swap(i, j);
+            self.targets.swap(i, j);
+        }
     }
     
-    /// Split le dataset en train et test
-    /// 
+    /// Splits the dataset into training and test sets.
+    ///
     /// # Arguments
-    /// - `train_ratio`: Proportion pour l'entraînement (ex: 0.8 = 80% train, 20% test)
-    /// 
+    /// * `train_ratio` - Proportion of data for training (e.g., 0.8 for 80% train, 20% test)
+    ///
     /// # Returns
-    /// Tuple (train_dataset, test_dataset)
-    /// 
+    /// A tuple `(train_dataset, test_dataset)`
+    ///
+    /// # Panics
+    /// Panics if `train_ratio` is not between 0 and 1 (exclusive)
+    ///
     /// # Example
-    /// ```
+    /// ```rust
+    /// use test_neural::dataset::Dataset;
+    /// use ndarray::array;
+    ///
+    /// let inputs = vec![array![1.0], array![2.0], array![3.0], array![4.0], array![5.0]];
+    /// let targets = vec![array![1.0], array![2.0], array![3.0], array![4.0], array![5.0]];
     /// let dataset = Dataset::new(inputs, targets);
-    /// let (train, test) = dataset.split(0.8);  // 80% train, 20% test
+    /// let (train, test) = dataset.split(0.8);
+    /// assert_eq!(train.len(), 4);
+    /// assert_eq!(test.len(), 1);
     /// ```
     pub fn split(self, train_ratio: f64) -> (Dataset, Dataset) {
         assert!(train_ratio > 0.0 && train_ratio < 1.0, "train_ratio must be between 0 and 1");
@@ -112,20 +151,29 @@ impl Dataset {
         (train, test)
     }
     
-    /// Split le dataset en train, validation et test
-    /// 
+    /// Splits the dataset into training, validation, and test sets.
+    ///
     /// # Arguments
-    /// - `train_ratio`: Proportion pour l'entraînement (ex: 0.7)
-    /// - `val_ratio`: Proportion pour la validation (ex: 0.15)
-    /// - Le reste sera pour le test (ex: 0.15)
-    /// 
+    /// * `train_ratio` - Proportion for training (e.g., 0.7)
+    /// * `val_ratio` - Proportion for validation (e.g., 0.15)
+    /// * The remainder goes to test (e.g., 0.15)
+    ///
     /// # Returns
-    /// Tuple (train_dataset, val_dataset, test_dataset)
-    /// 
+    /// A tuple `(train_dataset, val_dataset, test_dataset)`
+    ///
+    /// # Panics
+    /// Panics if `train_ratio + val_ratio >= 1.0`
+    ///
     /// # Example
-    /// ```
+    /// ```rust
+    /// use test_neural::dataset::Dataset;
+    /// use ndarray::array;
+    ///
+    /// let inputs: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
+    /// let targets: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
     /// let dataset = Dataset::new(inputs, targets);
-    /// let (train, val, test) = dataset.split_three(0.7, 0.15);  // 70/15/15
+    /// let (train, val, test) = dataset.split_three(0.7, 0.15);
+    /// assert_eq!(train.len(), 7);
     /// ```
     pub fn split_three(self, train_ratio: f64, val_ratio: f64) -> (Dataset, Dataset, Dataset) {
         assert!(
@@ -152,20 +200,26 @@ impl Dataset {
         )
     }
     
-    /// Crée un itérateur sur les batches
-    /// 
+    /// Creates an iterator over mini-batches of the dataset.
+    ///
     /// # Arguments
-    /// - `batch_size`: Taille des batches (ex: 32, 64, 128)
-    /// 
+    /// * `batch_size` - Number of examples per batch (e.g., 32, 64, 128)
+    ///
     /// # Returns
-    /// Iterator qui produit des tuples (batch_inputs, batch_targets)
-    /// 
+    /// An iterator that yields `(batch_inputs, batch_targets)` tuples.
+    /// The last batch may be smaller if the dataset size is not divisible by batch_size.
+    ///
     /// # Example
-    /// ```
+    /// ```rust
+    /// use test_neural::dataset::Dataset;
+    /// use ndarray::array;
+    ///
+    /// let inputs: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
+    /// let targets: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
     /// let dataset = Dataset::new(inputs, targets);
-    /// for (batch_inputs, batch_targets) in dataset.batches(32) {
-    ///     network.train_batch(&batch_inputs, &batch_targets);
-    /// }
+    ///
+    /// let batches: Vec<_> = dataset.batches(3).collect();
+    /// assert_eq!(batches.len(), 4);
     /// ```
     pub fn batches(&self, batch_size: usize) -> DatasetBatchIterator<'_> {
         DatasetBatchIterator {
@@ -176,7 +230,7 @@ impl Dataset {
     }
 }
 
-/// Iterator pour parcourir un dataset par batches
+/// Iterator for traversing a dataset in mini-batches.
 pub struct DatasetBatchIterator<'a> {
     dataset: &'a Dataset,
     batch_size: usize,

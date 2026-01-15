@@ -5,36 +5,36 @@ use serde::{Serialize, Deserialize};
 use crate::optimizer::{OptimizerType, OptimizerState1D, OptimizerState2D};
 use crate::callbacks::Callback;
 
-/// Type de régularisation pour éviter l'overfitting
+/// Regularization type to prevent overfitting.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum RegularizationType {
-    /// Aucune régularisation
+    /// No regularization
     None,
-    /// L1 regularization (Lasso) - encourage la sparsité
+    /// L1 regularization (Lasso) - encourages sparsity
     L1 { lambda: f64 },
-    /// L2 regularization (Ridge/Weight Decay) - pénalise les grands poids
+    /// L2 regularization (Ridge/Weight Decay) - penalizes large weights
     L2 { lambda: f64 },
-    /// Elastic Net - combine L1 et L2
+    /// Elastic Net - combines L1 and L2
     ElasticNet { l1_ratio: f64, lambda: f64 },
 }
 
 impl RegularizationType {
-    /// Crée une régularisation L1 avec le lambda spécifié
+    /// Creates L1 regularization with the specified lambda.
     pub fn l1(lambda: f64) -> Self {
         RegularizationType::L1 { lambda }
     }
     
-    /// Crée une régularisation L2 avec le lambda spécifié (typique: 0.0001 - 0.01)
+    /// Creates L2 regularization with the specified lambda (typical: 0.0001 - 0.01).
     pub fn l2(lambda: f64) -> Self {
         RegularizationType::L2 { lambda }
     }
     
-    /// Crée une régularisation Elastic Net
+    /// Creates Elastic Net regularization.
     pub fn elastic_net(l1_ratio: f64, lambda: f64) -> Self {
         RegularizationType::ElasticNet { l1_ratio, lambda }
     }
     
-    /// Calcule la pénalité de régularisation sur les poids
+    /// Computes the regularization penalty on weights.
     pub fn penalty(&self, weights: &Array2<f64>) -> f64 {
         match self {
             RegularizationType::None => 0.0,
@@ -52,34 +52,38 @@ impl RegularizationType {
         }
     }
     
-    /// Calcule le gradient de régularisation à ajouter aux gradients des poids
-    pub fn gradient(&self, weights: &Array2<f64>) -> Array2<f64> {
+    /// Computes the regularization gradient to add to weight gradients.
+    /// Returns None if no regularization (to avoid allocation).
+    pub fn gradient_opt(&self, weights: &Array2<f64>) -> Option<Array2<f64>> {
         match self {
-            RegularizationType::None => Array2::zeros(weights.dim()),
+            RegularizationType::None => None,
             RegularizationType::L1 { lambda } => {
-                weights.mapv(|w| lambda * w.signum())
+                Some(weights.mapv(|w| lambda * w.signum()))
             }
             RegularizationType::L2 { lambda } => {
-                weights.mapv(|w| lambda * w)
+                Some(weights.mapv(|w| lambda * w))
             }
             RegularizationType::ElasticNet { l1_ratio, lambda } => {
-                let l1_grad = weights.mapv(|w| w.signum());
-                let l2_grad = weights.clone();
-                *lambda * (*l1_ratio * l1_grad + (1.0 - l1_ratio) * l2_grad)
+                Some(weights.mapv(|w| lambda * (l1_ratio * w.signum() + (1.0 - l1_ratio) * w)))
             }
         }
     }
+    
+    /// Computes the regularization gradient to add to weight gradients.
+    pub fn gradient(&self, weights: &Array2<f64>) -> Array2<f64> {
+        self.gradient_opt(weights).unwrap_or_else(|| Array2::zeros(weights.dim()))
+    }
 }
 
-/// Configuration de dropout pour une couche
+/// Dropout configuration for a layer.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct DropoutConfig {
-    /// Probabilité de désactiver un neurone (0.0 = pas de dropout, 0.5 = 50% désactivés)
+    /// Probability of deactivating a neuron (0.0 = no dropout, 0.5 = 50% deactivated)
     pub rate: f64,
 }
 
 impl DropoutConfig {
-    /// Crée une configuration de dropout avec le taux spécifié
+    /// Creates a dropout configuration with the specified rate.
     pub fn new(rate: f64) -> Self {
         assert!((0.0..1.0).contains(&rate), "Dropout rate must be in [0.0, 1.0)");
         DropoutConfig { rate }
@@ -409,21 +413,19 @@ pub(crate) struct Layer {
 /// - Multiple hidden layers with configurable activations
 /// - Output layer with configurable activation
 ///
-/// # Examples
-/// ```
-/// // Single hidden layer (simple network)
-/// let net = Network::new(2, 5, 1, Activation::Tanh, Activation::Sigmoid, LossFunction::MSE, OptimizerType::adam(0.001));
+/// # Example
+/// ```rust
+/// use test_neural::builder::NetworkBuilder;
+/// use test_neural::network::{Activation, LossFunction};
+/// use test_neural::optimizer::OptimizerType;
 ///
-/// // Multiple hidden layers (deep network)
-/// let net = Network::new_deep(
-///     2,
-///     vec![10, 8, 5],
-///     1,
-///     vec![Activation::ReLU, Activation::ReLU, Activation::ReLU],
-///     Activation::Sigmoid,
-///     LossFunction::BinaryCrossEntropy,
-///     OptimizerType::adam(0.001)
-/// );
+/// // Use the builder pattern to create networks
+/// let network = NetworkBuilder::new(2, 1)
+///     .hidden_layer(8, Activation::Tanh)
+///     .output_activation(Activation::Sigmoid)
+///     .loss(LossFunction::BinaryCrossEntropy)
+///     .optimizer(OptimizerType::adam(0.001))
+///     .build();
 /// ```
 #[derive(Serialize, Deserialize)]
 pub struct Network {
@@ -461,30 +463,7 @@ impl Network {
     /// - `output_activation`: Activation function for output layer
     /// - `loss_function`: Loss function for training
     ///
-    /// # Example
-    /// ```
-    /// // XOR with Tanh hidden, Sigmoid output, Binary Cross-Entropy loss
-    /// let network = Network::new(
-    ///     2, 5, 1, 
-    ///     Activation::Tanh, 
-    ///     Activation::Sigmoid,
-    ///     LossFunction::BinaryCrossEntropy,
-    ///     OptimizerType::adam(0.001)
-    /// );
-    /// ```
-    /// Internal constructor - Use NetworkBuilder instead
-    /// 
-    /// **⚠️ INTERNAL METHOD**: Use `NetworkBuilder` for construction:
-    /// ```
-    /// use test_neural::builder::NetworkBuilder;
-    /// 
-    /// let network = NetworkBuilder::new(2, 1)
-    ///     .hidden_layer(8, Activation::Tanh)
-    ///     .output_activation(Activation::Sigmoid)
-    ///     .loss(LossFunction::BinaryCrossEntropy)
-    ///     .optimizer(OptimizerType::adam(0.01))
-    ///     .build();
-    /// ```
+    /// **Internal method**: Use `NetworkBuilder` for construction.
     pub(crate) fn new_deep_with_init(
         input_size: usize,
         hidden_sizes: Vec<usize>,
@@ -564,12 +543,12 @@ impl Network {
         }
     }
     
-    /// Passe en mode training (active le dropout)
+    /// Switches to training mode (enables dropout).
     pub fn train_mode(&mut self) {
         self.training_mode = true;
     }
     
-    /// Passe en mode eval/inference (désactive le dropout)
+    /// Switches to evaluation/inference mode (disables dropout).
     pub fn eval_mode(&mut self) {
         self.training_mode = false;
     }
@@ -584,17 +563,11 @@ impl Network {
     /// # Returns
     /// Vector of all layer activations (including input and final output).
     /// Index 0 is the input, last index is the final output.
-    ///
-    /// # Example
-    /// ```
-    /// let activations = network.forward(&array![0.0, 1.0]);
-    /// let prediction = activations.last().unwrap();
-    /// ```
     fn forward(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
         self.forward_with_dropout(input, &mut rng())
     }
     
-    /// Forward pass avec support explicite du dropout et masques
+    /// Forward pass with explicit dropout and mask support.
     fn forward_with_dropout(&self, input: &Array1<f64>, rng: &mut impl Rng) -> Vec<Array1<f64>> {
         let mut activations = vec![input.clone()];
         
@@ -638,28 +611,11 @@ impl Network {
     /// - `input`: Input vector
     /// - `target`: Expected output vector
     ///
-    /// Note: Learning rate is now part of the optimizer configuration.
-    /// For backward compatibility, you can override the learning rate by modifying
-    /// the optimizer before training.
-    ///
     /// # Algorithm
     /// 1. Forward pass to get all activations
     /// 2. Calculate output layer error using loss function
     /// 3. Backpropagate error through all hidden layers
     /// 4. Update all weights and biases using the optimizer
-    ///
-    /// # Example
-    /// ```
-    /// // Learning rate is in the optimizer
-    /// let mut network = Network::new(
-    ///     2, 5, 1,
-    ///     Activation::Tanh,
-    ///     Activation::Sigmoid,
-    ///     LossFunction::BinaryCrossEntropy,
-    ///     OptimizerType::adam(0.001)
-    /// );
-    /// network.train(&array![0.0, 1.0], &array![1.0]);
-    /// ```
     pub fn train(&mut self, input: &Array1<f64>, target: &Array1<f64>) {
         // Forward pass
         let activations = self.forward(input);
@@ -712,8 +668,10 @@ impl Network {
                 .dot(&prev_activation.view().insert_axis(Axis(0)));
             let biases_gradient = -delta;
             
-            // Add regularization gradient
-            weights_gradient = weights_gradient + self.regularization.gradient(&self.layers[i].weights);
+            // Add regularization gradient (only if needed)
+            if let Some(reg_grad) = self.regularization.gradient_opt(&self.layers[i].weights) {
+                weights_gradient += &reg_grad;
+            }
             
             // Update using optimizer
             self.optimizer_states_weights[i].step(
@@ -746,19 +704,14 @@ impl Network {
     /// Panics if inputs.len() != targets.len() or if batch is empty
     /// 
     /// # Example
-    /// ```
-    /// use test_neural::network::{Network, Activation, LossFunction};
-    /// use test_neural::optimizer::OptimizerType;
-    /// use test_neural::dataset::Dataset;
+    /// ```rust
+    /// use test_neural::builder::NetworkBuilder;
+    /// use test_neural::network::Activation;
     /// use ndarray::array;
     /// 
-    /// let mut network = Network::new(
-    ///     2, 5, 1,
-    ///     Activation::Tanh,
-    ///     Activation::Sigmoid,
-    ///     LossFunction::BinaryCrossEntropy,
-    ///     OptimizerType::adam(0.001)
-    /// );
+    /// let mut network = NetworkBuilder::new(2, 1)
+    ///     .hidden_layer(5, Activation::Tanh)
+    ///     .build();
     /// 
     /// let inputs = vec![array![0.0, 0.0], array![0.0, 1.0], array![1.0, 0.0]];
     /// let targets = vec![array![0.0], array![1.0], array![1.0]];
@@ -842,12 +795,14 @@ impl Network {
         
         // Average gradients and apply optimizer update
         for i in 0..self.layers.len() {
-            // Average the gradients
+            // Average the gradients (in-place division)
             let mut avg_weights_gradient = &accumulated_weights_gradients[i] / batch_size;
             let avg_biases_gradient = &accumulated_biases_gradients[i] / batch_size;
             
-            // Add regularization gradient (only to weights, not biases)
-            avg_weights_gradient = avg_weights_gradient + self.regularization.gradient(&self.layers[i].weights);
+            // Add regularization gradient (only to weights, not biases, only if needed)
+            if let Some(reg_grad) = self.regularization.gradient_opt(&self.layers[i].weights) {
+                avg_weights_gradient += &reg_grad;
+            }
             
             // Update using optimizer
             self.optimizer_states_weights[i].step(
@@ -866,7 +821,7 @@ impl Network {
 
     /// Evaluates the network on given input-target pairs without updating weights.
     ///
-    /// Returns the average loss over all samples.
+    /// Returns the average loss over all samples, including regularization penalty.
     ///
     /// # Arguments
     /// - `inputs`: Vector of input arrays
@@ -874,12 +829,6 @@ impl Network {
     ///
     /// # Returns
     /// Average loss value
-    ///
-    /// # Example
-    /// ```
-    /// let loss = network.evaluate(&inputs, &targets);
-    /// println!("Average loss: {:.4}", loss);
-    /// ```
     pub fn evaluate(&self, inputs: &Vec<Array1<f64>>, targets: &Vec<Array1<f64>>) -> f64 {
         let mut total_loss = 0.0;
         
@@ -899,7 +848,7 @@ impl Network {
         base_loss + reg_penalty / inputs.len() as f64
     }
 
-    /// Makes a prediction for a single input without requiring a target.
+    /// Makes a prediction for a single input.
     ///
     /// This is the main inference method - use it to get predictions after training.
     ///
@@ -908,23 +857,14 @@ impl Network {
     ///
     /// # Returns
     /// Output vector (network's prediction)
-    ///
-    /// # Example
-    /// ```
-    /// let prediction = network.predict(&array![0.0, 1.0]);
-    /// println!("Prediction: {:.3}", prediction[0]);
-    /// ```
     pub fn predict(&self, input: &Array1<f64>) -> Array1<f64> {
         let activations = self.forward(input);
         activations.last().unwrap().clone()
     }
     
-    /// Entraîne le réseau avec support des callbacks et scheduler optionnel (MÉTHODE UNIFIÉE)
+    /// Trains the network with support for callbacks and optional learning rate scheduler.
     /// 
-    /// **⚠️ MÉTHODE INTERNE**: Utilisez `network.trainer().fit()` à la place.
-    /// 
-    /// Cette méthode unique gère l'entraînement avec ou sans scheduler,
-    /// unifiant les anciennes méthodes fit() et fit_with_scheduler().
+    /// **Internal method**: Use `network.trainer().fit()` instead.
     pub(crate) fn fit(
         &mut self,
         train_dataset: &crate::dataset::Dataset,

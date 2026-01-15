@@ -3,14 +3,14 @@ use crate::optimizer::OptimizerType;
 use crate::dataset::Dataset;
 use crate::callbacks::{Callback, LearningRateScheduler};
 
-/// Builder pour construire un réseau de neurones de manière fluide
-/// 
+/// Builder for constructing neural networks using a fluent interface.
+///
 /// # Example
-/// ```
+/// ```rust
 /// use test_neural::builder::NetworkBuilder;
 /// use test_neural::network::{Activation, LossFunction};
 /// use test_neural::optimizer::OptimizerType;
-/// 
+///
 /// let network = NetworkBuilder::new(2, 1)
 ///     .hidden_layer(8, Activation::ReLU)
 ///     .hidden_layer(5, Activation::ReLU)
@@ -35,10 +35,10 @@ pub struct NetworkBuilder {
 }
 
 impl NetworkBuilder {
-    /// Crée un nouveau builder avec les tailles d'entrée et sortie
-    /// 
-    /// Par défaut:
-    /// - Activation de sortie: Sigmoid
+    /// Creates a new builder with the specified input and output sizes.
+    ///
+    /// Defaults:
+    /// - Output activation: Sigmoid
     /// - Loss: BinaryCrossEntropy
     /// - Optimizer: Adam(0.001)
     pub fn new(input_size: usize, output_size: usize) -> Self {
@@ -57,61 +57,61 @@ impl NetworkBuilder {
         }
     }
 
-    /// Ajoute une couche cachée
+    /// Adds a hidden layer with the specified size and activation.
     pub fn hidden_layer(mut self, size: usize, activation: Activation) -> Self {
         self.hidden_layers.push((size, activation));
         self
     }
 
-    /// Configure l'activation de la couche de sortie
+    /// Configures the output layer activation function.
     pub fn output_activation(mut self, activation: Activation) -> Self {
         self.output_activation = activation;
         self
     }
 
-    /// Configure la fonction de perte
+    /// Configures the loss function.
     pub fn loss(mut self, loss_function: LossFunction) -> Self {
         self.loss_function = loss_function;
         self
     }
 
-    /// Configure l'optimiseur
+    /// Configures the optimizer.
     pub fn optimizer(mut self, optimizer: OptimizerType) -> Self {
         self.optimizer = optimizer;
         self
     }
 
-    /// Configure l'initialisation des poids (optionnel, sinon auto selon activation)
+    /// Configures weight initialization (optional, auto-selected based on activation if not set).
     pub fn weight_init(mut self, init: WeightInit) -> Self {
         self.weight_init = Some(init);
         self
     }
 
-    /// Configure le dropout pour toutes les couches cachées
+    /// Configures dropout for all hidden layers.
     pub fn dropout(mut self, rate: f64) -> Self {
         self.dropout_rate = Some(rate);
         self
     }
 
-    /// Configure la régularisation L1
+    /// Configures L1 regularization.
     pub fn l1(mut self, lambda: f64) -> Self {
         self.l1_lambda = Some(lambda);
         self
     }
 
-    /// Configure la régularisation L2
+    /// Configures L2 regularization.
     pub fn l2(mut self, lambda: f64) -> Self {
         self.l2_lambda = Some(lambda);
         self
     }
 
-    /// Configure la régularisation Elastic Net
+    /// Configures Elastic Net regularization.
     pub fn elastic_net(mut self, l1_ratio: f64, lambda: f64) -> Self {
         self.elastic_net = Some((l1_ratio, lambda));
         self
     }
 
-    /// Construit le réseau
+    /// Builds the network.
     pub fn build(self) -> Network {
         if self.hidden_layers.is_empty() {
             panic!("Network must have at least one hidden layer. Use .hidden_layer() to add layers.");
@@ -168,28 +168,25 @@ impl NetworkBuilder {
     }
 }
 
-/// Builder pour l'entraînement d'un réseau
-/// 
+/// Builder for training a neural network.
+///
 /// # Example
-/// ```
-/// use test_neural::builder::NetworkBuilder;
-/// use test_neural::network::{Activation, LossFunction};
-/// use test_neural::optimizer::OptimizerType;
-/// use test_neural::callbacks::{EarlyStopping, ModelCheckpoint, ProgressBar};
+/// ```rust,ignore
+/// use test_neural::builder::{NetworkBuilder, NetworkTrainer};
+/// use test_neural::network::Activation;
+/// use test_neural::callbacks::{EarlyStopping, ProgressBar};
 /// use test_neural::dataset::Dataset;
-/// 
+///
 /// let mut network = NetworkBuilder::new(2, 1)
 ///     .hidden_layer(8, Activation::Tanh)
 ///     .build();
-/// 
+///
 /// let history = network.trainer()
 ///     .train_data(&train_dataset)
 ///     .validation_data(&val_dataset)
 ///     .epochs(100)
 ///     .batch_size(32)
 ///     .callback(Box::new(EarlyStopping::new(10, 0.0001)))
-///     .callback(Box::new(ModelCheckpoint::new("best.json", true)))
-///     .callback(Box::new(ProgressBar::new(100)))
 ///     .fit();
 /// ```
 pub struct TrainingBuilder<'a> {
@@ -203,9 +200,9 @@ pub struct TrainingBuilder<'a> {
 }
 
 impl<'a> TrainingBuilder<'a> {
-    /// Crée un nouveau builder d'entraînement
-    /// 
-    /// Par défaut:
+    /// Creates a new training builder.
+    ///
+    /// Defaults:
     /// - epochs: 100
     /// - batch_size: 32
     pub fn new(network: &'a mut Network) -> Self {
@@ -220,46 +217,46 @@ impl<'a> TrainingBuilder<'a> {
         }
     }
 
-    /// Configure les données d'entraînement
+    /// Configures the training data.
     pub fn train_data(mut self, dataset: &'a Dataset) -> Self {
         self.train_data = Some(dataset);
         self
     }
 
-    /// Configure les données de validation (optionnel)
+    /// Configures the validation data (optional).
     pub fn validation_data(mut self, dataset: &'a Dataset) -> Self {
         self.val_data = Some(dataset);
         self
     }
 
-    /// Configure le nombre d'epochs
+    /// Configures the number of epochs.
     pub fn epochs(mut self, epochs: usize) -> Self {
         self.epochs = epochs;
         self
     }
 
-    /// Configure la taille des batches
+    /// Configures the batch size.
     pub fn batch_size(mut self, size: usize) -> Self {
         self.batch_size = size;
         self
     }
 
-    /// Ajoute un callback
+    /// Adds a callback.
     pub fn callback(mut self, callback: Box<dyn Callback>) -> Self {
         self.callbacks.push(callback);
         self
     }
 
-    /// Configure un learning rate scheduler
+    /// Configures a learning rate scheduler.
     pub fn scheduler(mut self, scheduler: LearningRateScheduler) -> Self {
         self.scheduler = Some(scheduler);
         self
     }
 
-    /// Lance l'entraînement
-    /// 
+    /// Starts training.
+    ///
     /// # Panics
-    /// Panique si train_data n'a pas été configuré
+    /// Panics if train_data has not been configured.
     pub fn fit(mut self) -> Vec<(f64, Option<f64>)> {
         let train_dataset = self.train_data.expect("train_data must be set before calling fit()");
 
@@ -276,9 +273,9 @@ impl<'a> TrainingBuilder<'a> {
     }
 }
 
-/// Extension trait pour ajouter la méthode trainer() à Network
+/// Extension trait to add the `trainer()` method to Network.
 pub trait NetworkTrainer {
-    /// Crée un builder pour l'entraînement
+    /// Creates a training builder for this network.
     fn trainer(&mut self) -> TrainingBuilder<'_>;
 }
 

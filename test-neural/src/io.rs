@@ -7,31 +7,27 @@
 //! - **JSON**: Human-readable, good for inspection and debugging
 //! - **Binary (Bincode)**: Compact and fast, recommended for production
 //!
-//! # Examples
+//! # Example
 //!
-//! ```rust
-//! use test_neural::network::{Network, Activation, LossFunction};
+//! ```rust,ignore
+//! use test_neural::builder::NetworkBuilder;
+//! use test_neural::network::Activation;
 //! use test_neural::io;
 //!
-//! // Train a network
-//! let mut network = Network::new(2, 5, 1, 
-//!     Activation::Tanh, 
-//!     Activation::Sigmoid,
-//!     LossFunction::BinaryCrossEntropy);
+//! // Create and train a network
+//! let network = NetworkBuilder::new(2, 1)
+//!     .hidden_layer(5, Activation::Tanh)
+//!     .build();
 //!
-//! // ... training code ...
-//!
-//! // Save to JSON
+//! // Save to JSON (human-readable)
 //! io::save_json(&network, "model.json")?;
 //!
-//! // Save to binary
+//! // Save to binary (compact)
 //! io::save_binary(&network, "model.bin")?;
 //!
-//! // Load from JSON
-//! let loaded = io::load_json("model.json")?;
-//!
-//! // Load from binary
-//! let loaded = io::load_binary("model.bin")?;
+//! // Load from files
+//! let loaded_json = io::load_json("model.json")?;
+//! let loaded_bin = io::load_binary("model.bin")?;
 //! ```
 
 use crate::network::Network;
@@ -96,11 +92,6 @@ pub type Result<T> = std::result::Result<T, IoError>;
 /// # Returns
 /// - `Ok(())` on success
 /// - `Err(IoError)` on failure
-///
-/// # Example
-/// ```rust
-/// io::save_json(&network, "model.json")?;
-/// ```
 pub fn save_json<P: AsRef<Path>>(network: &Network, path: P) -> Result<()> {
     let file = File::create(path)?;
     let writer = BufWriter::new(file);
@@ -116,11 +107,6 @@ pub fn save_json<P: AsRef<Path>>(network: &Network, path: P) -> Result<()> {
 /// # Returns
 /// - `Ok(Network)` on success
 /// - `Err(IoError)` on failure
-///
-/// # Example
-/// ```rust
-/// let network = io::load_json("model.json")?;
-/// ```
 pub fn load_json<P: AsRef<Path>>(path: P) -> Result<Network> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -142,11 +128,6 @@ pub fn load_json<P: AsRef<Path>>(path: P) -> Result<Network> {
 /// # Returns
 /// - `Ok(())` on success
 /// - `Err(IoError)` on failure
-///
-/// # Example
-/// ```rust
-/// io::save_binary(&network, "model.bin")?;
-/// ```
 pub fn save_binary<P: AsRef<Path>>(network: &Network, path: P) -> Result<()> {
     let file = File::create(path)?;
     let mut writer = BufWriter::new(file);
@@ -164,11 +145,6 @@ pub fn save_binary<P: AsRef<Path>>(network: &Network, path: P) -> Result<()> {
 /// # Returns
 /// - `Ok(Network)` on success
 /// - `Err(IoError)` on failure
-///
-/// # Example
-/// ```rust
-/// let network = io::load_binary("model.bin")?;
-/// ```
 pub fn load_binary<P: AsRef<Path>>(path: P) -> Result<Network> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
@@ -185,13 +161,6 @@ pub fn load_binary<P: AsRef<Path>>(path: P) -> Result<Network> {
 ///
 /// # Returns
 /// Tuple of (JSON size in bytes, Binary size in bytes)
-///
-/// # Example
-/// ```rust
-/// let (json_size, bin_size) = io::get_serialized_size(&network);
-/// println!("JSON: {} bytes, Binary: {} bytes", json_size, bin_size);
-/// println!("Compression ratio: {:.2}x", json_size as f64 / bin_size as f64);
-/// ```
 pub fn get_serialized_size(network: &Network) -> (usize, usize) {
     let json_size = serde_json::to_string(network)
         .map(|s| s.len())
