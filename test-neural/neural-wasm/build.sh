@@ -37,6 +37,11 @@ echo ""
 echo "📦 Building WebAssembly module..."
 wasm-pack build --target web --out-dir pkg
 
+# Step 3: Copy pkg to www for local testing
+echo ""
+echo "📋 Copying WASM files to www/..."
+cp -r pkg ../www/
+
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║                    Build Complete! 🎉                        ║"

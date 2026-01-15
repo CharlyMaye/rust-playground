@@ -58,9 +58,8 @@ jobs:
       
       - name: Prepare deployment
         run: |
-          mkdir -p _site/neural-wasm
+          mkdir -p _site
           cp -r test-neural/www/* _site/
-          cp -r test-neural/neural-wasm/pkg _site/neural-wasm/
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
