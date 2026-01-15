@@ -1,11 +1,11 @@
-//! Getting Started - Exemple complet de la bibliothèque
+//! Getting Started - Complete library example
 //!
-//! Cet exemple montre toutes les fonctionnalités principales:
-//! - Construction de réseaux avec le Builder Pattern
-//! - Différents optimiseurs (SGD, Adam, etc.)
-//! - Régularisation (Dropout, L2)
+//! This example demonstrates all main features:
+//! - Building networks with the Builder Pattern
+//! - Different optimizers (SGD, Adam, etc.)
+//! - Regularization (Dropout, L2)
 //! - Callbacks (EarlyStopping, ModelCheckpoint, LR Scheduler)
-//! - Évaluation avec métriques
+//! - Evaluation with metrics
 
 use test_neural::builder::{NetworkBuilder, NetworkTrainer};
 use test_neural::network::{Activation, LossFunction};
@@ -21,11 +21,11 @@ fn main() {
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 1. PRÉPARATION DES DONNÉES
+    // 1. DATA PREPARATION
     // ═══════════════════════════════════════════════════════════════════════
-    println!("📦 1. Préparation des données (XOR problem)\n");
+    println!("📦 1. Data preparation (XOR problem)\n");
     
-    // Créer un dataset XOR étendu pour l'entraînement
+    // Create an extended XOR dataset for training
     let mut inputs = Vec::new();
     let mut targets = Vec::new();
     
@@ -39,49 +39,49 @@ fn main() {
     let dataset = Dataset::new(inputs, targets);
     let (train, val) = dataset.split(0.8);
     
-    println!("   Train: {} exemples | Validation: {} exemples\n", train.len(), val.len());
+    println!("   Train: {} samples | Validation: {} samples\n", train.len(), val.len());
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 2. CONSTRUCTION D'UN RÉSEAU SIMPLE
+    // 2. BUILDING A SIMPLE NETWORK
     // ═══════════════════════════════════════════════════════════════════════
-    println!("🔧 2. Construction d'un réseau avec le Builder Pattern\n");
+    println!("🔧 2. Building a network with the Builder Pattern\n");
     
-    let network = NetworkBuilder::new(2, 1)          // 2 entrées, 1 sortie
-        .hidden_layer(8, Activation::Tanh)           // Couche cachée
-        .output_activation(Activation::Sigmoid)      // Sortie binaire
-        .loss(LossFunction::BinaryCrossEntropy)      // Classification binaire
+    let network = NetworkBuilder::new(2, 1)          // 2 inputs, 1 output
+        .hidden_layer(8, Activation::Tanh)           // Hidden layer
+        .output_activation(Activation::Sigmoid)      // Binary output
+        .loss(LossFunction::BinaryCrossEntropy)      // Binary classification
         .optimizer(OptimizerType::adam(0.01))        // Adam optimizer
         .build();
-    
-    println!("   ✓ Réseau créé: 2 → [8] → 1");
+
+    println!("   ✓ Network created: 2 → [8] → 1");
     println!("   ✓ Activation: Tanh → Sigmoid");
     println!("   ✓ Optimizer: Adam (lr=0.01)\n");
     drop(network);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 3. RÉSEAU AVEC RÉGULARISATION
+    // 3. NETWORK WITH REGULARIZATION
     // ═══════════════════════════════════════════════════════════════════════
-    println!("🛡️  3. Réseau avec régularisation (Dropout + L2)\n");
-    
+    println!("🛡️  3. Network with regularization (Dropout + L2)\n");
+
     let network_reg = NetworkBuilder::new(2, 1)
         .hidden_layer(16, Activation::ReLU)
         .hidden_layer(8, Activation::ReLU)
         .output_activation(Activation::Sigmoid)
         .loss(LossFunction::BinaryCrossEntropy)
         .optimizer(OptimizerType::adam(0.001))
-        .dropout(0.2)    // 20% des neurones désactivés pendant training
-        .l2(0.001)       // Régularisation L2 (weight decay)
+        .dropout(0.2)    // 20% of neurons disabled during training
+        .l2(0.001)       // L2 regularization (weight decay)
         .build();
-    
+
     println!("   ✓ Architecture: 2 → [16, 8] → 1");
-    println!("   ✓ Dropout: 0.2 (prévient l'overfitting)");
-    println!("   ✓ L2: 0.001 (pénalise les grands poids)\n");
+    println!("   ✓ Dropout: 0.2 (prevents overfitting)");
+    println!("   ✓ L2: 0.001 (penalizes large weights)\n");
     drop(network_reg);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 4. COMPARAISON D'OPTIMISEURS
+    // 4. OPTIMIZER COMPARISON
     // ═══════════════════════════════════════════════════════════════════════
-    println!("⚡ 4. Comparaison rapide des optimiseurs\n");
+    println!("⚡ 4. Quick optimizer comparison\n");
     
     let optimizers = vec![
         ("SGD",      OptimizerType::sgd(0.5)),
@@ -105,33 +105,33 @@ fn main() {
             .optimizer(optimizer)
             .build();
         
-        // Entraînement rapide
+        // Quick training
         for _ in 0..1000 {
             for (input, target) in test_inputs.iter().zip(test_targets.iter()) {
                 net.train(input, target);
             }
         }
-        
+
         let loss = net.evaluate(&test_inputs, &test_targets);
-        println!("   {:<10} → Loss finale: {:.6}", name, loss);
+        println!("   {:<10} → Final loss: {:.6}", name, loss);
     }
     println!();
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 5. ENTRAÎNEMENT AVEC CALLBACKS
+    // 5. TRAINING WITH CALLBACKS
     // ═══════════════════════════════════════════════════════════════════════
-    println!("📊 5. Entraînement avec callbacks\n");
-    
+    println!("📊 5. Training with callbacks\n");
+
     let mut network = NetworkBuilder::new(2, 1)
         .hidden_layer(10, Activation::Tanh)
         .output_activation(Activation::Sigmoid)
         .loss(LossFunction::BinaryCrossEntropy)
         .optimizer(OptimizerType::adam(0.05))
         .build();
-    
+
     println!("   Configuration:");
     println!("   • EarlyStopping (patience=15)");
-    println!("   • ModelCheckpoint (sauvegarde le meilleur)");
+    println!("   • ModelCheckpoint (saves best model)");
     println!("   • LR Scheduler (ReduceOnPlateau)\n");
     
     let history = network.trainer()
@@ -151,29 +151,29 @@ fn main() {
         ))
         .fit();
     
-    println!("\n   ✓ Entraînement terminé en {} epochs", history.len());
+    println!("\n   ✓ Training completed in {} epochs", history.len());
     if let Some((train_loss, val_loss)) = history.last() {
-        println!("   ✓ Loss finale - Train: {:.6} | Val: {:.6}", 
+        println!("   ✓ Final loss - Train: {:.6} | Val: {:.6}",
             train_loss, val_loss.unwrap_or(0.0));
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 6. ÉVALUATION ET MÉTRIQUES
+    // 6. EVALUATION AND METRICS
     // ═══════════════════════════════════════════════════════════════════════
-    println!("\n📈 6. Évaluation et métriques\n");
+    println!("\n📈 6. Evaluation and metrics\n");
     
-    network.eval_mode();  // Désactive le dropout pour l'inférence
+    network.eval_mode();  // Disable dropout for inference
     
     let predictions: Vec<_> = test_inputs.iter()
         .map(|input| network.predict(input))
         .collect();
     
-    println!("   Prédictions:");
+    println!("   Predictions:");
     for (input, (pred, target)) in test_inputs.iter()
-        .zip(predictions.iter().zip(test_targets.iter())) 
+        .zip(predictions.iter().zip(test_targets.iter()))
     {
         let correct = (pred[0].round() - target[0]).abs() < 0.1;
-        println!("   [{:.0}, {:.0}] → {:.3} (attendu {:.0}) {}", 
+        println!("   [{:.0}, {:.0}] → {:.3} (expected {:.0}) {}",
             input[0], input[1], pred[0], target[0],
             if correct { "✓" } else { "✗" });
     }
@@ -181,17 +181,17 @@ fn main() {
     let acc = accuracy(&predictions, &test_targets, 0.5);
     let metrics = binary_metrics(&predictions, &test_targets, 0.5);
     
-    println!("\n   Métriques:");
+    println!("\n   Metrics:");
     println!("   • Accuracy:  {:.1}%", acc * 100.0);
     println!("   • Precision: {:.3}", metrics.precision);
     println!("   • Recall:    {:.3}", metrics.recall);
     println!("   • F1-Score:  {:.3}", metrics.f1_score);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // RÉSUMÉ
+    // SUMMARY
     // ═══════════════════════════════════════════════════════════════════════
     println!("\n╔══════════════════════════════════════════════════════════════╗");
-    println!("║                        RÉSUMÉ                                ║");
+    println!("║                        SUMMARY                               ║");
     println!("╠══════════════════════════════════════════════════════════════╣");
     println!("║ • NetworkBuilder::new(input, output)                         ║");
     println!("║     .hidden_layer(size, activation)                          ║");
@@ -206,10 +206,10 @@ fn main() {
     println!("║     .fit()                                                   ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
     
-    println!("📚 Autres exemples:");
-    println!("   cargo run --example serialization   - Save/Load modèles");
+    println!("📚 Other examples:");
+    println!("   cargo run --example serialization   - Save/Load models");
     println!("   cargo run --example minibatch_demo  - Mini-batch training");
-    println!("   cargo run --example metrics_demo    - Métriques détaillées\n");
+    println!("   cargo run --example metrics_demo    - Detailed metrics\n");
     
     // Cleanup
     std::fs::remove_file("best_model.json").ok();

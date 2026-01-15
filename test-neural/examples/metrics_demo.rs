@@ -6,8 +6,8 @@ use ndarray::array;
 
 fn main() {
     println!("=== Neural Network Metrics Demo ===\n");
-    
-    // Préparer les données XOR
+
+    // Prepare XOR data
     let inputs = vec![
         array![0.0, 0.0],
         array![0.0, 1.0],
@@ -29,8 +29,8 @@ fn main() {
         .loss(LossFunction::BinaryCrossEntropy)
         .optimizer(OptimizerType::adam(0.01))
         .build();
-    
-    // Entraînement
+
+    // Training
     let epochs = 10_000;
     for epoch in 0..epochs {
         for (input, target) in inputs.iter().zip(targets.iter()) {
@@ -45,8 +45,8 @@ fn main() {
     
     let final_loss = network.evaluate(&inputs, &targets);
     println!("  Training complete! Final loss: {:.4}\n", final_loss);
-    
-    // Obtenir les prédictions
+
+    // Get predictions
     let predictions: Vec<_> = inputs.iter()
         .map(|input| network.predict(input))
         .collect();
@@ -57,14 +57,14 @@ fn main() {
             input, predictions[i][0], target[0]);
     }
     println!();
-    
-    // Calculer l'accuracy
+
+    // Calculate accuracy
     println!("3. Accuracy Metric:");
     let acc = accuracy(&predictions, &targets, 0.5);
     println!("  Accuracy: {:.2}% ({}/{})", acc * 100.0, (acc * 4.0) as usize, 4);
     println!();
-    
-    // Métriques binaires complètes
+
+    // Complete binary metrics
     println!("4. Detailed Binary Metrics:");
     let metrics = binary_metrics(&predictions, &targets, 0.5);
     println!("  {}", metrics.summary());
@@ -90,8 +90,8 @@ fn main() {
             threshold, acc * 100.0, metrics.precision, metrics.recall, metrics.f1_score);
     }
     println!();
-    
-    // Démonstration sur un cas imparfait
+
+    // Demonstration on an imperfect case
     println!("8. Example with Imperfect Predictions:");
     let imperfect_preds = vec![
         array![0.1],  // Correct (negative)

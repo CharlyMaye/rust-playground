@@ -14,10 +14,10 @@ use ndarray::array;
 use std::time::Instant;
 
 fn main() {
-    println!("=== Démonstration du Mini-Batch Training ===\n");
-    
+    println!("=== Mini-Batch Training Demonstration ===\n");
+
     // Create a synthetic dataset (larger than XOR for demonstrating batch benefits)
-    println!("📊 Création du dataset...");
+    println!("📊 Creating dataset...");
     let mut inputs = Vec::new();
     let mut targets = Vec::new();
     
@@ -40,17 +40,17 @@ fn main() {
         targets.push(array![0.0]);
     }
     
-    println!("Dataset créé: {} exemples\n", inputs.len());
+    println!("Dataset created: {} samples\n", inputs.len());
     
     // Create dataset and split
     let dataset = Dataset::new(inputs, targets);
     let (train_dataset, test_dataset) = dataset.split(0.8);
     
-    println!("Train: {} exemples", train_dataset.len());
-    println!("Test:  {} exemples\n", test_dataset.len());
+    println!("Train: {} samples", train_dataset.len());
+    println!("Test:  {} samples\n", test_dataset.len());
     
     // ===== 1. Single-sample training (baseline) =====
-    println!("--- 1. Entraînement échantillon par échantillon ---");
+    println!("--- 1. Sample-by-sample training ---");
     let mut network_single = NetworkBuilder::new(2, 1)
         .hidden_layer(8, Activation::Tanh)
         .output_activation(Activation::Sigmoid)
@@ -76,11 +76,11 @@ fn main() {
     let duration_single = start.elapsed();
     let test_loss_single = network_single.evaluate(test_dataset.inputs(), test_dataset.targets());
     
-    println!("✓ Temps: {:.2}s", duration_single.as_secs_f64());
-    println!("✓ Loss finale (test): {:.6}\n", test_loss_single);
+    println!("✓ Time: {:.2}s", duration_single.as_secs_f64());
+    println!("✓ Final loss (test): {:.6}\n", test_loss_single);
     
     // ===== 2. Mini-batch training (batch_size = 32) =====
-    println!("--- 2. Entraînement par mini-batch (batch_size=32) ---");
+    println!("--- 2. Mini-batch training (batch_size=32) ---");
     let mut network_batch32 = NetworkBuilder::new(2, 1)
         .hidden_layer(8, Activation::Tanh)
         .output_activation(Activation::Sigmoid)
@@ -96,7 +96,7 @@ fn main() {
     for epoch in 0..epochs {
         // Shuffle before each epoch
         train_data_shuffleable.shuffle();
-        
+
         // Train on batches
         for (batch_inputs, batch_targets) in train_data_shuffleable.batches(batch_size) {
             network_batch32.train_batch(&batch_inputs, &batch_targets);
@@ -111,12 +111,12 @@ fn main() {
     let duration_batch32 = start.elapsed();
     let test_loss_batch32 = network_batch32.evaluate(test_dataset.inputs(), test_dataset.targets());
     
-    println!("✓ Temps: {:.2}s", duration_batch32.as_secs_f64());
-    println!("✓ Loss finale (test): {:.6}", test_loss_batch32);
-    println!("✓ Speedup: {:.2}x plus rapide\n", duration_single.as_secs_f64() / duration_batch32.as_secs_f64());
+    println!("✓ Time: {:.2}s", duration_batch32.as_secs_f64());
+    println!("✓ Final loss (test): {:.6}", test_loss_batch32);
+    println!("✓ Speedup: {:.2}x faster\n", duration_single.as_secs_f64() / duration_batch32.as_secs_f64());
     
     // ===== 3. Mini-batch training (batch_size = 64) =====
-    println!("--- 3. Entraînement par mini-batch (batch_size=64) ---");
+    println!("--- 3. Mini-batch training (batch_size=64) ---");
     let mut network_batch64 = NetworkBuilder::new(2, 1)
         .hidden_layer(8, Activation::Tanh)
         .output_activation(Activation::Sigmoid)
@@ -143,14 +143,14 @@ fn main() {
     let duration_batch64 = start.elapsed();
     let test_loss_batch64 = network_batch64.evaluate(test_dataset.inputs(), test_dataset.targets());
     
-    println!("✓ Temps: {:.2}s", duration_batch64.as_secs_f64());
-    println!("✓ Loss finale (test): {:.6}", test_loss_batch64);
-    println!("✓ Speedup: {:.2}x plus rapide\n", duration_single.as_secs_f64() / duration_batch64.as_secs_f64());
+    println!("✓ Time: {:.2}s", duration_batch64.as_secs_f64());
+    println!("✓ Final loss (test): {:.6}", test_loss_batch64);
+    println!("✓ Speedup: {:.2}x faster\n", duration_single.as_secs_f64() / duration_batch64.as_secs_f64());
     
     
     
     // ===== 4. Mini-batch training (batch_size = 128) =====
-    println!("--- 4. Entraînement par mini-batch (batch_size=128) ---");
+    println!("--- 4. Mini-batch training (batch_size=128) ---");
     let mut network_batch128 = NetworkBuilder::new(2, 1)
         .hidden_layer(8, Activation::Tanh)
         .output_activation(Activation::Sigmoid)
@@ -177,14 +177,14 @@ fn main() {
     let duration_batch128 = start.elapsed();
     let test_loss_batch128 = network_batch128.evaluate(test_dataset.inputs(), test_dataset.targets());
     
-    println!("✓ Temps: {:.2}s", duration_batch128.as_secs_f64());
-    println!("✓ Loss finale (test): {:.6}", test_loss_batch128);
-    println!("✓ Speedup: {:.2}x plus rapide\n", duration_single.as_secs_f64() / duration_batch128.as_secs_f64());
+    println!("✓ Time: {:.2}s", duration_batch128.as_secs_f64());
+    println!("✓ Final loss (test): {:.6}", test_loss_batch128);
+    println!("✓ Speedup: {:.2}x faster\n", duration_single.as_secs_f64() / duration_batch128.as_secs_f64());
     
     
     
     // ===== Summary =====
-    println!("\n=== Résumé des performances ===");
+    println!("\n=== Performance Summary ===");
     println!("  • Single sample:               {:.2}s (baseline)", duration_single.as_secs_f64());
     println!("  • Mini-batch (32):             {:.2}s ({:.1}x speedup)", 
              duration_batch32.as_secs_f64(), 
