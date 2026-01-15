@@ -288,8 +288,12 @@ $$w_{t+1} = w_t - \eta \cdot \nabla L$$
 let optimizer = OptimizerType::sgd(0.1);  // learning_rate = 0.1
 ```
 
-- **Use case**: Simple problems, research/reproducibility
-- **Learning rate**: 0.01-0.5
+| | |
+|---|---|
+| **Use case** | Simple problems, research/reproducibility |
+| **Learning rate** | 0.01-0.5 |
+| ✅ **Pros** | Simple, fast, reproducible |
+| ❌ **Cons** | Slow convergence, requires LR tuning |
 
 #### Momentum
 
@@ -302,8 +306,12 @@ $$w_{t+1} = w_t - \eta \cdot v_{t+1}$$
 let optimizer = OptimizerType::momentum(0.1);  // beta = 0.9 by default
 ```
 
-- **Use case**: Faster convergence than SGD
-- **Learning rate**: 0.01-0.1
+| | |
+|---|---|
+| **Use case** | Faster convergence than SGD |
+| **Learning rate** | 0.01-0.1 |
+| ✅ **Pros** | Faster than SGD, navigates valleys better |
+| ❌ **Cons** | Requires beta tuning, can overshoot |
 
 #### RMSprop
 
@@ -316,8 +324,12 @@ $$w_{t+1} = w_t - \frac{\eta}{\sqrt{s_{t+1} + \epsilon}} \cdot \nabla L$$
 let optimizer = OptimizerType::rmsprop(0.01);
 ```
 
-- **Use case**: RNNs, unstable gradients
-- **Learning rate**: 0.001-0.01
+| | |
+|---|---|
+| **Use case** | RNNs, unstable gradients |
+| **Learning rate** | 0.001-0.01 |
+| ✅ **Pros** | Handles unstable gradients well, per-parameter LR |
+| ❌ **Cons** | No momentum, can be slow on some problems |
 
 #### Adam (Recommended ⭐)
 
@@ -331,8 +343,12 @@ $$w_{t+1} = w_t - \frac{\eta}{\sqrt{\hat{v}_{t+1}} + \epsilon} \cdot \hat{m}_{t+
 let optimizer = OptimizerType::adam(0.001);  // Recommended default
 ```
 
-- **Use case**: General deep learning (default choice)
-- **Learning rate**: 0.001 (most universal)
+| | |
+|---|---|
+| **Use case** | General deep learning (default choice) |
+| **Learning rate** | 0.001 (most universal) |
+| ✅ **Pros** | Combines momentum + RMSprop, 2-10x faster than SGD, bias correction, per-parameter LR |
+| ❌ **Cons** | More memory (stores m and v), can generalize worse than SGD |
 
 #### AdamW
 
@@ -342,8 +358,12 @@ Adam with decoupled weight decay. Better generalization than L2 regularization.
 let optimizer = OptimizerType::adamw(0.001, 0.01);  // lr=0.001, weight_decay=0.01
 ```
 
-- **Use case**: Preventing overfitting, large models
-- **Learning rate**: 0.001, weight_decay: 0.01-0.1
+| | |
+|---|---|
+| **Use case** | Preventing overfitting, large models |
+| **Learning rate** | 0.001, weight_decay: 0.01-0.1 |
+| ✅ **Pros** | Better regularization than L2, improved generalization |
+| ❌ **Cons** | Extra hyperparameter (weight_decay) |
 
 ### Optimizer Selection Guide
 
@@ -354,6 +374,26 @@ let optimizer = OptimizerType::adamw(0.001, 0.01);  // lr=0.001, weight_decay=0.
 | **Research/reproducibility** | SGD + Momentum | 0.01-0.1 |
 | **Unstable gradients (RNN)** | RMSprop | 0.001 |
 | **Quick prototyping** | Adam | 0.001 |
+
+### Practical Tips
+
+**Starting Learning Rates:**
+- SGD: 0.01 - 0.1
+- Momentum: 0.01 - 0.1  
+- RMSprop: 0.001 - 0.01
+- Adam: **0.001** (most universal)
+- AdamW: 0.001
+
+**If training doesn't converge:**
+1. Reduce learning rate (÷10)
+2. Try Adam if using SGD
+3. Check weight initialization (Xavier for Sigmoid/Tanh, He for ReLU)
+
+**For better results:**
+- Adam is the best default choice
+- AdamW if you observe overfitting
+- Momentum + SGD for academic research
+- RMSprop for RNN/LSTM
 
 > **Reference:** Kingma, D. P., &amp; Ba, J. (2014). "Adam: A Method for Stochastic Optimization." *arXiv:1412.6980*
 
@@ -375,7 +415,11 @@ $$f(x) = \frac{1}{1 + e^{-x}}$$
 Activation::Sigmoid  // Output: (0, 1)
 ```
 
-**Use**: Binary classification output layer
+| | |
+|---|---|
+| **Use** | Binary classification output layer |
+| ✅ **Pros** | Normalized output, interpretable as probability, well-defined gradient |
+| ❌ **Cons** | Vanishing gradient for large/small values, not zero-centered, slow (`exp()`) |
 
 #### Tanh
 
@@ -387,7 +431,11 @@ $$f(x) = \tanh(x) = \frac{e^x - e^{-x}}{e^x + e^{-x}}$$
 Activation::Tanh  // Output: (-1, 1)
 ```
 
-**Use**: Hidden layers, RNN/LSTM gates
+| | |
+|---|---|
+| **Use** | Hidden layers, RNN/LSTM gates |
+| ✅ **Pros** | Zero-centered output, stronger gradient than sigmoid |
+| ❌ **Cons** | Vanishing gradient (less than sigmoid), slow (`exp()`) |
 
 #### ReLU (Rectified Linear Unit)
 
@@ -399,7 +447,11 @@ $$f(x) = \max(0, x)$$
 Activation::ReLU  // Output: [0, ∞)
 ```
 
-**Use**: Hidden layers (default choice)
+| | |
+|---|---|
+| **Use** | Hidden layers (default choice) |
+| ✅ **Pros** | Very fast (simple comparison), no vanishing gradient for positive values, promotes sparsity |
+| ❌ **Cons** | **Dying neurons** (gradient = 0 forever), not zero-centered |
 
 #### Leaky ReLU
 
@@ -411,7 +463,11 @@ $$f(x) = \begin{cases} x &amp; \text{if } x > 0 \\ 0.01x &amp; \text{if } x \leq
 Activation::LeakyReLU  // Output: (-∞, ∞)
 ```
 
-**Use**: Deep networks with dying neuron issues
+| | |
+|---|---|
+| **Use** | Deep networks with dying neuron issues |
+| ✅ **Pros** | Solves dying ReLU problem, fast, gradient always active |
+| ❌ **Cons** | Inconsistent results across tasks, requires alpha hyperparameter |
 
 #### Softmax
 
@@ -423,7 +479,11 @@ $$f(x_i) = \frac{e^{x_i}}{\sum_j e^{x_j}}$$
 Activation::Softmax  // Output: (0, 1), sum = 1
 ```
 
-**Use**: Multi-class classification output layer
+| | |
+|---|---|
+| **Use** | Multi-class classification output layer |
+| ✅ **Pros** | Clear probabilistic interpretation, standard for multi-class |
+| ❌ **Cons** | Only for output layer, computationally more expensive |
 
 ### Mathematical Formulas
 
@@ -444,6 +504,38 @@ Activation::Softmax  // Output: (0, 1), sum = 1
 | **Multi-class output** | Softmax | Probability distribution |
 | **Regression output** | Linear (none) | Unbounded output |
 | **RNN/LSTM gates** | Tanh, Sigmoid | Traditional choice |
+| **Transformers (GPT, BERT)** | GELU | State-of-the-art for NLP |
+
+### Activation Decision Tree
+
+```
+What layer are you configuring?
+├─ OUTPUT Layer
+│  ├─ Binary classification? → Sigmoid
+│  ├─ Multi-class classification? → Softmax
+│  ├─ Regression (continuous values)? → Linear (none)
+│  └─ Regression (positive values)? → Softplus / ReLU
+│
+└─ HIDDEN Layer
+   ├─ Speed constraint?
+   │  ├─ Ultra-fast (embedded)? → Hard Sigmoid / Hard Tanh
+   │  └─ Fast → ReLU, Leaky ReLU
+   │
+   ├─ Network type?
+   │  ├─ Transformer / NLP? → GELU
+   │  ├─ Deep CNN? → Mish
+   │  ├─ RNN / LSTM? → Tanh
+   │  └─ Feedforward? → See below
+   │
+   ├─ Network depth?
+   │  ├─ Shallow (< 5 layers)? → ReLU
+   │  ├─ Deep (> 10 layers)? → SELU, ELU
+   │  └─ Very deep (> 50)? → SELU with LeCun init
+   │
+   └─ Dying neurons problem?
+      ├─ Yes → Leaky ReLU, ELU
+      └─ No → ReLU
+```
 
 ---
 
@@ -463,7 +555,11 @@ $$\text{MSE} = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
 LossFunction::MSE
 ```
 
-**Use**: Regression (predicting continuous values)
+| | |
+|---|---|
+| **Use** | Regression (predicting continuous values) |
+| ✅ **Pros** | Heavily penalizes large errors, differentiable everywhere, intuitive interpretation |
+| ❌ **Cons** | Not optimal for classification, vanishing gradient with Sigmoid |
 
 #### MAE (Mean Absolute Error)
 
@@ -475,7 +571,11 @@ $$\text{MAE} = \frac{1}{n}\sum_{i=1}^{n}|y_i - \hat{y}_i|$$
 LossFunction::MAE
 ```
 
-**Use**: Regression with outliers in data
+| | |
+|---|---|
+| **Use** | Regression with outliers in data |
+| ✅ **Pros** | Robust to outliers, intuitive, treats all errors linearly |
+| ❌ **Cons** | Constant gradients (slower convergence), not differentiable at zero |
 
 #### Binary Cross-Entropy
 
@@ -487,7 +587,11 @@ $$\text{BCE} = -\frac{1}{n}\sum[y\log(\hat{y}) + (1-y)\log(1-\hat{y})]$$
 LossFunction::BinaryCrossEntropy
 ```
 
-**Use**: Binary classification (yes/no, spam/not spam)
+| | |
+|---|---|
+| **Use** | Binary classification (yes/no, spam/not spam) |
+| ✅ **Pros** | Probabilistic interpretation, stable gradient, fast convergence, standard for binary |
+| ❌ **Cons** | Requires predictions in [0, 1], unstable if prediction = 0 or 1 |
 
 #### Categorical Cross-Entropy
 
@@ -499,7 +603,11 @@ $$\text{CCE} = -\sum_{i} y_i \log(\hat{y}_i)$$
 LossFunction::CategoricalCrossEntropy
 ```
 
-**Use**: Multi-class classification (cat/dog/bird)
+| | |
+|---|---|
+| **Use** | Multi-class classification (cat/dog/bird) |
+| ✅ **Pros** | Multi-class standard, clear probabilistic interpretation, works well with Softmax |
+| ❌ **Cons** | Requires one-hot encoded targets |
 
 #### Huber Loss
 
@@ -511,7 +619,11 @@ $$L_\delta = \begin{cases} \frac{1}{2}(y-\hat{y})^2 &amp; |y-\hat{y}| \leq \delt
 LossFunction::Huber
 ```
 
-**Use**: Regression with some outliers
+| | |
+|---|---|
+| **Use** | Regression with some outliers |
+| ✅ **Pros** | Combines MSE (small errors) and MAE (large errors), less sensitive to outliers, differentiable |
+| ❌ **Cons** | Requires delta hyperparameter |
 
 ### Loss Selection Guide
 
@@ -549,7 +661,11 @@ network.eval_mode();   // Dropout disabled (all neurons active)
 - **Training**: Each neuron has probability `p` of being "dropped" (output = 0)
 - **Inference**: All neurons active, outputs scaled by `(1-p)`
 
-**Typical values:** 0.2-0.5 for hidden layers
+| | |
+|---|---|
+| **Typical values** | 0.2-0.5 for hidden layers |
+| ✅ **Pros** | Very effective against overfitting, equivalent to ensemble of models, no computational cost at inference |
+| ❌ **Cons** | Increases training time, requires train/eval mode switching |
 
 > **Reference:** Srivastava, N., et al. (2014). "Dropout: A Simple Way to Prevent Neural Networks from Overfitting." *JMLR*
 
@@ -570,6 +686,12 @@ let network = NetworkBuilder::new(2, 1)
     .build();
 ```
 
+| | |
+|---|---|
+| **Typical values** | λ = 0.0001-0.01 |
+| ✅ **Pros** | Simple, stabilizes training, improves generalization |
+| ❌ **Cons** | Weights rarely become exactly zero |
+
 **L1 Regularization (Lasso):**
 
 $$L_{total} = L_{original} + \lambda\sum |w|$$
@@ -583,6 +705,12 @@ let network = NetworkBuilder::new(2, 1)
     .build();
 ```
 
+| | |
+|---|---|
+| **Typical values** | λ = 0.01-0.1 |
+| ✅ **Pros** | More compact models (many weights = 0), built-in feature selection, better interpretability |
+| ❌ **Cons** | Can be unstable, may remove useful features |
+
 **Selection Guide:**
 
 | Situation | Recommended | Parameters |
@@ -592,11 +720,46 @@ let network = NetworkBuilder::new(2, 1)
 | Need sparse weights | L1 | λ=0.01-0.1 |
 | General use | L2 | λ=0.0001-0.001 |
 
+### Diagnosing Overfitting
+
+**Signs of overfitting:**
+- Training loss very low but validation loss high
+- Perfect predictions on training set, poor on test set
+- Very large weights in the network
+
+**Solutions (in order of priority):**
+1. **More data** (if possible)
+2. **Dropout** (0.3-0.5) - Most effective
+3. **L2 regularization** (0.001-0.01)
+4. **Reduce network size**
+5. **Early stopping**
+
+**Tuning strategy:**
+- Start without regularization
+- If overfitting: add Dropout (0.3)
+- If still overfitting: increase dropout (0.4-0.5) or add L2
+- If underfitting: reduce regularization
+
 ---
 
 ## Mini-Batch Training
 
 **What is mini-batch training?** Instead of updating weights after each sample (slow, noisy) or after the entire dataset (memory-intensive, less frequent updates), we update after small batches of samples. This balances speed and stability.
+
+### Why Mini-Batch?
+
+**❌ Problems with Single-Sample Training (pure SGD):**
+- Very slow on large datasets
+- Noisy gradients → unstable convergence
+- Cannot use vectorization
+- Too frequent weight updates
+
+**✅ Advantages of Mini-Batch:**
+- **2-3x faster** in practice
+- More stable gradients (averaged over batch)
+- Better CPU cache utilization
+- Smoother convergence
+- Enables parallelization
 
 ### Dataset API
 
@@ -643,11 +806,57 @@ for (batch_inputs, batch_targets) in shuffleable.batches(32) {
 - Smaller batches → more noise, can help escape local minima
 - **Always shuffle** before each epoch to prevent learning data order
 
+### Adjusting Learning Rate for Batch Size
+
+```rust
+// Single-sample training
+OptimizerType::adam(0.001)
+
+// Mini-batch training (batch_size=32)
+OptimizerType::adam(0.01)   // 10x higher
+
+// Mini-batch training (batch_size=128)
+OptimizerType::adam(0.03)   // 30x higher
+```
+
+**Rule of thumb:** Learning rate ≈ 0.001 × sqrt(batch_size)
+
+### Mini-Batch Best Practices
+
+✅ **Do:**
+- Always `shuffle()` the dataset before each epoch
+- Split into train/val/test to detect overfitting
+- Start with batch_size=32 then experiment
+- Increase learning rate for batch training
+- Monitor validation loss (early stopping)
+
+❌ **Don't:**
+- Forget to shuffle → network learns the order!
+- Use batch size of 1 on large dataset (too slow)
+- Use same learning rate as single-sample
+- Use batch size > 10% of dataset (loses SGD benefit)
+
 ---
 
 ## Callbacks
 
 **What are callbacks?** Functions that execute automatically at specific points during training (start/end of epoch, etc.). They automate common tasks like early stopping and model checkpointing.
+
+### Why Callbacks?
+
+**❌ Problems without callbacks:**
+- Verbose, repetitive training code
+- Difficult to monitor progression
+- No automatic saving of best model
+- Risk of overtraining (overfitting) without monitoring
+- Fixed learning rate = suboptimal convergence
+
+**✅ With callbacks:**
+- **EarlyStopping**: Automatically stops if overfitting
+- **ModelCheckpoint**: Saves best model automatically
+- **LearningRateScheduler**: Adapts LR dynamically
+- **ProgressBar**: Real-time progress display
+- Clean, maintainable, reusable code
 
 ### EarlyStopping
 
@@ -750,6 +959,30 @@ let history = network.trainer()
     .fit();
 ```
 
+### Callbacks Comparison
+
+| Aspect | Without Callbacks | With Callbacks |
+|--------|------------------|----------------|
+| **Code** | Verbose, repetitive | Concise, reusable |
+| **Monitoring** | Manual (print in loop) | Automatic (ProgressBar) |
+| **Saving** | Manual (if best_loss...) | Automatic (ModelCheckpoint) |
+| **Overfitting** | High risk | Prevented (EarlyStopping) |
+| **Learning Rate** | Fixed, suboptimal | Adapted (LR Scheduler) |
+| **Dev time** | Longer | Shorter |
+| **Maintainability** | Difficult | Easy |
+
+### Callback Selection Guide
+
+| Situation | Recommended Callbacks |
+|-----------|----------------------|
+| **Quick prototyping** | ProgressBar |
+| **Long training** | EarlyStopping + ProgressBar |
+| **Production** | EarlyStopping + ModelCheckpoint + ReduceOnPlateau |
+| **Fine-tuning** | ExponentialLR + ModelCheckpoint |
+| **Small dataset** | EarlyStopping (patience=5) + Dropout |
+| **Large dataset** | ReduceOnPlateau + ModelCheckpoint |
+| **Optimal (recommended)** | **All combined!** |
+
 ---
 
 ## Metrics
@@ -844,6 +1077,22 @@ println!("JSON: {} bytes, Binary: {} bytes", json_size, bin_size);
 
 ---
 
+## Activation Functions Comparison Table
+
+| **Function** | **Range** | **Speed** | **Main Use** | **Since** |
+|--------------|-----------|-----------|--------------|-----------|
+| Sigmoid | [0, 1] | Slow | Binary output | Classic |
+| Tanh | [-1, 1] | Slow | Hidden layers | Classic |
+| ReLU | [0, ∞) | **Very fast** | Hidden layers (default) | 2010 |
+| Leaky ReLU | (-∞, ∞) | **Very fast** | Fix dying neurons | 2013 |
+| ELU | (-α, ∞) | Medium | Deep networks | 2015 |
+| SELU | (-λα, ∞) | Medium | FeedForward (no BN) | 2017 |
+| Swish/SiLU | (-∞, ∞) | Medium | ReLU alternative | 2017 |
+| GELU | (-∞, ∞) | Slow | **Transformers (GPT, BERT)** | 2016 |
+| Softmax | [0, 1] (sum=1) | Medium | Multi-class output | Classic |
+
+---
+
 ## References
 
 ### Foundational Papers
@@ -866,12 +1115,26 @@ println!("JSON: {} bytes, Binary: {} bytes", json_size, bin_size);
 - **[Neural Networks and Deep Learning](http://neuralnetworksanddeeplearning.com/)** - Free online book by Michael Nielsen
 - **[The Rust ML Book](https://rust-ml.github.io/book/)** - Machine learning in Rust
 - **[ML Cheatsheet](https://ml-cheatsheet.readthedocs.io/)** - Quick reference for concepts
+- **[ML Cheatsheet - Loss Functions](https://ml-cheatsheet.readthedocs.io/en/latest/loss_functions.html)** - Detailed loss function reference
+- **[ML Cheatsheet - Activation Functions](https://ml-cheatsheet.readthedocs.io/en/latest/activation_functions.html)** - Detailed activation reference
 - **[Deep Learning Book](https://www.deeplearningbook.org/)** - Comprehensive textbook by Goodfellow, Bengio, Courville
+- **[Neural Networks from Scratch](https://nnfs.io/)** - Book with detailed mathematical explanations
+- **[CS231n Stanford](https://cs231n.github.io/)** - Convolutional Neural Networks course notes
 
 ### Library Documentation
 
 - **[ndarray Documentation](https://docs.rs/ndarray/)** - N-dimensional array library used in this project
+- **[ndarray Crate](https://crates.io/crates/ndarray)** - Crates.io page
 - **[serde Documentation](https://serde.rs/)** - Serialization framework for Rust
+- **[bincode Documentation](https://docs.rs/bincode/)** - Binary serialization format
+- **[Rust Book](https://doc.rust-lang.org/book/)** - Official Rust programming language book
+
+### Additional Resources
+
+- **[Distill.pub](https://distill.pub/)** - Clear explanations of ML concepts with interactive visualizations
+- **[Papers With Code](https://paperswithcode.com/)** - ML papers with implementations
+- **[Towards Data Science](https://towardsdatascience.com/)** - ML tutorials and articles
+- **[Jay Alammar's Blog](https://jalammar.github.io/)** - Visual guides to transformers and attention
 
 ---
 
