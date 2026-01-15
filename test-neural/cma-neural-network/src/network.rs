@@ -308,6 +308,27 @@ impl LossFunction {
 }
 
 impl Activation {
+    /// Returns the name of the activation function as a string.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Activation::Sigmoid => "Sigmoid",
+            Activation::Tanh => "Tanh",
+            Activation::ReLU => "ReLU",
+            Activation::LeakyReLU => "LeakyReLU",
+            Activation::ELU => "ELU",
+            Activation::SELU => "SELU",
+            Activation::Swish => "Swish",
+            Activation::GELU => "GELU",
+            Activation::Mish => "Mish",
+            Activation::Softplus => "Softplus",
+            Activation::Softsign => "Softsign",
+            Activation::HardSigmoid => "HardSigmoid",
+            Activation::HardTanh => "HardTanh",
+            Activation::Softmax => "Softmax",
+            Activation::Linear => "Linear",
+        }
+    }
+    
     /// Apply the activation function to an array.
     pub fn apply(&self, x: &Array1<f64>) -> Array1<f64> {
         match self {
@@ -945,5 +966,67 @@ impl Network {
         }
         
         history
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════
+    // Public API for introspection (useful for visualization)
+    // ═══════════════════════════════════════════════════════════════════════
+    
+    /// Returns a string representation of the network architecture.
+    /// Example: "2 → [8, 4] → 1"
+    pub fn architecture_string(&self) -> String {
+        let hidden_sizes: Vec<String> = self.layers.iter()
+            .take(self.layers.len().saturating_sub(1))
+            .map(|l| l.weights.nrows().to_string())
+            .collect();
+        
+        let output_size = self.layers.last()
+            .map(|l| l.weights.nrows())
+            .unwrap_or(0);
+        
+        if hidden_sizes.is_empty() {
+            format!("{} → {}", self.input_size, output_size)
+        } else {
+            format!("{} → [{}] → {}", self.input_size, hidden_sizes.join(", "), output_size)
+        }
+    }
+    
+    /// Returns the number of layers (hidden + output).
+    pub fn num_layers(&self) -> usize {
+        self.layers.len()
+    }
+    
+    /// Returns the input size of the network.
+    pub fn input_size(&self) -> usize {
+        self.input_size
+    }
+    
+    /// Returns the output size of the network.
+    pub fn output_size(&self) -> usize {
+        self.layers.last().map(|l| l.weights.nrows()).unwrap_or(0)
+    }
+    
+    /// Returns information about each layer for visualization.
+    /// Each tuple contains: (weights, biases, activation_name)
+    pub fn get_layers_info(&self) -> Vec<(&Array2<f64>, &Array1<f64>, &str)> {
+        self.layers.iter()
+            .map(|l| (&l.weights, &l.biases, l.activation.name()))
+            .collect()
+    }
+    
+    /// Performs a forward pass and returns all intermediate activations.
+    /// Returns: Vec of (pre_activation, post_activation, activation_name) for each layer.
+    pub fn get_all_activations(&self, input: &Array1<f64>) -> Vec<(Array1<f64>, Array1<f64>, String)> {
+        let mut current = input.clone();
+        let mut results = Vec::new();
+        
+        for layer in &self.layers {
+            let pre = layer.weights.dot(&current) + &layer.biases;
+            let post = layer.activation.apply(&pre);
+            results.push((pre, post.clone(), layer.activation.name().to_string()));
+            current = post;
+        }
+        
+        results
     }
 }

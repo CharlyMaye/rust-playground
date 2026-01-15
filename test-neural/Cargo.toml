@@ -1,5 +1,5 @@
 [workspace]
-members = ["cma-neural-network"]
+members = ["cma-neural-network", "neural-wasm"]
 resolver = "2"
 
 [package]

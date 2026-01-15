@@ -2,7 +2,7 @@
 	"name": "Rust & Typescript (Docker Compose)",
 	"dockerComposeFile": ["../docker-compose.yml"],
 	"service": "back",
-	"workspaceFolder": "/workspace/back",
+	"workspaceFolder": "/workspace/test-neural",
 	"shutdownAction": "stopCompose",
 	"runServices": ["back", "redis"],
 
@@ -22,7 +22,10 @@
 			"extensions": [
 				"rust-lang.rust-analyzer",
 				"usernamehw.errorlens",
-				"tamasfe.even-better-toml"
+				"tamasfe.even-better-toml",
+				"ritwickdey.LiveServer",
+				"Angular.ng-template",
+				"esbenp.prettier-vscode"
 			]
 		}
 	},
