@@ -415,9 +415,9 @@ pub(crate) struct Layer {
 ///
 /// # Example
 /// ```rust
-/// use test_neural::builder::NetworkBuilder;
-/// use test_neural::network::{Activation, LossFunction};
-/// use test_neural::optimizer::OptimizerType;
+/// use cma_neural_network::builder::NetworkBuilder;
+/// use cma_neural_network::network::{Activation, LossFunction};
+/// use cma_neural_network::optimizer::OptimizerType;
 ///
 /// // Use the builder pattern to create networks
 /// let network = NetworkBuilder::new(2, 1)
@@ -705,8 +705,8 @@ impl Network {
     /// 
     /// # Example
     /// ```rust
-    /// use test_neural::builder::NetworkBuilder;
-    /// use test_neural::network::Activation;
+    /// use cma_neural_network::builder::NetworkBuilder;
+    /// use cma_neural_network::network::Activation;
     /// use ndarray::array;
     /// 
     /// let mut network = NetworkBuilder::new(2, 1)

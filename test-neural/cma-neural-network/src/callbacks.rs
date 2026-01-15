@@ -53,7 +53,7 @@ pub trait Callback {
 ///
 /// # Example
 /// ```rust
-/// use test_neural::callbacks::{EarlyStopping, DeltaMode};
+/// use cma_neural_network::callbacks::{EarlyStopping, DeltaMode};
 ///
 /// // Absolute comparison (default): improvement if loss decreases by at least min_delta
 /// let early_stop = EarlyStopping::new(10, 0.0001);
@@ -130,7 +130,7 @@ impl EarlyStopping {
     ///
     /// # Example
     /// ```rust
-    /// use test_neural::callbacks::{EarlyStopping, DeltaMode};
+    /// use cma_neural_network::callbacks::{EarlyStopping, DeltaMode};
     ///
     /// // Require 1% relative improvement
     /// let early_stop = EarlyStopping::new(10, 0.01)
@@ -204,7 +204,7 @@ impl Callback for EarlyStopping {
 ///
 /// # Example
 /// ```rust
-/// use test_neural::callbacks::ModelCheckpoint;
+/// use cma_neural_network::callbacks::ModelCheckpoint;
 ///
 /// let checkpoint = ModelCheckpoint::new("best_model.json", true);
 /// ```
@@ -307,7 +307,7 @@ pub enum LRSchedule {
 ///
 /// # Example
 /// ```rust
-/// use test_neural::callbacks::{LearningRateScheduler, LRSchedule};
+/// use cma_neural_network::callbacks::{LearningRateScheduler, LRSchedule};
 ///
 /// let scheduler = LearningRateScheduler::new(
 ///     LRSchedule::ReduceOnPlateau {
@@ -418,7 +418,7 @@ impl Callback for LearningRateScheduler {
 ///
 /// # Example
 /// ```rust
-/// use test_neural::callbacks::ProgressBar;
+/// use cma_neural_network::callbacks::ProgressBar;
 ///
 /// let progress = ProgressBar::new(100);  // 100 epochs
 /// ```

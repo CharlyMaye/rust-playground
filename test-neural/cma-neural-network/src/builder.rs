@@ -7,9 +7,9 @@ use crate::callbacks::{Callback, LearningRateScheduler};
 ///
 /// # Example
 /// ```rust
-/// use test_neural::builder::NetworkBuilder;
-/// use test_neural::network::{Activation, LossFunction};
-/// use test_neural::optimizer::OptimizerType;
+/// use cma_neural_network::builder::NetworkBuilder;
+/// use cma_neural_network::network::{Activation, LossFunction};
+/// use cma_neural_network::optimizer::OptimizerType;
 ///
 /// let network = NetworkBuilder::new(2, 1)
 ///     .hidden_layer(8, Activation::ReLU)
@@ -172,10 +172,10 @@ impl NetworkBuilder {
 ///
 /// # Example
 /// ```rust,ignore
-/// use test_neural::builder::{NetworkBuilder, NetworkTrainer};
-/// use test_neural::network::Activation;
-/// use test_neural::callbacks::{EarlyStopping, ProgressBar};
-/// use test_neural::dataset::Dataset;
+/// use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
+/// use cma_neural_network::network::Activation;
+/// use cma_neural_network::callbacks::{EarlyStopping, ProgressBar};
+/// use cma_neural_network::dataset::Dataset;
 ///
 /// let mut network = NetworkBuilder::new(2, 1)
 ///     .hidden_layer(8, Activation::Tanh)

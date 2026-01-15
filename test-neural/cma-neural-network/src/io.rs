@@ -10,9 +10,9 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use test_neural::builder::NetworkBuilder;
-//! use test_neural::network::Activation;
-//! use test_neural::io;
+//! use cma_neural_network::builder::NetworkBuilder;
+//! use cma_neural_network::network::Activation;
+//! use cma_neural_network::io;
 //!
 //! // Create and train a network
 //! let network = NetworkBuilder::new(2, 1)

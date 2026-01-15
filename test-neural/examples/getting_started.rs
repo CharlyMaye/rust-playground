@@ -7,13 +7,13 @@
 //! - Callbacks (EarlyStopping, ModelCheckpoint, LR Scheduler)
 //! - Evaluation with metrics
 
-use test_neural::builder::{NetworkBuilder, NetworkTrainer};
-use test_neural::network::{Activation, LossFunction};
-use test_neural::optimizer::OptimizerType;
-use test_neural::dataset::Dataset;
-use test_neural::callbacks::{EarlyStopping, DeltaMode, LearningRateScheduler, LRSchedule, ProgressBar};
-use test_neural::metrics::{accuracy, binary_metrics};
-use test_neural::io;
+use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
+use cma_neural_network::network::{Activation, LossFunction};
+use cma_neural_network::optimizer::OptimizerType;
+use cma_neural_network::dataset::Dataset;
+use cma_neural_network::callbacks::{EarlyStopping, DeltaMode, LearningRateScheduler, LRSchedule, ProgressBar};
+use cma_neural_network::metrics::{accuracy, binary_metrics};
+use cma_neural_network::io;
 use ndarray::array;
 use std::fs;
 use std::path::Path;

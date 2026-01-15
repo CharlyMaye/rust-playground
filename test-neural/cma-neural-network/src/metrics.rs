@@ -41,7 +41,7 @@ impl BinaryMetrics {
 /// # Example
 /// ```rust
 /// use ndarray::array;
-/// use test_neural::metrics::accuracy;
+/// use cma_neural_network::metrics::accuracy;
 ///
 /// let predictions = vec![array![0.1], array![0.9], array![0.8], array![0.2]];
 /// let targets = vec![array![0.0], array![1.0], array![1.0], array![0.0]];
@@ -107,7 +107,7 @@ pub fn accuracy(
 /// # Example
 /// ```rust
 /// use ndarray::array;
-/// use test_neural::metrics::binary_metrics;
+/// use cma_neural_network::metrics::binary_metrics;
 ///
 /// let predictions = vec![array![0.9], array![0.8], array![0.3], array![0.2]];
 /// let targets = vec![array![1.0], array![1.0], array![0.0], array![0.0]];
