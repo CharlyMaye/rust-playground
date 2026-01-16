@@ -70,7 +70,7 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════════════
     println!("🏋️  Training...\n");
 
-    let epochs = 500;
+    let epochs = 100_000;
     let history = network.trainer()
         .train_data(&train)
         .validation_data(&val)

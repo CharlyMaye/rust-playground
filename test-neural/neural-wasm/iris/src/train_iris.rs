@@ -7,13 +7,17 @@ use cma_neural_network::{
 };
 use ndarray::{array, Array1};
 use std::fs;
+use std::error::Error;
+use csv::ReaderBuilder;
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     println!("🌸 Training Iris Classification Neural Network");
     println!("{}", "=".repeat(60));
 
-    // Famous Iris dataset (simplified version with 30 samples per class)
-    let iris_data = get_iris_dataset();
+    // Load the real Iris dataset from CSV
+    println!("\n📂 Loading Iris dataset from CSV...");
+    let iris_data = load_iris_from_csv("data/iris.csv")?;
+    println!("   ✅ Loaded {} samples", iris_data.len());
     
     // Split into training and validation sets
     let split_idx = (iris_data.len() as f64 * 0.8) as usize;
@@ -53,7 +57,7 @@ fn main() {
     let early_stopping = EarlyStopping::new(50, 0.0001)
         .mode(DeltaMode::Absolute);
     
-    let epochs = 1000;
+    let epochs = 100_000;
     let progress = ProgressBar::new(epochs);
 
     println!("\n🎯 Training configuration:");
@@ -112,76 +116,42 @@ fn main() {
     println!("\n💾 Model saved to: src/iris_model.json");
     println!("\n{}", "=".repeat(60));
     println!("🎉 Training successful!");
+    
+    Ok(())
 }
 
-/// Returns the Iris dataset as (input, one-hot-encoded output)
-fn get_iris_dataset() -> Vec<(Array1<f64>, Array1<f64>)> {
-    // Simplified Iris dataset (30 samples per class = 90 total)
+/// Load the real Iris dataset from CSV file
+/// Dataset source: UCI Machine Learning Repository
+/// https://archive.ics.uci.edu/ml/datasets/iris
+fn load_iris_from_csv(path: &str) -> Result<Vec<(Array1<f64>, Array1<f64>)>, Box<dyn Error>> {
     let mut data = Vec::new();
+    let mut rdr = ReaderBuilder::new()
+        .has_headers(true)
+        .from_path(path)?;
     
-    // Setosa (class 0): Small petals, distinctive
-    let setosa = vec![
-        [5.1, 3.5, 1.4, 0.2], [4.9, 3.0, 1.4, 0.2], [4.7, 3.2, 1.3, 0.2],
-        [4.6, 3.1, 1.5, 0.2], [5.0, 3.6, 1.4, 0.2], [5.4, 3.9, 1.7, 0.4],
-        [4.6, 3.4, 1.4, 0.3], [5.0, 3.4, 1.5, 0.2], [4.4, 2.9, 1.4, 0.2],
-        [4.9, 3.1, 1.5, 0.1], [5.4, 3.7, 1.5, 0.2], [4.8, 3.4, 1.6, 0.2],
-        [4.8, 3.0, 1.4, 0.1], [4.3, 3.0, 1.1, 0.1], [5.8, 4.0, 1.2, 0.2],
-        [5.7, 4.4, 1.5, 0.4], [5.4, 3.9, 1.3, 0.4], [5.1, 3.5, 1.4, 0.3],
-        [5.7, 3.8, 1.7, 0.3], [5.1, 3.8, 1.5, 0.3], [5.4, 3.4, 1.7, 0.2],
-        [5.1, 3.7, 1.5, 0.4], [4.6, 3.6, 1.0, 0.2], [5.1, 3.3, 1.7, 0.5],
-        [4.8, 3.4, 1.9, 0.2], [5.0, 3.0, 1.6, 0.2], [5.0, 3.4, 1.6, 0.4],
-        [5.2, 3.5, 1.5, 0.2], [5.2, 3.4, 1.4, 0.2], [4.7, 3.2, 1.6, 0.2],
-    ];
-    
-    // Versicolor (class 1): Medium size
-    let versicolor = vec![
-        [7.0, 3.2, 4.7, 1.4], [6.4, 3.2, 4.5, 1.5], [6.9, 3.1, 4.9, 1.5],
-        [5.5, 2.3, 4.0, 1.3], [6.5, 2.8, 4.6, 1.5], [5.7, 2.8, 4.5, 1.3],
-        [6.3, 3.3, 4.7, 1.6], [4.9, 2.4, 3.3, 1.0], [6.6, 2.9, 4.6, 1.3],
-        [5.2, 2.7, 3.9, 1.4], [5.0, 2.0, 3.5, 1.0], [5.9, 3.0, 4.2, 1.5],
-        [6.0, 2.2, 4.0, 1.0], [6.1, 2.9, 4.7, 1.4], [5.6, 2.9, 3.6, 1.3],
-        [6.7, 3.1, 4.4, 1.4], [5.6, 3.0, 4.5, 1.5], [5.8, 2.7, 4.1, 1.0],
-        [6.2, 2.2, 4.5, 1.5], [5.6, 2.5, 3.9, 1.1], [5.9, 3.2, 4.8, 1.8],
-        [6.1, 2.8, 4.0, 1.3], [6.3, 2.5, 4.9, 1.5], [6.1, 2.8, 4.7, 1.2],
-        [6.4, 2.9, 4.3, 1.3], [6.6, 3.0, 4.4, 1.4], [6.8, 2.8, 4.8, 1.4],
-        [6.7, 3.0, 5.0, 1.7], [6.0, 2.9, 4.5, 1.5], [5.7, 2.6, 3.5, 1.0],
-    ];
-    
-    // Virginica (class 2): Large petals
-    let virginica = vec![
-        [6.3, 3.3, 6.0, 2.5], [5.8, 2.7, 5.1, 1.9], [7.1, 3.0, 5.9, 2.1],
-        [6.3, 2.9, 5.6, 1.8], [6.5, 3.0, 5.8, 2.2], [7.6, 3.0, 6.6, 2.1],
-        [4.9, 2.5, 4.5, 1.7], [7.3, 2.9, 6.3, 1.8], [6.7, 2.5, 5.8, 1.8],
-        [7.2, 3.6, 6.1, 2.5], [6.5, 3.2, 5.1, 2.0], [6.4, 2.7, 5.3, 1.9],
-        [6.8, 3.0, 5.5, 2.1], [5.7, 2.5, 5.0, 2.0], [5.8, 2.8, 5.1, 2.4],
-        [6.4, 3.2, 5.3, 2.3], [6.5, 3.0, 5.5, 1.8], [7.7, 3.8, 6.7, 2.2],
-        [7.7, 2.6, 6.9, 2.3], [6.0, 2.2, 5.0, 1.5], [6.9, 3.2, 5.7, 2.3],
-        [5.6, 2.8, 4.9, 2.0], [7.7, 2.8, 6.7, 2.0], [6.3, 2.7, 4.9, 1.8],
-        [6.7, 3.3, 5.7, 2.1], [7.2, 3.2, 6.0, 1.8], [6.2, 2.8, 4.8, 1.8],
-        [6.1, 3.0, 4.9, 1.8], [6.4, 2.8, 5.6, 2.1], [7.2, 3.0, 5.8, 1.6],
-    ];
-    
-    // Convert to network format
-    for measurements in setosa {
+    for result in rdr.records() {
+        let record = result?;
+        
+        // Parse the 4 features
+        let sepal_length: f64 = record[0].parse()?;
+        let sepal_width: f64 = record[1].parse()?;
+        let petal_length: f64 = record[2].parse()?;
+        let petal_width: f64 = record[3].parse()?;
+        
+        // Parse species and convert to one-hot encoding
+        let species = &record[4];
+        let one_hot = match species {
+            "setosa" => array![1.0, 0.0, 0.0],
+            "versicolor" => array![0.0, 1.0, 0.0],
+            "virginica" => array![0.0, 0.0, 1.0],
+            _ => return Err(format!("Unknown species: {}", species).into()),
+        };
+        
         data.push((
-            array![measurements[0], measurements[1], measurements[2], measurements[3]],
-            array![1.0, 0.0, 0.0]  // One-hot: Setosa
+            array![sepal_length, sepal_width, petal_length, petal_width],
+            one_hot,
         ));
     }
     
-    for measurements in versicolor {
-        data.push((
-            array![measurements[0], measurements[1], measurements[2], measurements[3]],
-            array![0.0, 1.0, 0.0]  // One-hot: Versicolor
-        ));
-    }
-    
-    for measurements in virginica {
-        data.push((
-            array![measurements[0], measurements[1], measurements[2], measurements[3]],
-            array![0.0, 0.0, 1.0]  // One-hot: Virginica
-        ));
-    }
-    
-    data
+    Ok(data)
 }
