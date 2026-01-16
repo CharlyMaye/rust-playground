@@ -1,5 +1,10 @@
 [workspace]
-members = ["cma-neural-network", "neural-wasm"]
+members = [
+    "cma-neural-network",
+    "neural-wasm/shared",
+    "neural-wasm/xor",
+    "neural-wasm/iris",
+]
 resolver = "2"
 
 [package]

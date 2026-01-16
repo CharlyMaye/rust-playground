@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🌸 Iris Classifier - WebAssembly Demo</title>
+    <link rel="stylesheet" href="shared/styles.css">
+    <style>
+        /* Iris-specific styles */
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .input-field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .input-field label {
+            font-size: 0.875rem;
+            color: var(--muted);
+            font-weight: 500;
+        }
+        
+        .input-field input {
+            padding: 0.75rem;
+            background: rgba(148, 163, 184, 0.1);
+            border: 2px solid rgba(148, 163, 184, 0.3);
+            border-radius: 0.5rem;
+            color: var(--text);
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .input-field input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .predict-btn {
+            padding: 0.875rem 2rem;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            border: none;
+            border-radius: 0.5rem;
+            color: var(--text);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+        
+        .predict-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+        }
+        
+        .predict-btn:active {
+            transform: translateY(0);
+        }
+        
+        .result-card {
+            text-align: center;
+            padding: 2rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+            border-radius: 1rem;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .result-card.hidden {
+            display: none;
+        }
+        
+        .predicted-class {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, var(--accent), #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .predicted-confidence {
+            font-size: 1rem;
+            color: var(--muted);
+            margin-bottom: 1.5rem;
+        }
+        
+        .probabilities {
+            display: flex;
+            justify-content: space-around;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .prob-item {
+            flex: 1;
+            text-align: center;
+        }
+        
+        .prob-label {
+            font-size: 0.875rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+        }
+        
+        .prob-bar-container {
+            height: 100px;
+            background: rgba(148, 163, 184, 0.2);
+            border-radius: 0.5rem;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            padding: 0.5rem;
+        }
+        
+        .prob-bar {
+            width: 100%;
+            background: linear-gradient(to top, var(--accent), #8b5cf6);
+            border-radius: 0.25rem;
+            transition: height 0.3s;
+            position: relative;
+        }
+        
+        .prob-value {
+            position: absolute;
+            top: -1.5rem;
+            left: 0;
+            right: 0;
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .presets {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+        
+        .preset-btn {
+            padding: 0.5rem 1rem;
+            background: rgba(148, 163, 184, 0.2);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 0.5rem;
+            color: var(--muted);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .preset-btn:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: var(--accent);
+            color: var(--text);
+        }
+        
+        .test-results {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .test-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+            font-size: 0.875rem;
+        }
+        
+        .test-item:last-child {
+            border-bottom: none;
+        }
+        
+        .test-item.correct {
+            background: rgba(34, 197, 94, 0.1);
+        }
+        
+        .test-item.incorrect {
+            background: rgba(239, 68, 68, 0.1);
+        }
+        
+        .test-inputs {
+            color: var(--muted);
+            font-family: monospace;
+        }
+        
+        .test-prediction {
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="nav-back">← Back to Demos</a>
+    
+    <h1>🌸 Iris Classifier</h1>
+    <p class="subtitle">Multi-class Neural Network Classification</p>
+
+    <div class="container">
+        <div id="loading" class="card loading">
+            <div class="spinner"></div>
+            <p>Loading Neural Network...</p>
+        </div>
+
+        <div id="app" style="display: none;">
+            <!-- Interactive Classifier -->
+            <div class="card">
+                <div class="card-title">🔬 Interactive Classifier</div>
+                
+                <div class="input-grid">
+                    <div class="input-field">
+                        <label for="sepalLength">Sepal Length (cm)</label>
+                        <input type="number" id="sepalLength" value="5.1" step="0.1" min="0" max="10">
+                    </div>
+                    <div class="input-field">
+                        <label for="sepalWidth">Sepal Width (cm)</label>
+                        <input type="number" id="sepalWidth" value="3.5" step="0.1" min="0" max="10">
+                    </div>
+                    <div class="input-field">
+                        <label for="petalLength">Petal Length (cm)</label>
+                        <input type="number" id="petalLength" value="1.4" step="0.1" min="0" max="10">
+                    </div>
+                    <div class="input-field">
+                        <label for="petalWidth">Petal Width (cm)</label>
+                        <input type="number" id="petalWidth" value="0.2" step="0.1" min="0" max="10">
+                    </div>
+                </div>
+                
+                <button class="predict-btn" onclick="predictIris()">🌸 Classify</button>
+                
+                <div class="presets">
+                    <strong style="color: var(--muted); font-size: 0.875rem;">Quick Presets:</strong>
+                    <button class="preset-btn" onclick="loadPreset('setosa')">Setosa</button>
+                    <button class="preset-btn" onclick="loadPreset('versicolor')">Versicolor</button>
+                    <button class="preset-btn" onclick="loadPreset('virginica')">Virginica</button>
+                </div>
+            </div>
+
+            <!-- Prediction Result -->
+            <div id="result" class="card result-card hidden">
+                <div class="predicted-class" id="predictedClass">-</div>
+                <div class="predicted-confidence" id="predictedConfidence">-</div>
+                
+                <div class="probabilities">
+                    <div class="prob-item">
+                        <div class="prob-label">Setosa</div>
+                        <div class="prob-bar-container">
+                            <div class="prob-bar" id="probSetosa">
+                                <div class="prob-value" id="probSetosaValue">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="prob-item">
+                        <div class="prob-label">Versicolor</div>
+                        <div class="prob-bar-container">
+                            <div class="prob-bar" id="probVersicolor">
+                                <div class="prob-value" id="probVersicolorValue">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="prob-item">
+                        <div class="prob-label">Virginica</div>
+                        <div class="prob-bar-container">
+                            <div class="prob-bar" id="probVirginica">
+                                <div class="prob-value" id="probVirginicaValue">0%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Model Info -->
+            <div class="card">
+                <div class="card-title">ℹ️ Model Information</div>
+                <div id="modelInfo" class="model-info">
+                    <div class="info-item">
+                        <div class="info-value" id="architecture">-</div>
+                        <div class="info-label">Architecture</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-value" id="accuracy">-</div>
+                        <div class="info-label">Test Accuracy</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-value">3</div>
+                        <div class="info-label">Classes</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test All Samples -->
+            <div class="card">
+                <div class="card-title">🧪 Test Samples</div>
+                <button class="predict-btn" onclick="testAllSamples()">Run All Test Samples</button>
+                <div id="testResults" class="test-results" style="margin-top: 1rem;"></div>
+            </div>
+        </div>
+
+        <div id="error" class="card error" style="display: none;"></div>
+    </div>
+
+    <footer>
+        Built with 🦀 Rust + WebAssembly • 
+        <a href="index.html">Back to Demos</a>
+    </footer>
+
+    <script type="module">
+        import init, { IrisClassifier } from './pkg/iris_wasm/neural_wasm_iris.js';
+
+        let classifier;
+
+        // Preset samples
+        const presets = {
+            setosa: { sepalLength: 5.1, sepalWidth: 3.5, petalLength: 1.4, petalWidth: 0.2 },
+            versicolor: { sepalLength: 7.0, sepalWidth: 3.2, petalLength: 4.7, petalWidth: 1.4 },
+            virginica: { sepalLength: 6.3, sepalWidth: 3.3, petalLength: 6.0, petalWidth: 2.5 }
+        };
+
+        window.loadPreset = function(type) {
+            const preset = presets[type];
+            document.getElementById('sepalLength').value = preset.sepalLength;
+            document.getElementById('sepalWidth').value = preset.sepalWidth;
+            document.getElementById('petalLength').value = preset.petalLength;
+            document.getElementById('petalWidth').value = preset.petalWidth;
+            predictIris();
+        };
+
+        window.predictIris = function() {
+            if (!classifier) return;
+
+            const sepalLength = parseFloat(document.getElementById('sepalLength').value);
+            const sepalWidth = parseFloat(document.getElementById('sepalWidth').value);
+            const petalLength = parseFloat(document.getElementById('petalLength').value);
+            const petalWidth = parseFloat(document.getElementById('petalWidth').value);
+
+            // Get prediction
+            const resultJson = classifier.predict(sepalLength, sepalWidth, petalLength, petalWidth);
+            const result = JSON.parse(resultJson);
+
+            // Show result
+            document.getElementById('result').classList.remove('hidden');
+            document.getElementById('predictedClass').textContent = result.class;
+            document.getElementById('predictedConfidence').textContent = 
+                `${result.confidence.toFixed(1)}% confidence`;
+
+            // Update probability bars
+            const probs = result.probabilities;
+            updateProbBar('probSetosa', 'probSetosaValue', probs[0]);
+            updateProbBar('probVersicolor', 'probVersicolorValue', probs[1]);
+            updateProbBar('probVirginica', 'probVirginicaValue', probs[2]);
+        };
+
+        function updateProbBar(barId, valueId, probability) {
+            const percentage = (probability * 100).toFixed(1);
+            document.getElementById(barId).style.height = `${percentage}%`;
+            document.getElementById(valueId).textContent = `${percentage}%`;
+        }
+
+        window.testAllSamples = function() {
+            if (!classifier) return;
+
+            const resultsJson = classifier.test_all();
+            const results = JSON.parse(resultsJson);
+
+            const testResultsDiv = document.getElementById('testResults');
+            testResultsDiv.innerHTML = '';
+
+            let correct = 0;
+            results.forEach(result => {
+                if (result.is_correct) correct++;
+
+                const item = document.createElement('div');
+                item.className = `test-item ${result.is_correct ? 'correct' : 'incorrect'}`;
+                
+                const inputs = `[${result.sepal_length.toFixed(1)}, ${result.sepal_width.toFixed(1)}, ${result.petal_length.toFixed(1)}, ${result.petal_width.toFixed(1)}]`;
+                const status = result.is_correct ? '✓' : '✗';
+                const color = result.is_correct ? 'var(--success)' : 'var(--error)';
+                
+                item.innerHTML = `
+                    <span class="test-inputs">${inputs}</span>
+                    <span class="test-prediction" style="color: ${color};">
+                        ${status} ${result.predicted} (expected: ${result.expected})
+                    </span>
+                `;
+                
+                testResultsDiv.appendChild(item);
+            });
+
+            const accuracy = ((correct / results.length) * 100).toFixed(1);
+            const summary = document.createElement('div');
+            summary.style.marginTop = '1rem';
+            summary.style.textAlign = 'center';
+            summary.style.color = 'var(--muted)';
+            summary.innerHTML = `<strong>Accuracy: ${accuracy}% (${correct}/${results.length})</strong>`;
+            testResultsDiv.appendChild(summary);
+        };
+
+        // Initialize
+        async function main() {
+            try {
+                await init();
+                classifier = new IrisClassifier();
+
+                // Get model info
+                const modelInfoJson = classifier.model_info();
+                const modelInfo = JSON.parse(modelInfoJson);
+
+                document.getElementById('architecture').textContent = modelInfo.architecture;
+                document.getElementById('accuracy').textContent = `${modelInfo.accuracy.toFixed(1)}%`;
+
+                // Hide loading, show app
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+
+                // Initial prediction
+                predictIris();
+            } catch (error) {
+                console.error('Error initializing:', error);
+                document.getElementById('loading').style.display = 'none';
+                const errorDiv = document.getElementById('error');
+                errorDiv.textContent = `Failed to load model: ${error.message}`;
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        main();
+    </script>
+</body>
+</html>

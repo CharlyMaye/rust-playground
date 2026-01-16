@@ -119,13 +119,39 @@ dependencies = [
 ]
 
 [[package]]
-name = "neural-wasm"
+name = "neural-wasm-iris"
 version = "0.1.0"
 dependencies = [
  "cma-neural-network",
  "console_error_panic_hook",
  "getrandom",
  "ndarray",
+ "neural-wasm-shared",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "neural-wasm-shared"
+version = "0.1.0"
+dependencies = [
+ "cma-neural-network",
+ "ndarray",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "neural-wasm-xor"
+version = "0.1.0"
+dependencies = [
+ "cma-neural-network",
+ "console_error_panic_hook",
+ "getrandom",
+ "ndarray",
+ "neural-wasm-shared",
  "serde",
  "serde_json",
  "wasm-bindgen",
