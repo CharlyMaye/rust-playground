@@ -1,4 +1,20 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
+use cma_neural_network::network::Network;
+
+/// Model metadata saved during training
+#[derive(Serialize, Deserialize)]
+pub struct ModelMetadata {
+    pub accuracy: f64,
+    pub test_samples: usize,
+    pub trained_at: String,
+}
+
+/// Model wrapper with metadata
+#[derive(Serialize, Deserialize)]
+pub struct ModelWithMetadata {
+    pub network: Network,
+    pub metadata: ModelMetadata,
+}
 
 /// Information about a trained model
 #[derive(Serialize)]
@@ -7,6 +23,8 @@ pub struct ModelInfo {
     pub architecture: String,
     pub accuracy: f64,
     pub description: String,
+    pub test_samples: usize,
+    pub trained_at: String,
 }
 
 /// Information about a network layer

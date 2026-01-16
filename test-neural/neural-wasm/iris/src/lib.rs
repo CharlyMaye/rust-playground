@@ -2,7 +2,7 @@ use wasm_bindgen::prelude::*;
 use cma_neural_network::network::Network;
 use ndarray::array;
 use serde::Serialize;
-use neural_wasm_shared::{ModelInfo, WeightsInfo, LayerInfo, softmax};
+use neural_wasm_shared::{ModelInfo, WeightsInfo, LayerInfo, softmax, ModelWithMetadata};
 
 const MODEL_JSON: &str = include_str!("iris_model.json");
 
@@ -32,6 +32,9 @@ pub struct IrisTestResult {
 pub struct IrisClassifier {
     network: Network,
     classes: Vec<String>,
+    accuracy: f64,
+    test_samples: usize,
+    trained_at: String,
 }
 
 #[wasm_bindgen]
@@ -41,7 +44,7 @@ impl IrisClassifier {
         #[cfg(feature = "console_error_panic_hook")]
         console_error_panic_hook::set_once();
 
-        let network: Network = serde_json::from_str(MODEL_JSON)
+        let model: ModelWithMetadata = serde_json::from_str(MODEL_JSON)
             .map_err(|e| JsValue::from_str(&format!("Failed to load model: {}", e)))?;
         
         let classes = vec![
@@ -50,7 +53,13 @@ impl IrisClassifier {
             "Virginica".to_string(),
         ];
         
-        Ok(IrisClassifier { network, classes })
+        Ok(IrisClassifier { 
+            network: model.network,
+            classes,
+            accuracy: model.metadata.accuracy,
+            test_samples: model.metadata.test_samples,
+            trained_at: model.metadata.trained_at,
+        })
     }
 
     /// Predict iris species from measurements
@@ -124,11 +133,14 @@ impl IrisClassifier {
 
     #[wasm_bindgen]
     pub fn model_info(&self) -> String {
+        // Accuracy is loaded from the model metadata (saved during training)
         let info = ModelInfo {
             name: "Iris Species Classifier".to_string(),
             architecture: self.network.architecture_string(),
-            accuracy: 98.0,
+            accuracy: self.accuracy,
             description: "Classifies iris flowers into three species: Setosa, Versicolor, and Virginica based on sepal and petal measurements".to_string(),
+            test_samples: self.test_samples,
+            trained_at: self.trained_at.clone(),
         };
         serde_json::to_string(&info).unwrap()
     }

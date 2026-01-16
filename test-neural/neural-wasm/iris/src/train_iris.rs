@@ -1,14 +1,16 @@
 use cma_neural_network::{
     builder::{NetworkBuilder, NetworkTrainer},
-    network::{Activation, LossFunction},
+    network::{Activation, LossFunction, Network},
     optimizer::OptimizerType,
     dataset::Dataset,
     callbacks::{EarlyStopping, DeltaMode, ProgressBar},
 };
+use neural_wasm_shared::{ModelWithMetadata, ModelMetadata};
 use ndarray::{array, Array1};
 use std::fs;
 use std::error::Error;
 use csv::ReaderBuilder;
+use chrono::Local;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("🌸 Training Iris Classification Neural Network");
@@ -19,14 +21,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let iris_data = load_iris_from_csv("data/iris.csv")?;
     println!("   ✅ Loaded {} samples", iris_data.len());
     
-    // Split into training and validation sets
-    let split_idx = (iris_data.len() as f64 * 0.8) as usize;
-    let train_data = &iris_data[..split_idx];
-    let test_data = &iris_data[split_idx..];
+    // Split into training (70%) and test (30%) sets
+    let inputs: Vec<Array1<f64>> = iris_data.iter().map(|(i, _)| i.clone()).collect();
+    let targets: Vec<Array1<f64>> = iris_data.iter().map(|(_, t)| t.clone()).collect();
+    
+    let dataset = Dataset::new(inputs, targets);
+    let (train_dataset, test_dataset) = dataset.split(0.7);
     
     println!("\n📊 Dataset:");
-    println!("   Training samples: {}", train_data.len());
-    println!("   Testing samples:  {}", test_data.len());
+    println!("   Training samples: {} (70%)", train_dataset.len());
+    println!("   Test samples:     {} (30%)", test_dataset.len());
     println!("   Input features:   4 (sepal length, sepal width, petal length, petal width)");
     println!("   Output classes:   3 (Setosa, Versicolor, Virginica)");
 
@@ -43,34 +47,26 @@ fn main() -> Result<(), Box<dyn Error>> {
         .optimizer(OptimizerType::adam(0.01))
         .build();
 
-    // Create dataset
-    let train_inputs: Vec<Array1<f64>> = train_data.iter()
-        .map(|(i, _)| i.clone())
-        .collect();
-    let train_targets: Vec<Array1<f64>> = train_data.iter()
-        .map(|(_, t)| t.clone())
-        .collect();
-    
-    let train_dataset = Dataset::new(train_inputs, train_targets);
-    
-    // Configure callbacks
-    let early_stopping = EarlyStopping::new(50, 0.0001)
+    // Configure callbacks  
+    // Use larger patience to allow the model to learn properly
+    let early_stopping = EarlyStopping::new(200, 0.00001)
         .mode(DeltaMode::Absolute);
     
-    let epochs = 100_000;
+    let epochs = 5_000;
     let progress = ProgressBar::new(epochs);
 
     println!("\n🎯 Training configuration:");
     println!("   Learning rate: 0.01");
     println!("   Batch size:    16");
     println!("   Max epochs:    {}", epochs);
-    println!("   Early stopping: 50 epochs patience");
+    println!("   Early stopping: 200 epochs patience (prevents premature stopping)");
 
     println!("\n🚀 Starting training...\n");
     
-    // Train the network
+    // Train the network with validation
     let _history = network.trainer()
         .train_data(&train_dataset)
+        .validation_data(&test_dataset)
         .epochs(epochs)
         .batch_size(16)
         .callback(Box::new(early_stopping))
@@ -80,18 +76,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("\n✅ Training completed!");
     
     // Evaluate on test set
-    let mut correct = 0;
-    let mut total = 0;
+    network.eval_mode();
     
-    for (input, expected) in test_data {
-        let output = network.predict(input);
+    let test_inputs = test_dataset.inputs();
+    let test_targets = test_dataset.targets();
+    
+    let mut correct = 0;
+    let total = test_dataset.len();
+    
+    for i in 0..total {
+        let output = network.predict(&test_inputs[i]);
         let predicted_class = output.iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
             .unwrap();
         
-        let expected_class = expected.iter()
+        let expected_class = test_targets[i].iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
@@ -100,20 +101,29 @@ fn main() -> Result<(), Box<dyn Error>> {
         if predicted_class == expected_class {
             correct += 1;
         }
-        total += 1;
     }
     
     let accuracy = (correct as f64 / total as f64) * 100.0;
     println!("\n📊 Test Set Accuracy: {:.2}% ({}/{})", accuracy, correct, total);
     
-    // Save the model
-    let model_json = serde_json::to_string_pretty(&network)
-        .expect("Failed to serialize network");
+    // Save the model with metadata
+    let model_with_metadata = ModelWithMetadata {
+        network,
+        metadata: ModelMetadata {
+            accuracy,
+            test_samples: total,
+            trained_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        },
+    };
+    
+    let model_json = serde_json::to_string_pretty(&model_with_metadata)
+        .expect("Failed to serialize model with metadata");
     
     fs::write("src/iris_model.json", model_json)
         .expect("Failed to write model file");
     
     println!("\n💾 Model saved to: src/iris_model.json");
+    println!("   ✅ Accuracy {:.2}% automatically saved in metadata", accuracy);
     println!("\n{}", "=".repeat(60));
     println!("🎉 Training successful!");
     

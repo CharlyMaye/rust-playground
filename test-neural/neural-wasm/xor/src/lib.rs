@@ -7,6 +7,7 @@ use wasm_bindgen::prelude::*;
 use cma_neural_network::network::Network;
 use ndarray::array;
 use serde::Serialize;
+use neural_wasm_shared::{ModelInfo, ModelWithMetadata};
 use std::sync::OnceLock;
 
 // Embed the pre-trained model at compile time
@@ -57,6 +58,9 @@ struct ActivationsResponse {
 #[wasm_bindgen]
 pub struct XorNetwork {
     network: Network,
+    accuracy: f64,
+    test_samples: usize,
+    trained_at: String,
 }
 
 #[wasm_bindgen]
@@ -64,10 +68,15 @@ impl XorNetwork {
     /// Create a new XOR network by loading the embedded model
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<XorNetwork, JsValue> {
-        let network: Network = serde_json::from_str(MODEL_JSON)
+        let model: ModelWithMetadata = serde_json::from_str(MODEL_JSON)
             .map_err(|e| JsValue::from_str(&format!("Failed to load model: {}", e)))?;
         
-        Ok(XorNetwork { network })
+        Ok(XorNetwork {
+            network: model.network,
+            accuracy: model.metadata.accuracy,
+            test_samples: model.metadata.test_samples,
+            trained_at: model.metadata.trained_at,
+        })
     }
 
     /// Predict XOR result for two binary inputs
@@ -116,10 +125,18 @@ impl XorNetwork {
         serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string())
     }
 
-    /// Get model info
+    /// Get model info with accuracy and metadata
     #[wasm_bindgen]
     pub fn model_info(&self) -> String {
-        format!("XOR Network: {}", self.network.architecture_string())
+        let info = ModelInfo {
+            name: "XOR Logic Gate Classifier".to_string(),
+            architecture: self.network.architecture_string(),
+            accuracy: self.accuracy,
+            description: "Binary classification using XOR logic gate".to_string(),
+            test_samples: self.test_samples,
+            trained_at: self.trained_at.clone(),
+        };
+        serde_json::to_string(&info).unwrap_or_else(|_| "{}".to_string())
     }
 
     /// Get all weights and biases as JSON

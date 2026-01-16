@@ -9,9 +9,10 @@ use cma_neural_network::optimizer::OptimizerType;
 use cma_neural_network::dataset::Dataset;
 use cma_neural_network::callbacks::{EarlyStopping, DeltaMode, ProgressBar};
 use cma_neural_network::metrics::accuracy;
-use cma_neural_network::io;
+use neural_wasm_shared::{ModelWithMetadata, ModelMetadata};
 use ndarray::array;
 use std::path::Path;
+use chrono::Local;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
@@ -44,10 +45,10 @@ fn main() {
     }
     
     let dataset = Dataset::new(inputs, targets);
-    let (train, val) = dataset.split(0.8);
+    let (train, val) = dataset.split(0.7);
     
-    println!("   Training samples: {}", train.len());
-    println!("   Validation samples: {}\n", val.len());
+    println!("   Training samples: {} (70%)", train.len());
+    println!("   Test samples: {} (30%)\n", val.len());
 
     // ═══════════════════════════════════════════════════════════════════════
     // 2. BUILD NETWORK
@@ -70,13 +71,13 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════════════
     println!("🏋️  Training...\n");
 
-    let epochs = 100_000;
+    let epochs = 5_000;
     let history = network.trainer()
         .train_data(&train)
         .validation_data(&val)
         .epochs(epochs)
         .batch_size(32)
-        .callback(Box::new(EarlyStopping::new(30, 0.0001).mode(DeltaMode::Relative)))
+        .callback(Box::new(EarlyStopping::new(200, 0.00001).mode(DeltaMode::Absolute)))
         .callback(Box::new(ProgressBar::new(epochs)))
         .fit();
 
@@ -128,13 +129,27 @@ fn main() {
     println!("\n   Accuracy: {:.1}%", acc * 100.0);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 5. SAVE MODEL
+    // 5. SAVE MODEL WITH METADATA
     // ═══════════════════════════════════════════════════════════════════════
-    println!("\n💾 Saving model...\n");
+    println!("\n💾 Saving model with metadata...\n");
 
-    match io::save_json(&network, model_path) {
+    let model_with_metadata = ModelWithMetadata {
+        network,
+        metadata: ModelMetadata {
+            accuracy: acc,
+            test_samples: test_targets.len(),
+            trained_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+        },
+    };
+
+    match std::fs::write(
+        model_path,
+        serde_json::to_string_pretty(&model_with_metadata).unwrap(),
+    ) {
         Ok(_) => {
             println!("   ✅ Model saved to {}", model_path);
+            println!("   📊 Accuracy: {:.2}%", acc * 100.0);
+            println!("   📅 Trained: {}", model_with_metadata.metadata.trained_at);
             println!("\n╔══════════════════════════════════════════════════════════════╗");
             println!("║              Training Complete! 🎉                           ║");
             println!("╚══════════════════════════════════════════════════════════════╝");

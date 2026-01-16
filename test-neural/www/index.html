@@ -20,7 +20,7 @@
                 <div class="demo-meta">
                     <span class="badge badge-info">2 inputs</span>
                     <span class="badge badge-info">1 output</span>
-                    <span class="badge badge-success">100% accuracy</span>
+                    <span class="badge badge-success" id="xor-accuracy">Loading...</span>
                 </div>
             </a>
 
@@ -32,7 +32,7 @@
                 <div class="demo-meta">
                     <span class="badge badge-info">4 inputs</span>
                     <span class="badge badge-info">3 classes</span>
-                    <span class="badge badge-success">~98% accuracy</span>
+                    <span class="badge badge-success" id="iris-accuracy">Loading...</span>
                 </div>
             </a>
 
@@ -64,5 +64,38 @@
         Built with 🦀 Rust + WebAssembly • 
         <a href="https://github.com/CharlyMaye/rust-playground" target="_blank">View on GitHub</a>
     </footer>
+
+    <script type="module">
+        // Load accuracy values from WASM modules
+        async function loadModelAccuracies() {
+            try {
+                // Load XOR accuracy
+                const xorModule = await import('./pkg/xor_wasm/neural_wasm_xor.js');
+                await xorModule.default();
+                const xorNet = xorModule.XorNetwork.new();
+                const xorInfo = JSON.parse(xorNet.model_info());
+                document.getElementById('xor-accuracy').textContent = 
+                    `${(xorInfo.accuracy * 100).toFixed(1)}% accuracy`;
+            } catch (e) {
+                console.error('Failed to load XOR accuracy:', e);
+                document.getElementById('xor-accuracy').textContent = 'N/A';
+            }
+
+            try {
+                // Load Iris accuracy
+                const irisModule = await import('./pkg/iris_wasm/neural_wasm_iris.js');
+                await irisModule.default();
+                const irisClassifier = irisModule.IrisClassifier.new();
+                const irisInfo = JSON.parse(irisClassifier.model_info());
+                document.getElementById('iris-accuracy').textContent = 
+                    `${(irisInfo.accuracy * 100).toFixed(2)}% accuracy`;
+            } catch (e) {
+                console.error('Failed to load Iris accuracy:', e);
+                document.getElementById('iris-accuracy').textContent = 'N/A';
+            }
+        }
+
+        loadModelAccuracies();
+    </script>
 </body>
 </html>
