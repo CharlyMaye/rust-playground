@@ -233,6 +233,7 @@ dependencies = [
 name = "neural-wasm-shared"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "cma-neural-network",
  "ndarray",
  "serde",

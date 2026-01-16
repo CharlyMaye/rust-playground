@@ -1,45 +1,55 @@
-use cma_neural_network::{
-    builder::{NetworkBuilder, NetworkTrainer},
-    network::{Activation, LossFunction, Network},
-    optimizer::OptimizerType,
-    dataset::Dataset,
-    callbacks::{EarlyStopping, DeltaMode, ProgressBar},
-};
-use neural_wasm_shared::{ModelWithMetadata, ModelMetadata};
+//! Iris Model Training Script
+//!
+//! This binary trains a neural network on the Iris classification problem
+//! and saves it to neural-wasm/iris/src/iris_model.json
+
+use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
+use cma_neural_network::network::{Activation, LossFunction};
+use cma_neural_network::optimizer::OptimizerType;
+use cma_neural_network::dataset::Dataset;
+use cma_neural_network::callbacks::{EarlyStopping, DeltaMode, ProgressBar};
+use neural_wasm_shared::{calculate_multiclass_accuracy, save_model_with_metadata};
 use ndarray::{array, Array1};
-use std::fs;
+use std::path::Path;
 use std::error::Error;
 use csv::ReaderBuilder;
-use chrono::Local;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    println!("🌸 Training Iris Classification Neural Network");
-    println!("{}", "=".repeat(60));
+    println!("╔══════════════════════════════════════════════════════════════╗");
+    println!("║         Iris Classification Neural Network Training          ║");
+    println!("╚══════════════════════════════════════════════════════════════╝\n");
 
-    // Load the real Iris dataset from CSV
-    println!("\n📂 Loading Iris dataset from CSV...");
-    let iris_data = load_iris_from_csv("data/iris.csv")?;
-    println!("   ✅ Loaded {} samples", iris_data.len());
+    let model_path = "src/iris_model.json";
+
+    // Check if model already exists
+    if Path::new(model_path).exists() {
+        println!("⚠️  Model already exists at {}", model_path);
+        println!("   Delete it manually if you want to retrain.\n");
+        return Ok(());
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 1. DATA PREPARATION
+    // ═══════════════════════════════════════════════════════════════════════
+    println!("📦 Preparing Iris dataset...\n");
     
-    // Split into training (70%) and test (30%) sets
+    let iris_data = load_iris_from_csv("data/iris.csv")?;
+    println!("   ✅ Loaded {} samples from CSV", iris_data.len());
+    
     let inputs: Vec<Array1<f64>> = iris_data.iter().map(|(i, _)| i.clone()).collect();
     let targets: Vec<Array1<f64>> = iris_data.iter().map(|(_, t)| t.clone()).collect();
     
     let dataset = Dataset::new(inputs, targets);
-    let (train_dataset, test_dataset) = dataset.split(0.7);
+    let (train, val) = dataset.split(0.7);
     
-    println!("\n📊 Dataset:");
-    println!("   Training samples: {} (70%)", train_dataset.len());
-    println!("   Test samples:     {} (30%)", test_dataset.len());
-    println!("   Input features:   4 (sepal length, sepal width, petal length, petal width)");
-    println!("   Output classes:   3 (Setosa, Versicolor, Virginica)");
+    println!("   Training samples: {} (70%)", train.len());
+    println!("   Test samples: {} (30%)\n", val.len());
 
-    // Build the network: 4 inputs -> 8 hidden -> 3 outputs
-    println!("\n🏗️  Building network architecture:");
-    println!("   Input layer:  4 neurons");
-    println!("   Hidden layer: 8 neurons (ReLU)");
-    println!("   Output layer: 3 neurons (Sigmoid)");
-    
+    // ═══════════════════════════════════════════════════════════════════════
+    // 2. BUILD NETWORK
+    // ═══════════════════════════════════════════════════════════════════════
+    println!("🔧 Building network...\n");
+
     let mut network = NetworkBuilder::new(4, 3)
         .hidden_layer(8, Activation::ReLU)
         .output_activation(Activation::Sigmoid)
@@ -47,86 +57,71 @@ fn main() -> Result<(), Box<dyn Error>> {
         .optimizer(OptimizerType::adam(0.01))
         .build();
 
-    // Configure callbacks  
-    // Use larger patience to allow the model to learn properly
-    let early_stopping = EarlyStopping::new(200, 0.00001)
-        .mode(DeltaMode::Absolute);
-    
+    println!("   Architecture: 4 → [8] → 3");
+    println!("   Activation: ReLU → Sigmoid");
+    println!("   Optimizer: Adam (lr=0.01)\n");
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 3. TRAIN
+    // ═══════════════════════════════════════════════════════════════════════
+    println!("🏋️  Training...\n");
+
     let epochs = 5_000;
-    let progress = ProgressBar::new(epochs);
-
-    println!("\n🎯 Training configuration:");
-    println!("   Learning rate: 0.01");
-    println!("   Batch size:    16");
-    println!("   Max epochs:    {}", epochs);
-    println!("   Early stopping: 200 epochs patience (prevents premature stopping)");
-
-    println!("\n🚀 Starting training...\n");
-    
-    // Train the network with validation
-    let _history = network.trainer()
-        .train_data(&train_dataset)
-        .validation_data(&test_dataset)
+    let history = network.trainer()
+        .train_data(&train)
+        .validation_data(&val)
         .epochs(epochs)
         .batch_size(16)
-        .callback(Box::new(early_stopping))
-        .callback(Box::new(progress))
+        .callback(Box::new(EarlyStopping::new(200, 0.00001).mode(DeltaMode::Absolute)))
+        .callback(Box::new(ProgressBar::new(epochs)))
         .fit();
+
+    println!("\n   ✅ Training completed in {} epochs", history.len());
     
-    println!("\n✅ Training completed!");
-    
-    // Evaluate on test set
-    network.eval_mode();
-    
-    let test_inputs = test_dataset.inputs();
-    let test_targets = test_dataset.targets();
-    
-    let mut correct = 0;
-    let total = test_dataset.len();
-    
-    for i in 0..total {
-        let output = network.predict(&test_inputs[i]);
-        let predicted_class = output.iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(idx, _)| idx)
-            .unwrap();
-        
-        let expected_class = test_targets[i].iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(idx, _)| idx)
-            .unwrap();
-        
-        if predicted_class == expected_class {
-            correct += 1;
-        }
+    if let Some((train_loss, val_loss)) = history.last() {
+        println!("   Final loss - Train: {:.6} | Val: {:.6}",
+            train_loss, val_loss.unwrap_or(0.0));
     }
     
-    let accuracy = (correct as f64 / total as f64) * 100.0;
-    println!("\n📊 Test Set Accuracy: {:.2}% ({}/{})", accuracy, correct, total);
+    // ═══════════════════════════════════════════════════════════════════════
+    // 4. EVALUATE
+    // ═══════════════════════════════════════════════════════════════════════
+    println!("\n📊 Evaluating...\n");
+
+    network.eval_mode();
+
+    let test_inputs = val.inputs();
+    let test_targets = val.targets();
     
-    // Save the model with metadata
-    let model_with_metadata = ModelWithMetadata {
-        network,
-        metadata: ModelMetadata {
-            accuracy,
-            test_samples: total,
-            trained_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-        },
-    };
+    let (correct, total) = calculate_multiclass_accuracy(&network, test_inputs, test_targets);
+    let acc = correct as f64 / total as f64;
     
-    let model_json = serde_json::to_string_pretty(&model_with_metadata)
-        .expect("Failed to serialize model with metadata");
+    println!("   Iris Classification Results:");
+    println!("   ┌─────────────────────────────────┐");
+    println!("   │  Correct: {}/{} ({:.2}%)        │", correct, total, acc * 100.0);
+    println!("   └─────────────────────────────────┘");
     
-    fs::write("src/iris_model.json", model_json)
-        .expect("Failed to write model file");
+    println!("\n   Test Accuracy: {:.2}%", acc * 100.0);
     
-    println!("\n💾 Model saved to: src/iris_model.json");
-    println!("   ✅ Accuracy {:.2}% automatically saved in metadata", accuracy);
-    println!("\n{}", "=".repeat(60));
-    println!("🎉 Training successful!");
-    
+    // ═══════════════════════════════════════════════════════════════════════
+    // 5. SAVE MODEL WITH METADATA
+    // ═══════════════════════════════════════════════════════════════════════
+    println!("\n💾 Saving model with metadata...\n");
+
+    match save_model_with_metadata(network, acc, total, model_path) {
+        Ok(_) => {
+            println!("   ✅ Model saved to {}", model_path);
+            println!("   📊 Accuracy: {:.2}%", acc * 100.0);
+            println!("\n╔══════════════════════════════════════════════════════════════╗");
+            println!("║              Training Complete! 🎉                           ║");
+            println!("╚══════════════════════════════════════════════════════════════╝");
+        }
+        Err(e) => {
+            eprintln!("   ❌ Failed to save model: {}", e);
+            std::process::exit(1);
+        }
+    }
+
     Ok(())
 }
 
