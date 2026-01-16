@@ -175,6 +175,45 @@ impl IrisClassifier {
     pub fn get_class_names(&self) -> String {
         serde_json::to_string(&self.classes).unwrap()
     }
+
+    /// Get layer-by-layer activations for visualization
+    #[wasm_bindgen]
+    pub fn get_activations(&self, sepal_length: f64, sepal_width: f64,
+                          petal_length: f64, petal_width: f64) -> String {
+        let input = array![sepal_length, sepal_width, petal_length, petal_width];
+        let activations = self.network.get_all_activations(&input);
+        
+        let output = self.network.predict(&input);
+        let probs = softmax(&output.to_vec());
+        
+        #[derive(Serialize)]
+        struct LayerActivation {
+            pre_activation: Vec<f64>,
+            activation: Vec<f64>,
+            function: String,
+        }
+        
+        #[derive(Serialize)]
+        struct ActivationsResponse {
+            inputs: [f64; 4],
+            layers: Vec<LayerActivation>,
+            output: Vec<f64>,
+        }
+        
+        let response = ActivationsResponse {
+            inputs: [sepal_length, sepal_width, petal_length, petal_width],
+            layers: activations.iter().map(|(pre, post, activation_name)| {
+                LayerActivation {
+                    pre_activation: pre.iter().cloned().collect(),
+                    activation: post.iter().cloned().collect(),
+                    function: activation_name.to_string(),
+                }
+            }).collect(),
+            output: probs,
+        };
+        
+        serde_json::to_string(&response).unwrap_or_else(|_| r#"{"inputs":[0,0,0,0],"layers":[],"output":[]}"#.to_string())
+    }
 }
 
 /// Sample iris data for testing

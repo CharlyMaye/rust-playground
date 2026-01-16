@@ -329,11 +329,11 @@
         function updatePrediction() {
             if (!network) return;
             
-            const result = network.predict(inputA, inputB);
-            const confidence = network.confidence(inputA, inputB);
+            const predictionJson = network.predict(inputA, inputB);
+            const prediction = JSON.parse(predictionJson);
             
-            document.getElementById('result').textContent = result;
-            document.getElementById('confidence').textContent = `${confidence.toFixed(1)}% confidence`;
+            document.getElementById('result').textContent = prediction.prediction;
+            document.getElementById('confidence').textContent = `${(prediction.confidence * 100).toFixed(1)}% confidence`;
             
             // Update highlight in truth table
             updateTruthTable();
