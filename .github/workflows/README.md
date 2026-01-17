@@ -30,9 +30,6 @@ Ce workflow doit passer avec succès avant de pouvoir merger une PR vers `main`.
   - **`main`** → `https://votresite.github.io/` (production)
   - **`develop`** → `https://votresite.github.io/next/` (préversion)
 
-**Ajustement des chemins :**
-Le script `test-neural/adjust-paths.sh` ajoute automatiquement le préfixe `/next` à tous les chemins des ressources (HTML, CSS, JS, WASM) pour la branche `develop`.
-
 ---
 
 ## Workflow Git recommandé
@@ -107,6 +104,5 @@ Pour rendre le CI obligatoire et protéger `main` :
 ## Notes importantes
 
 - Les caches Cargo sont conservés entre les runs pour accélérer les builds
-- Le script `adjust-paths.sh` doit être exécutable (fichier `.sh`)
 - Les fichiers HTML doivent utiliser des chemins relatifs pour que l'ajustement fonctionne
 - Les deux workflows partagent la même étape de build WASM pour cohérence
