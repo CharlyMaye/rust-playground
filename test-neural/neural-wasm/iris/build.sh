@@ -37,6 +37,12 @@ echo ""
 echo "📦 Building WebAssembly module..."
 wasm-pack build --target web --out-dir pkg
 
+# Step 3: Copy to www/pkg/iris_wasm/
+echo ""
+echo "📋 Copying WASM files to www/pkg/iris_wasm/..."
+mkdir -p ../../www/pkg/iris_wasm
+cp pkg/*.js pkg/*.wasm pkg/*.ts ../../www/pkg/iris_wasm/ 2>/dev/null || true
+
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║                    Build Complete! 🎉                        ║"

@@ -137,7 +137,7 @@ impl IrisClassifier {
         let info = ModelInfo {
             name: "Iris Species Classifier".to_string(),
             architecture: self.network.architecture_string(),
-            accuracy: self.accuracy,
+            accuracy: self.accuracy * 100.0,
             description: "Classifies iris flowers into three species: Setosa, Versicolor, and Virginica based on sepal and petal measurements".to_string(),
             test_samples: self.test_samples,
             trained_at: self.trained_at.clone(),

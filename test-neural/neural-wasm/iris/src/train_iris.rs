@@ -51,14 +51,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("🔧 Building network...\n");
 
     let mut network = NetworkBuilder::new(4, 3)
-        .hidden_layer(8, Activation::ReLU)
-        .output_activation(Activation::Sigmoid)
-        .loss(LossFunction::BinaryCrossEntropy)
+        .hidden_layer(12, Activation::Tanh)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Softmax)
+        .loss(LossFunction::CategoricalCrossEntropy)
         .optimizer(OptimizerType::adam(0.01))
         .build();
 
-    println!("   Architecture: 4 → [8] → 3");
-    println!("   Activation: ReLU → Sigmoid");
+    println!("   Architecture: 4 → [12, 8] → 3");
+    println!("   Activation: Tanh → Tanh → Softmax");
     println!("   Optimizer: Adam (lr=0.01)\n");
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -66,13 +67,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     // ═══════════════════════════════════════════════════════════════════════
     println!("🏋️  Training...\n");
 
-    let epochs = 5_000;
+    let epochs = 2_000;
     let history = network.trainer()
         .train_data(&train)
         .validation_data(&val)
         .epochs(epochs)
-        .batch_size(16)
-        .callback(Box::new(EarlyStopping::new(200, 0.00001).mode(DeltaMode::Absolute)))
+        .batch_size(32)
+        .callback(Box::new(EarlyStopping::new(100, 0.00001).mode(DeltaMode::Absolute)))
         .callback(Box::new(ProgressBar::new(epochs)))
         .fit();
 

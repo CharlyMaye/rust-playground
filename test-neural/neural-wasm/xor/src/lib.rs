@@ -129,7 +129,7 @@ impl XorNetwork {
 
     fn confidence(&self, x1: f64, x2: f64) -> f64 {
         let raw = self.predict_raw(x1, x2);
-        (raw - 0.5).abs() * 2.0
+        (raw - 0.5).abs() * 2.0 * 100.0
     }
 
     /// Test all XOR combinations and return results as JSON string
@@ -159,7 +159,7 @@ impl XorNetwork {
         let info = ModelInfo {
             name: "XOR Logic Gate Classifier".to_string(),
             architecture: self.network.architecture_string(),
-            accuracy: self.accuracy,
+            accuracy: self.accuracy * 100.0,
             description: "Binary classification using XOR logic gate".to_string(),
             test_samples: self.test_samples,
             trained_at: self.trained_at.clone(),

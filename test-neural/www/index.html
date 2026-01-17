@@ -72,10 +72,10 @@
                 // Load XOR accuracy
                 const xorModule = await import('./pkg/xor_wasm/neural_wasm_xor.js');
                 await xorModule.default();
-                const xorNet = xorModule.XorNetwork.new();
+                const xorNet = new xorModule.XorNetwork();
                 const xorInfo = JSON.parse(xorNet.model_info());
                 document.getElementById('xor-accuracy').textContent = 
-                    `${(xorInfo.accuracy * 100).toFixed(1)}% accuracy`;
+                    `${xorInfo.accuracy.toFixed(1)}% accuracy`;
             } catch (e) {
                 console.error('Failed to load XOR accuracy:', e);
                 document.getElementById('xor-accuracy').textContent = 'N/A';
@@ -85,10 +85,10 @@
                 // Load Iris accuracy
                 const irisModule = await import('./pkg/iris_wasm/neural_wasm_iris.js');
                 await irisModule.default();
-                const irisClassifier = irisModule.IrisClassifier.new();
+                const irisClassifier = new irisModule.IrisClassifier();
                 const irisInfo = JSON.parse(irisClassifier.model_info());
                 document.getElementById('iris-accuracy').textContent = 
-                    `${(irisInfo.accuracy * 100).toFixed(2)}% accuracy`;
+                    `${irisInfo.accuracy.toFixed(1)}% accuracy`;
             } catch (e) {
                 console.error('Failed to load Iris accuracy:', e);
                 document.getElementById('iris-accuracy').textContent = 'N/A';
