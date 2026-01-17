@@ -73,14 +73,34 @@ gh pr create --base main --head develop --title "Release: fusion develop → mai
 
 ## Configuration des branch rules (à faire sur GitHub)
 
-Pour rendre le CI obligatoire :
+Pour rendre le CI obligatoire et protéger `main` :
 
 1. Va sur **Settings** du repository
-2. **Branches** → **Branch protection rules**
-3. Ajoute une règle pour `main` :
-   - ✅ Require status checks to pass before merging
+2. **Branches** → **Add rule** (ou édite si elle existe)
+3. **Branch name pattern** : `main`
+
+### Options à cocher :
+
+✅ **Require a pull request before merging**
+   - Minimum 1 approval required ❌ (optionnel, tu peux laisser décoché)
+   - Dismiss stale pull request approvals when new commits are pushed ✅
+
+✅ **Require status checks to pass before merging**
    - Sélectionne le check **"Build test-neural"** (du workflow CI)
-   - ✅ Require branches to be up to date before merging
+
+✅ **Require branches to be up to date before merging**
+
+✅ **Require code reviews before merging** (optionnel)
+   - Nombre minimum de reviews : 1
+
+### Options non disponibles :
+- "Restrict who can push" n'existe pas nativement
+- **Alternative** : Seul le propriétaire peut pusher en direct via des permissions d'équipe GitHub
+
+### Résultat :
+- ❌ **Pas de direct push sur main** → force les PRs
+- ❌ **Pas de merge sans CI vert** → qualité garantie
+- ❌ **Pas de merge sans branche à jour** → évite les conflits
 
 ---
 
