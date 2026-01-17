@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 use cma_neural_network::network::Network;
 use ndarray::array;
 use serde::Serialize;
-use std::sync::OnceLock;
+use neural_wasm_shared::{ModelInfo, ModelWithMetadata};
 
 // Embed the pre-trained model at compile time
 const MODEL_JSON: &str = include_str!("xor_model.json");
@@ -57,6 +57,9 @@ struct ActivationsResponse {
 #[wasm_bindgen]
 pub struct XorNetwork {
     network: Network,
+    accuracy: f64,
+    test_samples: usize,
+    trained_at: String,
 }
 
 #[wasm_bindgen]
@@ -64,35 +67,69 @@ impl XorNetwork {
     /// Create a new XOR network by loading the embedded model
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<XorNetwork, JsValue> {
-        let network: Network = serde_json::from_str(MODEL_JSON)
+        let model: ModelWithMetadata = serde_json::from_str(MODEL_JSON)
             .map_err(|e| JsValue::from_str(&format!("Failed to load model: {}", e)))?;
         
-        Ok(XorNetwork { network })
+        Ok(XorNetwork {
+            network: model.network,
+            accuracy: model.metadata.accuracy,
+            test_samples: model.metadata.test_samples,
+            trained_at: model.metadata.trained_at,
+        })
     }
 
     /// Predict XOR result for two binary inputs
-    /// Returns 0 or 1 (rounded prediction)
+    /// Returns JSON with prediction details
     #[wasm_bindgen]
-    pub fn predict(&self, x1: f64, x2: f64) -> u8 {
+    pub fn predict(&self, x1: f64, x2: f64) -> String {
+        let input = array![x1, x2];
+        let output = self.network.predict(&input);
+        let raw = output[0];
+        let prediction = if raw > 0.5 { 1 } else { 0 };
+        let confidence = (raw - 0.5).abs() * 2.0;
+        
+        let result = serde_json::json!({
+            "prediction": prediction,
+            "raw": raw,
+            "confidence": confidence,
+            "probabilities": [1.0 - raw, raw]
+        });
+        
+        serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Get class probabilities
+    #[wasm_bindgen]
+    pub fn get_probabilities(&self, x1: f64, x2: f64) -> String {
+        let input = array![x1, x2];
+        let output = self.network.predict(&input);
+        let raw = output[0];
+        let probs = vec![1.0 - raw, raw];
+        serde_json::to_string(&probs).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    /// Get class names
+    #[wasm_bindgen]
+    pub fn get_class_names(&self) -> String {
+        serde_json::to_string(&vec!["0", "1"]).unwrap_or_else(|_| "[]".to_string())
+    }
+
+    // Private helper methods
+    fn predict_binary(&self, x1: f64, x2: f64) -> u8 {
         let input = array![x1, x2];
         let output = self.network.predict(&input);
         if output[0] > 0.5 { 1 } else { 0 }
     }
 
-    /// Get raw prediction value (0.0 to 1.0)
-    #[wasm_bindgen]
-    pub fn predict_raw(&self, x1: f64, x2: f64) -> f64 {
+    fn predict_raw(&self, x1: f64, x2: f64) -> f64 {
         let input = array![x1, x2];
         let output = self.network.predict(&input);
         output[0]
     }
 
-    /// Get confidence percentage (0-100)
-    #[wasm_bindgen]
-    pub fn confidence(&self, x1: f64, x2: f64) -> f64 {
+    fn confidence(&self, x1: f64, x2: f64) -> f64 {
         let raw = self.predict_raw(x1, x2);
-        let distance_from_uncertain = (raw - 0.5).abs();
-        distance_from_uncertain * 2.0 * 100.0
+        (raw - 0.5).abs() * 2.0 * 100.0
     }
 
     /// Test all XOR combinations and return results as JSON string
@@ -106,7 +143,7 @@ impl XorNetwork {
                     a: a as u8,
                     b: b as u8,
                     expected,
-                    prediction: self.predict(a, b),
+                    prediction: self.predict_binary(a, b),
                     raw: self.predict_raw(a, b),
                     confidence: self.confidence(a, b),
                 }
@@ -116,10 +153,18 @@ impl XorNetwork {
         serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string())
     }
 
-    /// Get model info
+    /// Get model info with accuracy and metadata
     #[wasm_bindgen]
     pub fn model_info(&self) -> String {
-        format!("XOR Network: {}", self.network.architecture_string())
+        let info = ModelInfo {
+            name: "XOR Logic Gate Classifier".to_string(),
+            architecture: self.network.architecture_string(),
+            accuracy: self.accuracy * 100.0,
+            description: "Binary classification using XOR logic gate".to_string(),
+            test_samples: self.test_samples,
+            trained_at: self.trained_at.clone(),
+        };
+        serde_json::to_string(&info).unwrap_or_else(|_| "{}".to_string())
     }
 
     /// Get all weights and biases as JSON
@@ -170,32 +215,4 @@ impl XorNetwork {
 pub fn main() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
-}
-
-// ===== Singleton for convenience functions =====
-
-/// Global singleton instance for quick functions (parsed once, reused)
-static SINGLETON_NETWORK: OnceLock<Network> = OnceLock::new();
-
-/// Get or initialize the singleton network instance
-fn get_singleton() -> &'static Network {
-    SINGLETON_NETWORK.get_or_init(|| {
-        serde_json::from_str(MODEL_JSON).expect("Failed to parse embedded model")
-    })
-}
-
-/// Quick predict function (uses singleton - no parsing overhead)
-#[wasm_bindgen]
-pub fn xor_predict(x1: f64, x2: f64) -> u8 {
-    let input = array![x1, x2];
-    let output = get_singleton().predict(&input);
-    if output[0] > 0.5 { 1 } else { 0 }
-}
-
-/// Quick raw predict function (uses singleton - no parsing overhead)
-#[wasm_bindgen]
-pub fn xor_predict_raw(x1: f64, x2: f64) -> f64 {
-    let input = array![x1, x2];
-    let output = get_singleton().predict(&input);
-    output[0]
 }
