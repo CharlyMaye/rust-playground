@@ -60,15 +60,10 @@ jobs:
       - name: Prepare deployment
         run: |
           mkdir -p _site
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            cp -r test-neural/www/* _site/
+          cp -r test-neural/www/* _site/
+          if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
             chmod +x test-neural/adjust-paths.sh
-            ./test-neural/adjust-paths.sh main _site
-          else
-            mkdir -p _site/next
-            cp -r test-neural/www/* _site/next/
-            chmod +x test-neural/adjust-paths.sh
-            ./test-neural/adjust-paths.sh develop _site/next
+            ./test-neural/adjust-paths.sh develop _site
           fi
       
       - name: Upload artifact
@@ -76,13 +71,52 @@ jobs:
         with:
           path: _site
 
-  deploy:
+  deploy-main:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    if: github.ref == 'refs/heads/main'
     steps:
-      - name: Deploy to GitHub Pages
+      - name: Deploy main to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  deploy-develop:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout gh-pages branch
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+          fetch-depth: 0
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+          path: ./artifact
+
+      - name: Extract and prepare deployment
+        run: |
+          cd artifact
+          tar -xf artifact.tar
+          cd ..
+          rm -rf next
+          mkdir -p next
+          cp -r artifact/* next/
+          ls -la
+
+      - name: Commit and push to gh-pages
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add next/
+          git commit -m "Deploy develop branch to /next [skip ci]" || true
+          git push
+
