@@ -9,7 +9,7 @@ import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
 })
 export class Home {
   public readonly pageTitleOptions: Signal<PageTitleOptions> = signal({
-    title: 'Neural Networks Web App',
+    title: 'Neural Networks',
     subtitle: 'Interactive WebAssembly Demos',
     icon: '🧠',
   });
