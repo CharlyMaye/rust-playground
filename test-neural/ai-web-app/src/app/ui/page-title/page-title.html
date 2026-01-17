@@ -1,0 +1,9 @@
+<h1>
+    @if (hasIcon()) {
+        {{ options().icon }}
+    }
+    {{ options().title}}
+</h1>
+@if (hasSubtitle()) {
+    <p>{{ options().subtitle }}</p>
+}
