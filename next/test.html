@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script>window.BASE_PATH = '/next';</script>
+    <meta charset="UTF-8">
+    <title>Test WASM Modules</title>
+</head>
+<body>
+    <h1>Test WASM Loading</h1>
+    <pre id="xor-result">Loading XOR...</pre>
+    <pre id="iris-result">Loading Iris...</pre>
+
+    <script type="module">
+        // Test XOR
+        try {
+            const xorModule = await import('./pkg/xor_wasm/neural_wasm_xor.js');
+            await xorModule.default();
+            const xorNet = xorModule.XorNetwork.new();
+            const xorInfo = JSON.parse(xorNet.model_info());
+            document.getElementById('xor-result').textContent = 
+                `XOR Success!\nAccuracy raw: ${xorInfo.accuracy}\nAccuracy *100: ${xorInfo.accuracy * 100}\nFormatted: ${(xorInfo.accuracy * 100).toFixed(1)}% accuracy\n\nFull JSON:\n${JSON.stringify(xorInfo, null, 2)}`;
+        } catch (e) {
+            document.getElementById('xor-result').textContent = `XOR Error: ${e}\n${e.stack}`;
+        }
+
+        // Test Iris
+        try {
+            const irisModule = await import('./pkg/iris_wasm/neural_wasm_iris.js');
+            await irisModule.default();
+            const irisClassifier = irisModule.IrisClassifier.new();
+            const irisInfo = JSON.parse(irisClassifier.model_info());
+            document.getElementById('iris-result').textContent = 
+                `Iris Success!\nAccuracy raw: ${irisInfo.accuracy}\nAccuracy *100: ${irisInfo.accuracy * 100}\nFormatted: ${(irisInfo.accuracy * 100).toFixed(2)}% accuracy\n\nFull JSON:\n${JSON.stringify(irisInfo, null, 2)}`;
+        } catch (e) {
+            document.getElementById('iris-result').textContent = `Iris Error: ${e}\n${e.stack}`;
+        }
+    </script>
+</body>
+</html>

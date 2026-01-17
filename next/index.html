@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>window.BASE_PATH = '/next';</script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 Neural Networks - WebAssembly Demos</title>
+    <link rel="stylesheet" href="/next/shared/styles.css">
+</head>
+<body>
+    <h1>🧠 Neural Networks</h1>
+    <p class="subtitle">Interactive WebAssembly Demos</p>
+
+    <div class="container">
+        <div class="demo-grid">
+            <!-- XOR Demo -->
+            <a href="/next/xor.html" class="demo-card">
+                <div class="demo-icon">⊕</div>
+                <h3>XOR Logic Gate</h3>
+                <p>Binary classification with a simple feedforward network</p>
+                <div class="demo-meta">
+                    <span class="badge badge-info">2 inputs</span>
+                    <span class="badge badge-info">1 output</span>
+                    <span class="badge badge-success" id="xor-accuracy">Loading...</span>
+                </div>
+            </a>
+
+            <!-- Iris Demo -->
+            <a href="/next/iris.html" class="demo-card">
+                <div class="demo-icon">🌸</div>
+                <h3>Iris Classifier</h3>
+                <p>Multi-class classification of iris flower species</p>
+                <div class="demo-meta">
+                    <span class="badge badge-info">4 inputs</span>
+                    <span class="badge badge-info">3 classes</span>
+                    <span class="badge badge-success" id="iris-accuracy">Loading...</span>
+                </div>
+            </a>
+
+            <!-- MNIST Demo (coming soon) -->
+            <a href="#" class="demo-card disabled">
+                <div class="demo-icon">✍️</div>
+                <h3>MNIST Digits</h3>
+                <p>Handwritten digit recognition (coming soon)</p>
+                <div class="demo-meta">
+                    <span class="badge badge-warning">Coming soon</span>
+                </div>
+            </a>
+        </div>
+
+        <div class="card">
+            <h3>About This Project</h3>
+            <p style="color: var(--muted); line-height: 1.8;">
+                This project demonstrates neural network implementations compiled to WebAssembly using Rust. 
+                Each demo runs entirely in your browser with no server-side processing required.
+            </p>
+            <br>
+            <p style="color: var(--muted); line-height: 1.8;">
+                <strong>Tech Stack:</strong> Rust • WebAssembly • ndarray • Custom Neural Network Library
+            </p>
+        </div>
+    </div>
+
+    <footer>
+        Built with 🦀 Rust + WebAssembly • 
+        <a href="https://github.com/CharlyMaye/rust-playground" target="_blank">View on GitHub</a>
+    </footer>
+
+    <script type="module">
+        // Load accuracy values from WASM modules
+        async function loadModelAccuracies() {
+            try {
+                // Load XOR accuracy
+                const xorModule = await import('./pkg/xor_wasm/neural_wasm_xor.js');
+                await xorModule.default();
+                const xorNet = new xorModule.XorNetwork();
+                const xorInfo = JSON.parse(xorNet.model_info());
+                document.getElementById('xor-accuracy').textContent = 
+                    `${xorInfo.accuracy.toFixed(1)}% accuracy`;
+            } catch (e) {
+                console.error('Failed to load XOR accuracy:', e);
+                document.getElementById('xor-accuracy').textContent = 'N/A';
+            }
+
+            try {
+                // Load Iris accuracy
+                const irisModule = await import('./pkg/iris_wasm/neural_wasm_iris.js');
+                await irisModule.default();
+                const irisClassifier = new irisModule.IrisClassifier();
+                const irisInfo = JSON.parse(irisClassifier.model_info());
+                document.getElementById('iris-accuracy').textContent = 
+                    `${irisInfo.accuracy.toFixed(1)}% accuracy`;
+            } catch (e) {
+                console.error('Failed to load Iris accuracy:', e);
+                document.getElementById('iris-accuracy').textContent = 'N/A';
+            }
+        }
+
+        loadModelAccuracies();
+    </script>
+</body>
+</html>

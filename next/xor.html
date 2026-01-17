@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script>window.BASE_PATH = '/next';</script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/next/shared/styles.css">
+    <style>
+        /* XOR-specific styles */
+        .predictor {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .input-group {
+            text-align: center;
+        }
+        
+        .input-label {
+            font-size: 0.875rem;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+        }
+        
+        .toggle-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 1rem;
+            border: 3px solid var(--accent);
+            background: transparent;
+            color: var(--text);
+            font-size: 2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .toggle-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .toggle-btn.active {
+            background: var(--accent);
+            box-shadow: 0 0 20px var(--accent);
+        }
+        
+        .operator {
+            font-size: 2rem;
+            color: var(--muted);
+        }
+        
+        .result-box {
+            text-align: center;
+            padding: 1rem;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+            border-radius: 1rem;
+            min-width: 120px;
+        }
+        
+        .result-value {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--success);
+        }
+        
+        .result-confidence {
+            font-size: 0.875rem;
+            color: var(--muted);
+        }
+        
+        /* Truth Table */
+        .truth-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .truth-table th,
+        .truth-table td {
+            padding: 0.75rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        
+        .truth-table th {
+            color: var(--muted);
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        
+        .truth-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .truth-table .highlight {
+            background: rgba(59, 130, 246, 0.2);
+        }
+        
+        .confidence-bar {
+            width: 60px;
+            height: 6px;
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 3px;
+            overflow: hidden;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 0.5rem;
+        }
+        
+        .confidence-fill {
+            height: 100%;
+            background: var(--success);
+            border-radius: 3px;
+            transition: width 0.3s;
+        }
+        
+        /* Model Info */
+        .model-info {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .info-item {
+            text-align: center;
+        }
+        
+        .info-value {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: var(--accent);
+        }
+        
+        .info-label {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+    </style>
+</head>
+<body>
+    <a href="/next/index.html" class="nav-back">← Back to Demos</a>
+    
+    <h1>🧠 Neural XOR</h1>
+    <p class="subtitle">WebAssembly Neural Network Demo</p>
+
+    <div class="container">
+        <div id="loading" class="card loading">
+            <div class="spinner"></div>
+            <p>Loading Neural Network...</p>
+        </div>
+
+        <div id="app" style="display: none;">
+            <!-- Interactive Predictor -->
+            <div class="card">
+                <div class="card-title">⚡ Interactive Predictor</div>
+                <div class="predictor">
+                    <div class="input-group">
+                        <div class="input-label">Input A</div>
+                        <button id="inputA" class="toggle-btn" onclick="toggleInput('A')">0</button>
+                    </div>
+                    <div class="operator">⊕</div>
+                    <div class="input-group">
+                        <div class="input-label">Input B</div>
+                        <button id="inputB" class="toggle-btn" onclick="toggleInput('B')">0</button>
+                    </div>
+                    <div class="operator">=</div>
+                    <div class="result-box">
+                        <div id="result" class="result-value">0</div>
+                        <div id="confidence" class="result-confidence">99.0% confidence</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Visualization -->
+            <div class="card">
+                <div class="card-title">🔬 Network Visualization</div>
+                <svg id="networkViz" width="100%" height="300" viewBox="0 0 500 280"></svg>
+                <div id="activationDetails" style="margin-top: 1rem; font-size: 0.8rem; color: var(--muted);"></div>
+            </div>
+
+            <!-- Truth Table -->
+            <div class="card">
+                <div class="card-title">📊 XOR Truth Table</div>
+                <table class="truth-table">
+                    <thead>
+                        <tr>
+                            <th>A</th>
+                            <th>B</th>
+                            <th>Expected</th>
+                            <th>Prediction</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="truthTable">
+                        <!-- Filled by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Model Info -->
+            <div class="card">
+                <div class="card-title">🔧 Model Information</div>
+                <div class="model-info">
+                    <div class="info-item">
+                        <div class="info-value" id="architecture">2 → 8 → 1</div>
+                        <div class="info-label">Architecture</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-value">Tanh → Sigmoid</div>
+                        <div class="info-label">Activations</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-value" id="accuracy">100%</div>
+                        <div class="info-label">Accuracy</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-value">WASM</div>
+                        <div class="info-label">Runtime</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="error" class="card error" style="display: none;">
+            <p>❌ Failed to load Neural Network</p>
+            <p id="errorMsg"></p>
+        </div>
+    </div>
+
+    <footer>
+        Built with Rust + WebAssembly • cma-neural-network
+    </footer>
+
+    <script type="module">
+        import init, { XorNetwork } from './pkg/xor_wasm/neural_wasm_xor.js';
+
+        let network = null;
+        let inputA = 0;
+        let inputB = 0;
+
+        async function run() {
+            try {
+                await init();
+                network = new XorNetwork();
+                
+                // Hide loading, show app
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('app').style.display = 'block';
+                
+                // Fill truth table
+                updateTruthTable();
+                
+                // Initial prediction
+                updatePrediction();
+                
+                // Update model info
+                document.getElementById('architecture').textContent = network.model_info().replace('XOR Network: ', '');
+                
+            } catch (e) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').style.display = 'block';
+                document.getElementById('errorMsg').textContent = e.toString();
+                console.error(e);
+            }
+        }
+
+        function updateTruthTable() {
+            const results = JSON.parse(network.test_all());
+            const tbody = document.getElementById('truthTable');
+            let correctCount = 0;
+            
+            // Clear previous content
+            while (tbody.firstChild) {
+                tbody.removeChild(tbody.firstChild);
+            }
+            
+            results.forEach(r => {
+                const isCorrect = r.prediction === r.expected;
+                if (isCorrect) correctCount++;
+                const isHighlight = r.a === inputA && r.b === inputB;
+                
+                const tr = document.createElement('tr');
+                if (isHighlight) tr.className = 'highlight';
+                
+                // Input A
+                const tdA = document.createElement('td');
+                tdA.textContent = r.a;
+                tr.appendChild(tdA);
+                
+                // Input B
+                const tdB = document.createElement('td');
+                tdB.textContent = r.b;
+                tr.appendChild(tdB);
+                
+                // Expected
+                const tdExpected = document.createElement('td');
+                tdExpected.textContent = r.expected;
+                tr.appendChild(tdExpected);
+                
+                // Prediction with badge
+                const tdPrediction = document.createElement('td');
+                const badge = document.createElement('span');
+                badge.className = 'badge badge-success';
+                badge.textContent = r.prediction;
+                tdPrediction.appendChild(badge);
+                tr.appendChild(tdPrediction);
+                
+                // Confidence with bar
+                const tdConfidence = document.createElement('td');
+                tdConfidence.appendChild(document.createTextNode(r.confidence.toFixed(1) + '%'));
+                
+                const barContainer = document.createElement('div');
+                barContainer.className = 'confidence-bar';
+                const barFill = document.createElement('div');
+                barFill.className = 'confidence-fill';
+                barFill.style.width = r.confidence + '%';
+                barContainer.appendChild(barFill);
+                tdConfidence.appendChild(barContainer);
+                tr.appendChild(tdConfidence);
+                
+                tbody.appendChild(tr);
+            });
+            
+            document.getElementById('accuracy').textContent = `${(correctCount / 4 * 100).toFixed(0)}%`;
+        }
+
+        function updatePrediction() {
+            if (!network) return;
+            
+            const predictionJson = network.predict(inputA, inputB);
+            const prediction = JSON.parse(predictionJson);
+            
+            document.getElementById('result').textContent = prediction.prediction;
+            document.getElementById('confidence').textContent = `${prediction.confidence.toFixed(1)}% confidence`;
+            
+            // Update highlight in truth table
+            updateTruthTable();
+            
+            // Update network visualization
+            updateNetworkViz();
+        }
+
+        function updateNetworkViz() {
+            if (!network) return;
+            
+            const activations = JSON.parse(network.get_activations(inputA, inputB));
+            const weights = JSON.parse(network.get_weights());
+            
+            const svg = document.getElementById('networkViz');
+            const NS = 'http://www.w3.org/2000/svg';
+            const layerSizes = [2, ...weights.layers.map(l => l.shape[0])];
+            const layerX = [60, 250, 440];
+            const colors = {
+                positive: '#22c55e',
+                negative: '#ef4444',
+                neutral: '#64748b'
+            };
+            
+            // Clear previous content
+            while (svg.firstChild) {
+                svg.removeChild(svg.firstChild);
+            }
+            
+            // Helper to create SVG elements safely
+            function createLine(x1, y1, x2, y2, stroke, strokeWidth, strokeOpacity) {
+                const line = document.createElementNS(NS, 'line');
+                line.setAttribute('x1', x1);
+                line.setAttribute('y1', y1);
+                line.setAttribute('x2', x2);
+                line.setAttribute('y2', y2);
+                line.setAttribute('stroke', stroke);
+                line.setAttribute('stroke-width', strokeWidth);
+                line.setAttribute('stroke-opacity', strokeOpacity);
+                return line;
+            }
+            
+            function createCircle(cx, cy, r, fill, stroke, strokeWidth) {
+                const circle = document.createElementNS(NS, 'circle');
+                circle.setAttribute('cx', cx);
+                circle.setAttribute('cy', cy);
+                circle.setAttribute('r', r);
+                circle.setAttribute('fill', fill);
+                circle.setAttribute('stroke', stroke);
+                circle.setAttribute('stroke-width', strokeWidth);
+                return circle;
+            }
+            
+            function createText(x, y, content, options = {}) {
+                const text = document.createElementNS(NS, 'text');
+                text.setAttribute('x', x);
+                text.setAttribute('y', y);
+                text.setAttribute('text-anchor', options.anchor || 'middle');
+                text.setAttribute('fill', options.fill || 'white');
+                if (options.fontSize) text.setAttribute('font-size', options.fontSize);
+                if (options.fontWeight) text.setAttribute('font-weight', options.fontWeight);
+                text.textContent = content;
+                return text;
+            }
+            
+            // Calculate positions
+            const hiddenY = getNeuronYPositions(layerSizes[1], 280);
+            const inputY = getNeuronYPositions(2, 280);
+            const outputY = [140];
+            
+            // Draw connections: input → hidden
+            for (let i = 0; i < layerSizes[1]; i++) {
+                for (let j = 0; j < 2; j++) {
+                    const w = weights.layers[0].weights[i * 2 + j];
+                    const opacity = Math.min(Math.abs(w) / 5, 1);
+                    const color = w > 0 ? colors.positive : colors.negative;
+                    svg.appendChild(createLine(
+                        layerX[0], inputY[j], layerX[1], hiddenY[i],
+                        color, Math.abs(w) / 3 + 0.5, opacity * 0.6
+                    ));
+                }
+            }
+            
+            // Draw connections: hidden → output
+            for (let i = 0; i < layerSizes[1]; i++) {
+                const w = weights.layers[1].weights[i];
+                const opacity = Math.min(Math.abs(w) / 5, 1);
+                const color = w > 0 ? colors.positive : colors.negative;
+                svg.appendChild(createLine(
+                    layerX[1], hiddenY[i], layerX[2], outputY[0],
+                    color, Math.abs(w) / 3 + 0.5, opacity * 0.6
+                ));
+            }
+            
+            // Draw neurons - Input layer
+            activations.inputs.forEach((val, i) => {
+                const intensity = val;
+                svg.appendChild(createCircle(
+                    layerX[0], inputY[i], 20,
+                    intensity > 0.5 ? colors.positive : colors.neutral, 'white', 2
+                ));
+                svg.appendChild(createText(
+                    layerX[0], inputY[i] + 5, val.toFixed(0),
+                    { fontWeight: 'bold', fontSize: '14' }
+                ));
+                svg.appendChild(createText(
+                    layerX[0] - 35, inputY[i] + 5, i === 0 ? 'A' : 'B',
+                    { fill: '#94a3b8', fontSize: '11' }
+                ));
+            });
+            
+            // Draw neurons - Hidden layer
+            const hiddenActivations = activations.layers[0].activation;
+            hiddenActivations.forEach((val, i) => {
+                const normalized = (val + 1) / 2; // tanh output is -1 to 1
+                const r = Math.round(normalized * 34 + (1 - normalized) * 239);
+                const g = Math.round(normalized * 197 + (1 - normalized) * 68);
+                const b = Math.round(normalized * 94 + (1 - normalized) * 68);
+                svg.appendChild(createCircle(
+                    layerX[1], hiddenY[i], 16,
+                    `rgb(${r},${g},${b})`, 'white', 2
+                ));
+                svg.appendChild(createText(
+                    layerX[1], hiddenY[i] + 4, val.toFixed(2),
+                    { fontSize: '9' }
+                ));
+            });
+            
+            // Draw neurons - Output layer
+            const outputVal = activations.output;
+            const outColor = outputVal > 0.5 ? colors.positive : colors.negative;
+            svg.appendChild(createCircle(layerX[2], outputY[0], 25, outColor, 'white', 3));
+            svg.appendChild(createText(
+                layerX[2], outputY[0] + 6, outputVal.toFixed(2),
+                { fontWeight: 'bold', fontSize: '16' }
+            ));
+            svg.appendChild(createText(
+                layerX[2] + 40, outputY[0] + 5, 'Out',
+                { anchor: 'start', fill: '#94a3b8', fontSize: '11' }
+            ));
+            
+            // Layer labels
+            svg.appendChild(createText(layerX[0], 270, 'Input', { fill: '#64748b', fontSize: '10' }));
+            svg.appendChild(createText(layerX[1], 270, 'Hidden (Tanh)', { fill: '#64748b', fontSize: '10' }));
+            svg.appendChild(createText(layerX[2], 270, 'Output (Sigmoid)', { fill: '#64748b', fontSize: '10' }));
+            
+            // Update details (safe - using textContent for dynamic values)
+            const detailsEl = document.getElementById('activationDetails');
+            detailsEl.textContent = '';
+            
+            const strong1 = document.createElement('strong');
+            strong1.textContent = 'Hidden layer activations: ';
+            detailsEl.appendChild(strong1);
+            detailsEl.appendChild(document.createTextNode('[' + hiddenActivations.map(v => v.toFixed(3)).join(', ') + ']'));
+            detailsEl.appendChild(document.createElement('br'));
+            
+            const strong2 = document.createElement('strong');
+            strong2.textContent = 'Output: ';
+            detailsEl.appendChild(strong2);
+            detailsEl.appendChild(document.createTextNode(outputVal.toFixed(6) + ' → '));
+            
+            const strong3 = document.createElement('strong');
+            strong3.textContent = outputVal > 0.5 ? '1' : '0';
+            detailsEl.appendChild(strong3);
+        }
+        
+        function getNeuronYPositions(count, height) {
+            const margin = 30;
+            const available = height - 2 * margin - 40;
+            const spacing = count > 1 ? available / (count - 1) : 0;
+            const positions = [];
+            const startY = margin + (height - 2 * margin - 40 - spacing * (count - 1)) / 2;
+            for (let i = 0; i < count; i++) {
+                positions.push(startY + i * spacing);
+            }
+            return positions;
+        }
+
+        // Make toggleInput globally accessible
+        window.toggleInput = function(input) {
+            if (input === 'A') {
+                inputA = inputA === 0 ? 1 : 0;
+                const btn = document.getElementById('inputA');
+                btn.textContent = inputA;
+                btn.classList.toggle('active', inputA === 1);
+            } else {
+                inputB = inputB === 0 ? 1 : 0;
+                const btn = document.getElementById('inputB');
+                btn.textContent = inputB;
+                btn.classList.toggle('active', inputB === 1);
+            }
+            updatePrediction();
+        };
+
+        run();
+    </script>
+</body>
+</html>
