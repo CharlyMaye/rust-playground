@@ -25,7 +25,8 @@
 				"tamasfe.even-better-toml",
 				"ritwickdey.LiveServer",
 				"Angular.ng-template",
-				"esbenp.prettier-vscode"
+				"esbenp.prettier-vscode",
+				"mhutchie.git-graph"
 			]
 		}
 	},

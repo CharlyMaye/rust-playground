@@ -60,15 +60,12 @@ jobs:
       - name: Prepare deployment
         run: |
           mkdir -p _site
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            cp -r test-neural/www/* _site/
-            chmod +x test-neural/adjust-paths.sh
-            ./test-neural/adjust-paths.sh main _site
+          cp -r test-neural/www/* _site/
+          chmod +x test-neural/adjust-paths.sh
+          if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
+            ./test-neural/adjust-paths.sh develop _site
           else
-            mkdir -p _site/next
-            cp -r test-neural/www/* _site/next/
-            chmod +x test-neural/adjust-paths.sh
-            ./test-neural/adjust-paths.sh develop _site/next
+            ./test-neural/adjust-paths.sh main _site
           fi
       
       - name: Upload artifact
@@ -76,13 +73,55 @@ jobs:
         with:
           path: _site
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  deploy-main:
     runs-on: ubuntu-latest
     needs: build
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+
+      - name: Extract pages artifact
+        run: |
+          tar -xf artifact.tar || exit 1
+          rm artifact.tar
+
+      - name: Deploy to GitHub Pages root
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          keep_files: true
+          exclude_assets: '.github,next'
+
+  deploy-develop:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/develop'
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: github-pages
+
+      - name: Extract pages artifact
+        run: |
+          tar -xf artifact.tar || exit 1
+          rm -f artifact.tar
+          echo "=== Files to deploy ==="
+          ls -la
+
+      - name: Deploy to GitHub Pages /next
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          keep_files: true
+          destination_dir: next
+
