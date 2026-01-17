@@ -1,12 +1,15 @@
 #!/bin/bash
 
-# Script pour ajuster les chemins relatifs selon la branche
+# Script pour rendre les chemins des ressources relatifs (./...) afin
+# que le site fonctionne correctement lorsqu'il est servi sous /<repo>/next/
 
-BRANCH=$1
-OUTPUT_DIR=$2
+set -euo pipefail
+
+BRANCH=${1:-}
+OUTPUT_DIR=${2:-}
 
 # Valider les paramètres requis
-if [ -z "$BRANCH" ] || [ -z "$OUTPUT_DIR" ]; then
+if [ -z "$OUTPUT_DIR" ]; then
   echo "Usage: $0 <BRANCH> <OUTPUT_DIR>" >&2
   exit 1
 fi
@@ -16,30 +19,26 @@ if [ ! -d "$OUTPUT_DIR" ]; then
   exit 1
 fi
 
-# Créer un fichier de configuration avec le base path
-if [ "$BRANCH" = "develop" ]; then
-  BASE_PATH="/next"
-else
-  BASE_PATH=""
-fi
+echo "Adjusting paths in HTML files under: $OUTPUT_DIR (branch=$BRANCH)"
 
-# Injecter le BASE_PATH dans tous les fichiers HTML
+# Parcourir tous les fichiers HTML et convertir les attributs href/src relatifs
+# en chemins relatifs explicites (./...), sans toucher aux URLs absolues
+# (commençant par "/", "#", "http", "https", "." ou "..").
+
 find "$OUTPUT_DIR" -name "*.html" -type f | while read -r file; do
-  # Ajouter une balise <script> au début du <head> si elle n'existe pas déjà
-  if ! grep -q "window.BASE_PATH" "$file"; then
-    sed -i.bak "/<head>/a\\    <script>window.BASE_PATH = '$BASE_PATH';</script>" "$file"
-    rm -f "${file}.bak"
-  fi
-  
-  # Remplacer les chemins relatifs pour les ressources statiques
-  if [ "$BRANCH" = "develop" ]; then
-    # Préfixer uniquement les chemins relatifs (pas ceux commençant par "/", "#" ou "http")
-    sed -i.bak "s|href=\"\([^/#][^\"]*\)\"|href=\"$BASE_PATH/\1\"|g" "$file"
-    sed -i.bak "s|href=\"$BASE_PATH/http|href=\"http|g" "$file"
-    sed -i.bak "s|src=\"\([^/#][^\"]*\)\"|src=\"$BASE_PATH/\1\"|g" "$file"
-    sed -i.bak "s|src=\"$BASE_PATH/http|src=\"http|g" "$file"
-    rm -f "${file}.bak"
-  fi
+  echo "Processing: $file"
+
+  # Supprimer toute injection précédente de window.BASE_PATH si elle existe
+  sed -i.bak "/window.BASE_PATH/d" "$file" || true
+  rm -f "${file}.bak"
+
+  # Préfixer uniquement les href relatifs qui ne commencent pas par "/", "#", ".", ".." ou "http"
+  sed -i.bak -E 's|href="([^./#/][^"]*)"|href="./\1"|g' "$file"
+
+  # Faire de même pour les attributs src
+  sed -i.bak -E 's|src="([^./#/][^"]*)"|src="./\1"|g' "$file"
+
+  rm -f "${file}.bak"
 done
 
-echo "Chemins ajustés pour: $BRANCH"
+echo "Chemins relatifs appliqués pour: $BRANCH"

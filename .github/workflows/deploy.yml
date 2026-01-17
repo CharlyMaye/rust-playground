@@ -113,9 +113,9 @@ jobs:
       - name: Extract pages artifact
         run: |
           tar -xf artifact.tar || exit 1
-          rm artifact.tar
-          ls -laR
+          rm -f artifact.tar
           echo "=== Files to deploy ==="
+          ls -la
 
       - name: Deploy to GitHub Pages /next
         uses: peaceiris/actions-gh-pages@v3
