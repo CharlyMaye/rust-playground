@@ -16,9 +16,7 @@
     padding: 0;
 }
 
-body, 
-app-root,
-app-main-layout {
+body {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg);
     color: var(--text);
@@ -29,6 +27,13 @@ app-main-layout {
     padding: 2rem;
     line-height: 1.6;
 }
+app-root,
+app-main-layout {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
 
 h1 {
     font-size: 2.5rem;
