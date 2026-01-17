@@ -1,0 +1,88 @@
+# Copilot Instructions for this Repository
+
+## Project Structure
+
+This is a Rust + WebAssembly project with multiple components:
+
+### Main Directories
+- **`back/`** - Actix-web backend server (Rust)
+- **`docker-back/`** - Docker management service (Rust)
+- **`test-neural/`** - Neural network library and WebAssembly demos
+  - `cma-neural-network/` - Core ML library
+  - `neural-wasm/` - WASM bindings (xor, iris models)
+  - `www/` - Frontend demos (HTML/JS)
+
+### GitHub Workflows
+- `.github/workflows/ci.yml` - CI runs on PRs (builds WASM)
+- `.github/workflows/deploy.yml` - Deploys to GitHub Pages (main → prod, develop → /next)
+
+## Key Technologies
+- **Language**: Rust (Edition 2024)
+- **Web Framework**: Actix-web
+- **WASM**: wasm-pack targeting wasm32-unknown-unknown
+- **ML**: Custom neural network library (feedforward, CMA-ES optimizer)
+- **Frontend**: Vanilla JavaScript + WASM modules
+
+## Development Workflow
+
+### Branch Strategy
+- **`main`** - Production (protected, merge only via PRs from develop)
+- **`develop`** - Staging/integration branch
+- **`feature/*`** - Feature branches (PR to develop)
+
+### Before Creating PRs
+1. Code is in `Cargo.toml` with proper dependencies
+2. Rust edition 2024 is used
+3. All WASM builds must pass: `test-neural/neural-wasm/build_all.sh`
+4. HTML files use relative paths for assets (important for GitHub Pages `/next` deployment)
+
+## Code Standards
+
+### Rust
+- Follow Rust conventions (snake_case for functions/variables, CamelCase for types)
+- Use meaningful variable names
+- Add doc comments for public APIs
+- Run `cargo fmt` for formatting
+- Cargo check should pass without warnings
+
+### Web/Frontend
+- Keep HTML semantic and accessible
+- Use relative paths for resources (no absolute URLs)
+- Test in both `/` (main) and `/next` (develop) deployment contexts
+
+## Important Notes
+
+- **Edition 2024**: The Cargo.toml uses edition 2024 instead of 2021. Verify this is intentional.
+- **Path Adjustments**: When deploying develop branch, paths are auto-adjusted to include `/next/` prefix via `test-neural/adjust-paths.sh`
+- **WASM Models**: Two models are built - XOR (binary classification) and Iris (multi-class)
+- **CI/CD**: The CI workflow (`ci.yml`) is mandatory for PRs. No direct pushes to main.
+
+## Common Tasks
+
+### Build WASM locally
+```bash
+cd test-neural/neural-wasm
+chmod +x build_all.sh
+./build_all.sh
+```
+
+### Test the neural network
+```bash
+cd test-neural
+cargo test
+```
+
+### Run backend server
+```bash
+cd back
+cargo run
+```
+
+### Deploy to develop (staging)
+- Push to `develop` branch → CI runs → Deploy to `/next` path
+
+### Release to production
+- Create PR `develop → main` → CI runs → Merge → Deploy to `/` path
+
+## Questions?
+See `.github/workflows/README.md` for detailed workflow and GitHub configuration instructions.
