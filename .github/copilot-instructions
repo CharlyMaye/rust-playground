@@ -53,7 +53,6 @@ This is a Rust + WebAssembly project with multiple components:
 ## Important Notes
 
 - **Edition 2024**: The Cargo.toml uses edition 2024 instead of 2021. Verify this is intentional.
-- **Path Adjustments**: When deploying develop branch, paths are auto-adjusted to include `/next/` prefix via `test-neural/adjust-paths.sh`
 - **WASM Models**: Two models are built - XOR (binary classification) and Iris (multi-class)
 - **CI/CD**: The CI workflow (`ci.yml`) is mandatory for PRs. No direct pushes to main.
 
