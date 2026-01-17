@@ -6,6 +6,9 @@ import { Card } from '../card/card';
   imports: [Card],
   templateUrl: './about.html',
   styleUrl: './about.scss',
+  host: {
+    class: 'card'
+  }
 })
 export class About {
 
