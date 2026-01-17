@@ -54,7 +54,7 @@ jobs:
       
       - name: Build WASM
         working-directory: test-neural/neural-wasm
-        run: chmod +x build.sh && ./build.sh
+        run: chmod +x build_all.sh && ./build_all.sh
       
       - name: Prepare deployment
         run: |
