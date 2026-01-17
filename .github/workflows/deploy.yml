@@ -61,9 +61,11 @@ jobs:
         run: |
           mkdir -p _site
           cp -r test-neural/www/* _site/
+          chmod +x test-neural/adjust-paths.sh
           if [ "${{ github.ref }}" = "refs/heads/develop" ]; then
-            chmod +x test-neural/adjust-paths.sh
             ./test-neural/adjust-paths.sh develop _site
+          else
+            ./test-neural/adjust-paths.sh main _site
           fi
       
       - name: Upload artifact
@@ -99,7 +101,8 @@ jobs:
       - name: Extract artifact
         run: |
           cd artifact
-          tar -xf artifact.tar
+          tar -xf artifact.tar || exit 1
+          cd ..
 
       - name: Deploy to gh-pages /next
         uses: peaceiris/actions-gh-pages@v3

@@ -9,9 +9,9 @@ jobs:
   check-source-branch:
     runs-on: ubuntu-latest
     steps:
-      - name: Fail if PR is not from develop
+      - name: Fail if PR is not from develop or hotfix/*
         run: |
-          if [ "${{ github.head_ref }}" != "develop" ]; then
-            echo "Only PRs from 'develop' to 'main' are allowed."
+          if [[ "${{ github.head_ref }}" != "develop" && "${{ github.head_ref }}" != hotfix/* ]]; then
+            echo "Only PRs from 'develop' or 'hotfix/*' branches to 'main' are allowed."
             exit 1
           fi
