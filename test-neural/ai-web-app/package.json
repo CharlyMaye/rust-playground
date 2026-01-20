@@ -6,7 +6,9 @@
     "start": "ng serve --host 0.0.0.0 --port 4200 --open",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "copy-pkgs": "rm -rf public/wasm/pkg && mkdir -p public/wasm/pkg && cp -a pkg/* public/wasm/pkg/",
+    "postinstall": "npm run copy-pkgs"
   },
   "prettier": {
     "printWidth": 100,

@@ -27,6 +27,11 @@
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "**/*.wasm",
+                "input": "src/wasm",
+                "output": "/wasm"
               }
             ],
             "styles": [
