@@ -1,0 +1,1 @@
+export {WasmService} from "./wasm";
