@@ -7,11 +7,12 @@ import { WasmService } from '@cma/wasm/shared/wasm';
 import { Loader } from '../../ui/loader/loader';
 import { IrisClassifier } from '@cma/wasm/iris_wasm';
 import { XorNetwork } from '@cma/wasm/xor_wasm';
+import { DecimalPipe } from '@angular/common';
 
 
 @Component({
   selector: 'app-home',
-  imports: [PageTitle, About, Loader, PageFooter, RouterLinkWithHref],
+  imports: [PageTitle, DecimalPipe, About, Loader, PageFooter, RouterLinkWithHref],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })
