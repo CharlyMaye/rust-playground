@@ -1,10 +1,7 @@
 <app-page-title [options]="pageTitleOptions()"/>
 <app-navigation-back/>
 <div class="container">
-    <div id="loading" class="card loading">
-        <div class="spinner"></div>
-        <p>Loading Neural Network...</p>
-    </div>
+    <app-loader id="loading" [message]="'Loading Neural Network...'"/>
 
     <div id="app" style="display: none;">
         <!-- Interactive Predictor -->

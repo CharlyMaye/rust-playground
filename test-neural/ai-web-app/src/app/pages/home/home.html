@@ -13,6 +13,8 @@
                     <span class="badge badge-info">2 inputs</span>
                     <span class="badge badge-info">1 output</span>
                     <span class="badge badge-success" id="xor-accuracy">100.0% accuracy</span>
+                } @else {
+                    <app-loader id="loading" [message]="'Loading Neural Network...'"/>
                 }
             </div>
         </a>
@@ -27,6 +29,8 @@
                     <span class="badge badge-info">4 inputs</span>
                     <span class="badge badge-info">3 classes</span>
                     <span class="badge badge-success" id="iris-accuracy">73.3% accuracy</span>
+                } @else {
+                    <app-loader id="loading" [message]="'Loading Neural Network...'"/>
                 }
             </div>
         </a>

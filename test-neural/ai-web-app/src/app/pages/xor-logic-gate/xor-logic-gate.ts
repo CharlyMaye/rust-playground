@@ -2,10 +2,11 @@ import { Component, signal, Signal } from '@angular/core';
 import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
 import { PageFooter } from '../../ui/page-footer/page-footer';
 import { NavigationBack } from '../../ui/navigation-back/navigation-back';
+import { Loader } from '../../ui/loader/loader';
 
 @Component({
   selector: 'app-xor-logic-gate',
-  imports: [PageTitle, NavigationBack, PageFooter],
+  imports: [PageTitle, Loader, NavigationBack, PageFooter],
   templateUrl: './xor-logic-gate.html',
   styleUrl: './xor-logic-gate.scss',
 })

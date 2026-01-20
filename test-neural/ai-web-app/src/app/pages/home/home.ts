@@ -4,11 +4,12 @@ import { PageFooter } from '../../ui/page-footer/page-footer';
 import { About } from '../../ui/about/about';
 import { RouterLinkWithHref } from '@angular/router';
 import { WasmService } from '@cma/wasm/shared/wasm';
+import { Loader } from '../../ui/loader/loader';
 
 
 @Component({
   selector: 'app-home',
-  imports: [PageTitle, About, PageFooter, RouterLinkWithHref],
+  imports: [PageTitle, About, Loader, PageFooter, RouterLinkWithHref],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })
