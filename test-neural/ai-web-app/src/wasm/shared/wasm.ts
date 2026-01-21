@@ -11,10 +11,11 @@ export class WasmFacade {
   private readonly _xor = inject(XorWasmService);
   private _iris = inject(IrisWasmService);
 
-  public readonly xorWasmResource: ResourceRef<InitXorOutput | undefined> = this._xor.xorWasmResource;
-  public readonly xorModelInfo = this._xor.xorModelInfo;
+  public readonly xorWasmResource: ResourceRef<InitXorOutput | undefined> = this._xor.wasmResource;
+  public readonly xorModelInfo = this._xor.modelInfo;
+  public readonly xorArchitecture = this._xor.architecture;
 
-  public readonly irisWasmResource: ResourceRef<InitIraisOutput | undefined> = this._iris.irisWasmResource;
-  public readonly irisModelInfo = this._iris.irisModelInfo;
-  
+  public readonly irisWasmResource: ResourceRef<InitIraisOutput | undefined> = this._iris.wasmResource;
+  public readonly irisModelInfo = this._iris.modelInfo;
+  public readonly irisArchitecture = this._iris.architecture;
 }

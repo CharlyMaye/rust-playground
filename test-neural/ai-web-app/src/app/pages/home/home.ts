@@ -28,7 +28,10 @@ export class Home {
   });
 
   public readonly xorModelInfo = this.wasmService.xorModelInfo;
+  public readonly xorArchitecture = this.wasmService.xorArchitecture;
+  
   public readonly irisModelInfo = this.wasmService.irisModelInfo;
+  public readonly irisArchitecture = this.wasmService.irisArchitecture;
 
   constructor() {
     effect  (() => {

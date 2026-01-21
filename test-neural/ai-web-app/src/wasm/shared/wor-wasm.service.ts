@@ -1,33 +1,50 @@
-import { computed, Injectable, resource, ResourceRef } from '@angular/core';
+import { computed, effect, Injectable, resource, ResourceLoaderParams, ResourceRef, signal } from '@angular/core';
 import init, { InitOutput as InitXorOutput, XorNetwork} from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
-import initIris, { InitOutput as InitIraisOutput, IrisClassifier} from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
+import { ModelInfo } from './model-info';
 
 @Injectable({
   providedIn: 'root',
 })
 export class XorWasmService {
-
-  public readonly xorWasmResource: ResourceRef<InitXorOutput | undefined> = resource({
-    loader: async () => {
-      const wasmlPath = '/wasm/xor_wasm/neural_wasm_xor_bg.wasm';
-      // const fetchResponse = await fetch(wasmlPath);
-      const initResponse = await init(wasmlPath);
-      return initResponse;            
-    },
+  protected readonly _wasPath = signal('/wasm/xor_wasm/neural_wasm_xor_bg.wasm');
+  public readonly wasmResource: ResourceRef<InitXorOutput | undefined> = resource({
+    params: this._wasPath,
+    loader: (param: ResourceLoaderParams<string>) =>  init(param.params),
     defaultValue: undefined,
   });
-  public readonly xorModelInfo = computed(() => {
-    const initOutput = this.xorWasmResource.value();
-    if (!initOutput) {
-      return;
-    }
-    const  xorNetwork = new XorNetwork();
 
-    // Get model info
-    const modelInfoJson = xorNetwork.model_info();
-    const modelInfo = JSON.parse(modelInfoJson);
-    console.log('XOR Network model info:', modelInfo, initOutput);
+  public readonly modelInfo = computed(() => {
+    const initOutput = this.wasmResource.value();
+    if (!initOutput) {
+      return undefined;
+    }
+    console.log('XOR Network model wasm output:', initOutput);
+    const  xorNetwork = new XorNetwork();
+    const modelInfoJson: string = xorNetwork.model_info();
+    const modelInfo: ModelInfo = JSON.parse(modelInfoJson);
+    console.log('XOR Network model info:', modelInfo);
     return modelInfo;
   });
+
+  public readonly architecture = computed(() => {
+    const modelInfo = this.modelInfo();
+    if (!modelInfo) {
+      return undefined;
+    }
+    return modelInfo.architecture.split('→')
+      .map(layer => {
+        const trimmedLayer = layer.trim();
+        if (trimmedLayer.startsWith('[') && trimmedLayer.endsWith(']')) {
+          return trimmedLayer.slice(1, -1).split(',').map(numStr => Number(numStr.trim()));
+        }
+        return Number(trimmedLayer);
+      });
+  });
+
+  constructor() {
+    effect(() => {
+      console.log('XOR Network architecture changed:', this.architecture());
+    });
+  }
  
 }
