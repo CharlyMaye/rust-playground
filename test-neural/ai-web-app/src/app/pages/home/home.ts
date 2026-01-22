@@ -5,6 +5,8 @@ import { About } from '../../ui/about/about';
 import { RouterLinkWithHref } from '@angular/router';
 import { WasmService } from '@cma/wasm/shared/wasm';
 import { Loader } from '../../ui/loader/loader';
+import { IrisClassifier } from '@cma/wasm/iris_wasm';
+import { XorNetwork } from '@cma/wasm/xor_wasm';
 
 
 @Component({
@@ -24,21 +26,22 @@ export class Home {
     icon: '🧠',
   });
 
-  public readonly xorInitOutput = this.wasmService.xorWasmResource.value.asReadonly();
-  public readonly irisInitOutput = this.wasmService.irisWasmResource.value.asReadonly();
+  public readonly xorModelInfo = this.wasmService.xorModelInfo;
+  public readonly irisModelInfo = this.wasmService.irisModelInfo;
 
   constructor() {
     effect  (() => {
-      console.log('WASM Resource loaded:', this.xorInitOutput());
+      const initOutput = this.xorModelInfo();
+      if (!initOutput) {
+        return;
+      }
     });
     effect  (() => {
-      console.log('WASM Resource loaded:', this.irisInitOutput());
+      const initOutput = this.irisModelInfo();
+      if (!initOutput) {
+        return;
+      }
     });
   }
-  public ngOnInit() {
-    this.loadModelAccuracies();
-  }
 
-  async loadModelAccuracies() {
-  }
 }
