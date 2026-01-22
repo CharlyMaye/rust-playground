@@ -1,6 +1,8 @@
 use ndarray::{Array1, Array2, Axis};
 use rand::rng;
 use rand::Rng;
+use rand::SeedableRng;
+use rand::rngs::StdRng;
 use serde::{Serialize, Deserialize};
 use crate::optimizer::{OptimizerType, OptimizerState1D, OptimizerState2D};
 use crate::callbacks::Callback;
@@ -363,55 +365,131 @@ impl Activation {
         }
     }
 
-    /// Compute the derivative of the activation function.
-    /// For activations already applied (post-activation values).
-    pub fn derivative(&self, x: &Array1<f64>) -> Array1<f64> {
+    /// Compute the derivative of the activation function from POST-activation values.
+    /// Use this for Sigmoid, Tanh, ReLU, LeakyReLU, HardSigmoid, HardTanh, Linear.
+    /// For other activations, prefer `derivative_from_preactivation`.
+    pub fn derivative(&self, a: &Array1<f64>) -> Array1<f64> {
         match self {
-            Activation::Sigmoid => x * &(1.0 - x),
-            Activation::Tanh => x.mapv(|x| 1.0 - x.powi(2)),
-            Activation::ReLU => x.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }),
-            Activation::LeakyReLU => x.mapv(|x| if x > 0.0 { 1.0 } else { 0.01 }),
-            Activation::ELU => x.mapv(|x| if x > 0.0 { 1.0 } else { x + 1.0 }),
+            // These can be computed from post-activation
+            Activation::Sigmoid => a * &(1.0 - a),
+            Activation::Tanh => a.mapv(|a| 1.0 - a.powi(2)),
+            Activation::ReLU => a.mapv(|a| if a > 0.0 { 1.0 } else { 0.0 }),
+            Activation::LeakyReLU => a.mapv(|a| if a > 0.0 { 1.0 } else { 0.01 }),
+            Activation::HardSigmoid => a.mapv(|a| {
+                // a = clamp(0.2*z + 0.5, 0, 1), so if a is strictly between 0 and 1
+                if a > 0.0 && a < 1.0 { 0.2 } else { 0.0 }
+            }),
+            Activation::HardTanh => a.mapv(|a| if a > -1.0 && a < 1.0 { 1.0 } else { 0.0 }),
+            Activation::Linear => Array1::ones(a.len()),
+            // For Softmax, the Jacobian is complex but when combined with CCE,
+            // it simplifies to (output - target). This fallback is rarely used.
+            Activation::Softmax => a * &(1.0 - a),
+            // For the following, we need pre-activation z, so we approximate
+            // by using the stored pre-activation when available
+            _ => {
+                // Fallback: these should use derivative_from_preactivation
+                // Return ones as a safe fallback (caller should use correct method)
+                Array1::ones(a.len())
+            }
+        }
+    }
+    
+    /// Compute the derivative of the activation function from PRE-activation values (z).
+    /// This is mathematically correct for all activation functions.
+    pub fn derivative_from_preactivation(&self, z: &Array1<f64>) -> Array1<f64> {
+        match self {
+            Activation::Sigmoid => {
+                let sig = z.mapv(|x| 1.0 / (1.0 + (-x).exp()));
+                &sig * &(1.0 - &sig)
+            },
+            Activation::Tanh => z.mapv(|x| 1.0 - x.tanh().powi(2)),
+            Activation::ReLU => z.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }),
+            Activation::LeakyReLU => z.mapv(|x| if x > 0.0 { 1.0 } else { 0.01 }),
+            Activation::ELU => {
+                let alpha = 1.0;
+                z.mapv(|x| if x > 0.0 { 1.0 } else { alpha * x.exp() })
+            },
             Activation::SELU => {
                 let lambda = 1.0507;
                 let alpha = 1.6733;
-                x.mapv(|x| if x > 0.0 { lambda } else { lambda * alpha * x.exp() })
+                z.mapv(|x| if x > 0.0 { lambda } else { lambda * alpha * x.exp() })
             },
             Activation::Swish => {
-                let sigmoid = x.mapv(|x| 1.0 / (1.0 + (-x).exp()));
-                let swish = x * &sigmoid;
-                &swish + &sigmoid * &(1.0 - &swish)
+                // Swish(z) = z * sigmoid(z)
+                // Swish'(z) = sigmoid(z) + z * sigmoid(z) * (1 - sigmoid(z))
+                //           = sigmoid(z) * (1 + z * (1 - sigmoid(z)))
+                z.mapv(|x| {
+                    let sig = 1.0 / (1.0 + (-x).exp());
+                    sig * (1.0 + x * (1.0 - sig))
+                })
             },
             Activation::GELU => {
-                // Approximation simplifiée de la dérivée
-                x.mapv(|x| {
-                    let cdf = 0.5 * (1.0 + ((2.0 / std::f64::consts::PI).sqrt() 
-                        * (x + 0.044715 * x.powi(3))).tanh());
-                    cdf + x * 0.5 * (1.0 - cdf.powi(2))
+                // GELU(z) ≈ 0.5 * z * (1 + tanh(sqrt(2/π) * (z + 0.044715 * z³)))
+                // Derivative: more complex, using the standard approximation
+                let sqrt_2_over_pi = (2.0 / std::f64::consts::PI).sqrt();
+                z.mapv(|x| {
+                    let inner = sqrt_2_over_pi * (x + 0.044715 * x.powi(3));
+                    let tanh_inner = inner.tanh();
+                    let sech2 = 1.0 - tanh_inner.powi(2);
+                    let d_inner = sqrt_2_over_pi * (1.0 + 3.0 * 0.044715 * x.powi(2));
+                    0.5 * (1.0 + tanh_inner) + 0.5 * x * sech2 * d_inner
                 })
             },
             Activation::Mish => {
-                // Dérivée complexe de Mish (approximation)
-                x.mapv(|x| {
-                    let omega = 4.0 * (x + 1.0) + 4.0 * x.exp() + x.exp().powi(2) + x.exp() * (4.0 * x + 6.0);
-                    let delta = 2.0 * x.exp() + x.exp().powi(2) + 2.0;
-                    omega / delta.powi(2)
+                // Mish(z) = z * tanh(softplus(z)) = z * tanh(ln(1 + e^z))
+                // Mish'(z) = tanh(sp) + z * sech²(sp) * sigmoid(z)
+                // where sp = softplus(z) = ln(1 + e^z)
+                z.mapv(|x| {
+                    let sp = (1.0 + x.exp()).ln();  // softplus
+                    let tanh_sp = sp.tanh();
+                    let sech2_sp = 1.0 - tanh_sp.powi(2);
+                    let sigmoid = 1.0 / (1.0 + (-x).exp());
+                    tanh_sp + x * sech2_sp * sigmoid
                 })
             },
-            Activation::Softplus => x.mapv(|x| 1.0 / (1.0 + (-x).exp())),
-            Activation::Softsign => x.mapv(|x| 1.0 / (1.0 + x.abs()).powi(2)),
-            Activation::HardSigmoid => x.mapv(|x| {
-                let val = 0.2 * x + 0.5;
-                if val > 0.0 && val < 1.0 { 0.2 } else { 0.0 }
-            }),
-            Activation::HardTanh => x.mapv(|x| if x > -1.0 && x < 1.0 { 1.0 } else { 0.0 }),
-            Activation::Softmax => {
-                // Pour Softmax, la dérivée est plus complexe (Jacobienne)
-                // Approximation simple: utiliser x * (1 - x) comme pour sigmoid
-                x * &(1.0 - x)
+            Activation::Softplus => {
+                // Softplus(z) = ln(1 + e^z)
+                // Softplus'(z) = sigmoid(z)
+                z.mapv(|x| 1.0 / (1.0 + (-x).exp()))
             },
-            Activation::Linear => Array1::ones(x.len()),
+            Activation::Softsign => {
+                // Softsign(z) = z / (1 + |z|)
+                // Softsign'(z) = 1 / (1 + |z|)²
+                z.mapv(|x| 1.0 / (1.0 + x.abs()).powi(2))
+            },
+            Activation::HardSigmoid => {
+                // HardSigmoid(z) = clamp(0.2*z + 0.5, 0, 1)
+                z.mapv(|x| {
+                    let val = 0.2 * x + 0.5;
+                    if val > 0.0 && val < 1.0 { 0.2 } else { 0.0 }
+                })
+            },
+            Activation::HardTanh => z.mapv(|x| if x > -1.0 && x < 1.0 { 1.0 } else { 0.0 }),
+            Activation::Softmax => {
+                // For Softmax, the full Jacobian is complex.
+                // When used with CCE loss, the combined gradient simplifies.
+                // This is handled specially in train() and train_batch().
+                // 
+                // SAFETY: This code path should NEVER be reached in correct usage.
+                // Softmax must be paired with CategoricalCrossEntropy, which bypasses
+                // this derivative entirely (using the simplified target - output).
+                unreachable!(
+                    "Softmax derivative should not be called directly. \
+                     Use Softmax + CategoricalCrossEntropy which simplifies to (output - target). \
+                     If you see this error, check your loss function configuration."
+                )
+            },
+            Activation::Linear => Array1::ones(z.len()),
         }
+    }
+    
+    /// Returns true if this activation requires pre-activation (z) for correct derivative.
+    pub fn needs_preactivation(&self) -> bool {
+        matches!(self, 
+            Activation::ELU | Activation::SELU | Activation::Swish | 
+            Activation::GELU | Activation::Mish | Activation::Softplus | 
+            Activation::Softsign
+        )
     }
 }
 
@@ -424,6 +502,17 @@ pub(crate) struct Layer {
     pub(crate) dropout: Option<DropoutConfig>,
 }
 
+/// Result of a forward pass, containing all information needed for backpropagation.
+#[derive(Clone)]
+pub(crate) struct ForwardResult {
+    /// Pre-activation values (z) for each layer
+    pub(crate) pre_activations: Vec<Array1<f64>>,
+    /// Post-activation values (a) for each layer, including input at index 0
+    pub(crate) activations: Vec<Array1<f64>>,
+    /// Dropout masks for each layer (None if no dropout or eval mode)
+    pub(crate) dropout_masks: Vec<Option<Array1<f64>>>,
+}
+
 /// A feedforward neural network with configurable depth.
 ///
 /// This network implements backpropagation for training and allows
@@ -433,6 +522,9 @@ pub(crate) struct Layer {
 /// - Input layer (size defined by user)
 /// - Multiple hidden layers with configurable activations
 /// - Output layer with configurable activation
+///
+/// # Reproducibility
+/// Set a seed with `set_seed()` for reproducible training (dropout masks).
 ///
 /// # Example
 /// ```rust
@@ -466,6 +558,12 @@ pub struct Network {
     pub(crate) regularization: RegularizationType,
     /// Training mode (true = apply dropout, false = inference mode)
     pub(crate) training_mode: bool,
+    /// Optional seed for reproducibility (None = use system entropy)
+    #[serde(skip)]
+    pub(crate) rng_seed: Option<u64>,
+    /// Cached RNG for performance (recreated if seed changes)
+    #[serde(skip)]
+    rng: Option<StdRng>,
 }
 
 impl Network {
@@ -561,7 +659,41 @@ impl Network {
             optimizer_states_biases,
             regularization: RegularizationType::None,
             training_mode: true,
+            rng_seed: None,
+            rng: None,
         }
+    }
+    
+    /// Sets a seed for reproducible training.
+    /// 
+    /// When a seed is set, dropout masks will be deterministic,
+    /// making training reproducible across runs.
+    /// 
+    /// # Example
+    /// ```rust
+    /// use cma_neural_network::builder::NetworkBuilder;
+    /// use cma_neural_network::network::Activation;
+    /// 
+    /// let mut network = NetworkBuilder::new(2, 1)
+    ///     .hidden_layer(8, Activation::ReLU)
+    ///     .build();
+    /// 
+    /// network.set_seed(42);  // Reproducible training
+    /// ```
+    pub fn set_seed(&mut self, seed: u64) {
+        self.rng_seed = Some(seed);
+        self.rng = Some(StdRng::seed_from_u64(seed));
+    }
+    
+    /// Clears the seed, using system entropy for randomness.
+    pub fn clear_seed(&mut self) {
+        self.rng_seed = None;
+        self.rng = None;
+    }
+    
+    /// Returns the current seed if set.
+    pub fn seed(&self) -> Option<u64> {
+        self.rng_seed
     }
     
     /// Switches to training mode (enables dropout).
@@ -585,39 +717,87 @@ impl Network {
     /// Vector of all layer activations (including input and final output).
     /// Index 0 is the input, last index is the final output.
     fn forward(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
-        self.forward_with_dropout(input, &mut rng())
+        if self.training_mode {
+            self.forward_full(input, &mut rng()).activations
+        } else {
+            self.forward_eval(input)
+        }
     }
     
-    /// Forward pass with explicit dropout and mask support.
-    fn forward_with_dropout(&self, input: &Array1<f64>, rng: &mut impl Rng) -> Vec<Array1<f64>> {
+    /// Forward pass for evaluation (no dropout, no RNG needed).
+    /// Always runs in "eval mode" regardless of training_mode flag.
+    fn forward_eval(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
         let mut activations = vec![input.clone()];
+        
+        for layer in &self.layers {
+            let z = layer.weights.dot(activations.last().unwrap()) + &layer.biases;
+            let a = layer.activation.apply(&z);
+            // No dropout applied in eval mode
+            activations.push(a);
+        }
+        
+        activations
+    }
+    
+    /// Forward pass using the stored RNG (for reproducibility) or system entropy.
+    fn forward_with_stored_rng(&mut self, input: &Array1<f64>) -> ForwardResult {
+        // Take ownership of stored RNG temporarily to avoid borrow issues
+        if let Some(mut stored_rng) = self.rng.take() {
+            let result = self.forward_full_internal(input, &mut stored_rng);
+            self.rng = Some(stored_rng);  // Put it back
+            result
+        } else {
+            self.forward_full_internal(input, &mut rng())
+        }
+    }
+    
+    /// Forward pass returning full result with pre-activations and dropout masks.
+    fn forward_full(&self, input: &Array1<f64>, rng: &mut impl Rng) -> ForwardResult {
+        self.forward_full_internal(input, rng)
+    }
+    
+    /// Internal forward pass implementation.
+    fn forward_full_internal(&self, input: &Array1<f64>, rng: &mut impl Rng) -> ForwardResult {
+        let mut activations = vec![input.clone()];
+        let mut pre_activations = Vec::with_capacity(self.layers.len());
+        let mut dropout_masks = Vec::with_capacity(self.layers.len());
         
         // Forward pass through all layers
         for layer in &self.layers {
             let z = layer.weights.dot(activations.last().unwrap()) + &layer.biases;
             let mut a = layer.activation.apply(&z);
             
-            // Apply dropout si en mode training
-            if self.training_mode
+            // Store pre-activation
+            pre_activations.push(z);
+            
+            // Apply dropout if in training mode
+            let mask = if self.training_mode
                 && let Some(dropout_config) = layer.dropout
             {
                 let keep_prob = 1.0 - dropout_config.rate;
-                // Créer un masque de dropout
+                // Create dropout mask with inverted scaling
                 let mask: Array1<f64> = Array1::from_shape_fn(a.len(), |_| {
                     if rng.random::<f64>() < keep_prob {
-                        1.0 / keep_prob  // Inverted dropout (scaling pendant training)
+                        1.0 / keep_prob  // Inverted dropout (scaling during training)
                     } else {
                         0.0
                     }
                 });
-                a = a * mask;
-            }
-            // En mode eval, pas de dropout (déjà mis à l'échelle pendant training)
+                a = &a * &mask;
+                Some(mask)
+            } else {
+                None
+            };
+            dropout_masks.push(mask);
             
             activations.push(a);
         }
         
-        activations
+        ForwardResult {
+            pre_activations,
+            activations,
+            dropout_masks,
+        }
     }
 }
 
@@ -633,13 +813,16 @@ impl Network {
     /// - `target`: Expected output vector
     ///
     /// # Algorithm
-    /// 1. Forward pass to get all activations
+    /// 1. Forward pass to get all activations and pre-activations
     /// 2. Calculate output layer error using loss function
-    /// 3. Backpropagate error through all hidden layers
+    /// 3. Backpropagate error through all hidden layers (with dropout mask)
     /// 4. Update all weights and biases using the optimizer
     pub fn train(&mut self, input: &Array1<f64>, target: &Array1<f64>) {
-        // Forward pass
-        let activations = self.forward(input);
+        // Forward pass with full information (using stored RNG for reproducibility)
+        let forward_result = self.forward_with_stored_rng(input);
+        let activations = &forward_result.activations;
+        let pre_activations = &forward_result.pre_activations;
+        let dropout_masks = &forward_result.dropout_masks;
         let final_output = activations.last().unwrap();
         
         // Compute output layer delta
@@ -647,11 +830,11 @@ impl Network {
         let output_activation = self.layers[output_layer_idx].activation;
         
         let output_delta = match (&output_activation, &self.loss_function) {
-            // Sigmoid + Binary Cross-Entropy: derivative simplifies
+            // Sigmoid + Binary Cross-Entropy: derivative simplifies to (target - output)
             (Activation::Sigmoid, LossFunction::BinaryCrossEntropy) => {
                 target - final_output
             },
-            // Softmax + Categorical Cross-Entropy: derivative simplifies
+            // Softmax + Categorical Cross-Entropy: derivative simplifies to (target - output)
             (Activation::Softmax, LossFunction::CategoricalCrossEntropy) => {
                 target - final_output
             },
@@ -659,10 +842,13 @@ impl Network {
             (_, LossFunction::MSE) => {
                 target - final_output
             },
-            // General case: use loss gradient and activation derivative
+            // General case: use loss gradient and activation derivative (from pre-activation)
             _ => {
                 let loss_gradient = self.loss_function.derivative(final_output, target);
-                -&loss_gradient * &output_activation.derivative(final_output)
+                let activation_derivative = output_activation.derivative_from_preactivation(
+                    &pre_activations[output_layer_idx]
+                );
+                -&loss_gradient * &activation_derivative
             }
         };
         
@@ -672,8 +858,17 @@ impl Network {
         // Go backwards through hidden layers
         for i in (0..self.layers.len() - 1).rev() {
             let current_delta = deltas.last().unwrap();
-            let errors = self.layers[i + 1].weights.t().dot(current_delta);
-            let delta = &errors * &self.layers[i].activation.derivative(&activations[i + 1]);
+            let mut errors = self.layers[i + 1].weights.t().dot(current_delta);
+            
+            // Apply dropout mask to gradient (if dropout was applied during forward)
+            if let Some(ref mask) = dropout_masks[i] {
+                errors = &errors * mask;
+            }
+            
+            // Use pre-activation for derivative calculation (mathematically correct)
+            let activation_derivative = self.layers[i].activation
+                .derivative_from_preactivation(&pre_activations[i]);
+            let delta = &errors * &activation_derivative;
             deltas.push(delta);
         }
         
@@ -758,8 +953,11 @@ impl Network {
         
         // Accumulate gradients for each example in the batch
         for (input, target) in inputs.iter().zip(targets.iter()) {
-            // Forward pass
-            let activations = self.forward(input);
+            // Forward pass with full information (using stored RNG for reproducibility)
+            let forward_result = self.forward_with_stored_rng(input);
+            let activations = &forward_result.activations;
+            let pre_activations = &forward_result.pre_activations;
+            let dropout_masks = &forward_result.dropout_masks;
             let final_output = activations.last().unwrap();
             
             // Compute output layer delta
@@ -779,10 +977,13 @@ impl Network {
                 (_, LossFunction::MSE) => {
                     target - final_output
                 },
-                // General case: use loss gradient and activation derivative
+                // General case: use loss gradient and activation derivative (from pre-activation)
                 _ => {
                     let loss_gradient = self.loss_function.derivative(final_output, target);
-                    -&loss_gradient * &output_activation.derivative(final_output)
+                    let activation_derivative = output_activation.derivative_from_preactivation(
+                        &pre_activations[output_layer_idx]
+                    );
+                    -&loss_gradient * &activation_derivative
                 }
             };
             
@@ -792,8 +993,17 @@ impl Network {
             // Go backwards through hidden layers
             for i in (0..self.layers.len() - 1).rev() {
                 let current_delta = deltas.last().unwrap();
-                let errors = self.layers[i + 1].weights.t().dot(current_delta);
-                let delta = &errors * &self.layers[i].activation.derivative(&activations[i + 1]);
+                let mut errors = self.layers[i + 1].weights.t().dot(current_delta);
+                
+                // Apply dropout mask to gradient (if dropout was applied during forward)
+                if let Some(ref mask) = dropout_masks[i] {
+                    errors = &errors * mask;
+                }
+                
+                // Use pre-activation for derivative calculation (mathematically correct)
+                let activation_derivative = self.layers[i].activation
+                    .derivative_from_preactivation(&pre_activations[i]);
+                let delta = &errors * &activation_derivative;
                 deltas.push(delta);
             }
             
@@ -854,7 +1064,8 @@ impl Network {
         let mut total_loss = 0.0;
         
         for (input, target) in inputs.iter().zip(targets.iter()) {
-            let activations = self.forward(input);
+            // Always use eval mode for evaluation (no dropout)
+            let activations = self.forward_eval(input);
             let prediction = activations.last().unwrap();
             total_loss += self.loss_function.compute(prediction, target);
         }
@@ -872,6 +1083,7 @@ impl Network {
     /// Makes a prediction for a single input.
     ///
     /// This is the main inference method - use it to get predictions after training.
+    /// Always runs without dropout, regardless of training_mode.
     ///
     /// # Arguments
     /// - `input`: Input vector
@@ -879,7 +1091,8 @@ impl Network {
     /// # Returns
     /// Output vector (network's prediction)
     pub fn predict(&self, input: &Array1<f64>) -> Array1<f64> {
-        let activations = self.forward(input);
+        // Always use eval mode for predictions (no dropout)
+        let activations = self.forward_eval(input);
         activations.last().unwrap().clone()
     }
     

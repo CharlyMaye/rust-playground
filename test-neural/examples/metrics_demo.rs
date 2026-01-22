@@ -30,6 +30,8 @@ fn main() {
         .optimizer(OptimizerType::adam(0.01))
         .build();
 
+    network.set_seed(42); // Reproducible training
+
     // Training
     let epochs = 10_000;
     for epoch in 0..epochs {
