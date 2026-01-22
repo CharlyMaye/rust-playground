@@ -16,10 +16,13 @@ export class XorLogicGate {
   public readonly xorIsLoading = this.wasmService.xorWasmResource.isLoading;
   public readonly xorModelInfo = this.wasmService.xorModelInfo;
   public readonly xorArchitecture = this.wasmService.xorArchitecture;
-
+  
   public readonly pageTitleOptions: Signal<PageTitleOptions> = signal({
     title: 'Neural XOR',
     subtitle: 'WebAssembly Neural Network Demo',
     icon: '🧠',
   });
+  public toggleInput(arg0: string): void {
+    throw new Error('Method not implemented.');
+  }
 }
