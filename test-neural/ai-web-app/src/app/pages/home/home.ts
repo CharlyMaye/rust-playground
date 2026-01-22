@@ -2,10 +2,11 @@ import { Component, signal, Signal } from '@angular/core';
 import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
 import { PageFooter } from '../../ui/page-footer/page-footer';
 import { About } from '../../ui/about/about';
+import { RouterLink, RouterLinkWithHref } from '@angular/router';
 
 @Component({
   selector: 'app-home',
-  imports: [PageTitle, About, PageFooter],
+  imports: [PageTitle, About, PageFooter, RouterLinkWithHref],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })

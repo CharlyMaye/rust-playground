@@ -1,4 +1,40 @@
 <app-page-title [options]="pageTitleOptions()"/>
+<div class="container">
+    <div class="demo-grid">
+        <!-- XOR Demo -->
+        <a [routerLink]="['/xor-logic-gate']" class="demo-card">
+            <div class="demo-icon">⊕</div>
+            <h3>XOR Logic Gate</h3>
+            <p>Binary classification with a simple feedforward network</p>
+            <div class="demo-meta">
+                <span class="badge badge-info">2 inputs</span>
+                <span class="badge badge-info">1 output</span>
+                <span class="badge badge-success" id="xor-accuracy">100.0% accuracy</span>
+            </div>
+        </a>
 
-<app-about/>
+        <!-- Iris Demo -->
+        <a [routerLink]="['/iris-classifier']" class="demo-card">
+            <div class="demo-icon">🌸</div>
+            <h3>Iris Classifier</h3>
+            <p>Multi-class classification of iris flower species</p>
+            <div class="demo-meta">
+                <span class="badge badge-info">4 inputs</span>
+                <span class="badge badge-info">3 classes</span>
+                <span class="badge badge-success" id="iris-accuracy">73.3% accuracy</span>
+            </div>
+        </a>
+
+        <!-- MNIST Demo (coming soon) -->
+        <a [routerLink]="['/mnist-digit']" class="demo-card disabled">
+            <div class="demo-icon">✍️</div>
+            <h3>MNIST Digits</h3>
+            <p>Handwritten digit recognition (coming soon)</p>
+            <div class="demo-meta">
+                <span class="badge badge-warning">Coming soon</span>
+            </div>
+        </a>
+    </div>
+    <app-about/>
+</div>
 <footer></footer>

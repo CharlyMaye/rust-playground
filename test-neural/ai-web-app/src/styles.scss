@@ -16,7 +16,9 @@
     padding: 0;
 }
 
-body {
+body, 
+app-root,
+app-main-layout {
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
     background: var(--bg);
     color: var(--text);
@@ -63,6 +65,8 @@ h3 {
 }
 
 .card {
+    display: flex;
+    flex-direction: column;
     background: var(--card);
     border-radius: 1rem;
     padding: 1.5rem;
