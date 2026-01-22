@@ -12,7 +12,7 @@
                 @if (!xorIsLoading()) {
                     <span class="badge badge-info">2 inputs</span>
                     <span class="badge badge-info">1 output</span>
-                    <span class="badge badge-success" id="xor-accuracy">{{ xorModelInfo()?.accuracy }}%</span>
+                    <span class="badge badge-success" id="xor-accuracy">{{ xorModelInfo()?.accuracy| number : '1.1-1' }}%</span>
                 } @else {
                     <app-loader id="loading" [message]="'Loading Neural Network...'"/>
                 }
@@ -28,7 +28,7 @@
                 @if (!irisIsLoading()) {
                     <span class="badge badge-info">4 inputs</span>
                     <span class="badge badge-info">3 classes</span>
-                    <span class="badge badge-success" id="iris-accuracy">{{ irisModelInfo()?.accuracy }}%</span>
+                    <span class="badge badge-success" id="iris-accuracy">{{ irisModelInfo()?.accuracy| number : '1.1-1' }}%</span>
                 } @else {
                     <app-loader id="loading" [message]="'Loading Neural Network...'"/>
                 }
