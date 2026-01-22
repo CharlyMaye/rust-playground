@@ -5,34 +5,34 @@
     <div class="demo-grid">
         <!-- XOR Demo -->
         <a [routerLink]="['/xor-logic-gate']" class="demo-card">
-            <div class="demo-icon">⊕</div>
-            <h3>XOR Logic Gate</h3>
-            <p>Binary classification with a simple feedforward network</p>
-            <div class="demo-meta">
-                @if (!xorIsLoading()) {
-                    <span class="badge badge-info">2 inputs</span>
-                    <span class="badge badge-info">1 output</span>
+            @if (!xorIsLoading()) {
+                <div class="demo-icon">⊕</div>
+                <h3>{{ xorModelInfo()?.name }}</h3>
+                <p>{{ xorModelInfo()?.description }}</p>
+                <div class="demo-meta">
+                    <span class="badge badge-info">{{ xorArchitecture()?.[0] }} inputs</span>
+                    <span class="badge badge-info">{{ xorArchitecture()?.slice(-1)?.[0] }} output</span>
                     <span class="badge badge-success" id="xor-accuracy">{{ xorModelInfo()?.accuracy| number : '1.1-1' }}%</span>
-                } @else {
-                    <app-loader id="loading" [message]="'Loading Neural Network...'"/>
-                }
-            </div>
+                </div>
+            } @else {
+                <app-loader id="loading" [message]="'Loading Neural Network...'"/>
+            }
         </a>
 
         <!-- Iris Demo -->
         <a [routerLink]="['/iris-classifier']" class="demo-card">
-            <div class="demo-icon">🌸</div>
-            <h3>Iris Classifier</h3>
-            <p>Multi-class classification of iris flower species</p>
-            <div class="demo-meta">
-                @if (!irisIsLoading()) {
-                    <span class="badge badge-info">4 inputs</span>
-                    <span class="badge badge-info">3 classes</span>
+            @if (!irisIsLoading()) {
+                <div class="demo-icon">🌸</div>
+                <h3>{{ irisModelInfo()?.name}}</h3>
+                <p>{{ irisModelInfo()?.description }}</p>
+                <div class="demo-meta">
+                    <span class="badge badge-info">{{ irisArchitecture()?.[0] }} inputs</span>
+                    <span class="badge badge-info">{{ irisArchitecture()?.slice(-1)?.[0] }} classes</span>
                     <span class="badge badge-success" id="iris-accuracy">{{ irisModelInfo()?.accuracy| number : '1.1-1' }}%</span>
-                } @else {
-                    <app-loader id="loading" [message]="'Loading Neural Network...'"/>
-                }
-            </div>
+                </div>
+            } @else {
+                <app-loader id="loading" [message]="'Loading Neural Network...'"/>
+            }
         </a>
 
         <!-- MNIST Demo (coming soon) -->

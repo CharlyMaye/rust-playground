@@ -1,32 +1,48 @@
-import { computed, Injectable, resource, ResourceRef } from '@angular/core';
-import init, { InitOutput as InitXorOutput, XorNetwork} from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
-import initIris, { InitOutput as InitIraisOutput, IrisClassifier} from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
+import { computed, effect, Injectable, resource, ResourceLoaderParams, ResourceRef, signal } from '@angular/core';
+import init, { InitOutput as InitIraisOutput, IrisClassifier} from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
+import { ModelInfo } from './model-info';
 
 @Injectable({
   providedIn: 'root',
 })
 export class IrisWasmService {
-  public readonly irisWasmResource: ResourceRef<InitIraisOutput | undefined> = resource({
-    loader: async () => {
-      const wasmlPath = '/wasm/iris_wasm/neural_wasm_iris_bg.wasm';
-      // const fetchResponse = await fetch(wasmlPath);
-      const initResponse = await initIris(wasmlPath);
-      return initResponse;            
-    },
+  protected readonly _wasPath = signal('/wasm/iris_wasm/neural_wasm_iris_bg.wasm');
+  public readonly wasmResource: ResourceRef<InitIraisOutput | undefined> = resource({
+    params: this._wasPath,
+    loader: (param: ResourceLoaderParams<string>) =>  init(param.params),
     defaultValue: undefined,
   });
-  public readonly irisModelInfo = computed(() => {
-    const initOutput = this.irisWasmResource.value();
+  public readonly modelInfo = computed(() => {
+    const initOutput = this.wasmResource.value();
     if (!initOutput) {
-      return;
+      return undefined;
     }
+    console.log('Iris Classifier model wasm output:', initOutput);
     const  irisClassifier = new IrisClassifier();
-
-    // Get model info
-    const modelInfoJson = irisClassifier.model_info();
-    const modelInfo = JSON.parse(modelInfoJson);
-    console.log('Iris Classifier model info:', modelInfo, initOutput);
+    const modelInfoJson: string = irisClassifier.model_info();
+    const modelInfo: ModelInfo = JSON.parse(modelInfoJson);
+    console.log('Iris Classifier model info:', modelInfo);
     return modelInfo;
   });
+  public readonly architecture = computed(() => {
+    const modelInfo = this.modelInfo();
+    if (!modelInfo) {
+      return undefined;
+    }
+    return modelInfo.architecture.split('→')
+      .map(layer => {
+        const trimmedLayer = layer.trim();
+        if (trimmedLayer.startsWith('[') && trimmedLayer.endsWith(']')) {
+          return trimmedLayer.slice(1, -1).split(',').map(numStr => Number(numStr.trim()));
+        }
+        return Number(trimmedLayer);
+      });
+  });
+
+  constructor() {
+    effect(() => {
+      console.log('Iris Classifier architecture changed:', this.architecture());
+    });
+  }
   
 }
