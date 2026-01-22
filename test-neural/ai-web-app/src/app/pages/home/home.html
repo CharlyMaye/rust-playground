@@ -9,9 +9,11 @@
             <h3>XOR Logic Gate</h3>
             <p>Binary classification with a simple feedforward network</p>
             <div class="demo-meta">
-                <span class="badge badge-info">2 inputs</span>
-                <span class="badge badge-info">1 output</span>
-                <span class="badge badge-success" id="xor-accuracy">100.0% accuracy</span>
+                @if (!xorIsLoading()) {
+                    <span class="badge badge-info">2 inputs</span>
+                    <span class="badge badge-info">1 output</span>
+                    <span class="badge badge-success" id="xor-accuracy">100.0% accuracy</span>
+                }
             </div>
         </a>
 
@@ -21,9 +23,11 @@
             <h3>Iris Classifier</h3>
             <p>Multi-class classification of iris flower species</p>
             <div class="demo-meta">
-                <span class="badge badge-info">4 inputs</span>
-                <span class="badge badge-info">3 classes</span>
-                <span class="badge badge-success" id="iris-accuracy">73.3% accuracy</span>
+                @if (!irisIsLoading()) {
+                    <span class="badge badge-info">4 inputs</span>
+                    <span class="badge badge-info">3 classes</span>
+                    <span class="badge badge-success" id="iris-accuracy">73.3% accuracy</span>
+                }
             </div>
         </a>
 

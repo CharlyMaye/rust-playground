@@ -42,3 +42,8 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# wasm
+public/pkg
+src/wasm/iris_wasm
+src/wasm/xor_wasm
