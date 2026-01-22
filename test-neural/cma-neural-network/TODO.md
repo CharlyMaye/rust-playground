@@ -2,6 +2,16 @@
 
 ## ✅ Récemment Accompli
 
+### Corrections v0.3 (Janvier 2026)
+- [x] **Sécurité Softmax renforcée**
+  - Remplacé `debug_assert!` par `unreachable!()` pour erreur en release aussi
+  - Message d'erreur explicite guidant vers la bonne configuration
+
+- [x] **Évaluation sans dropout**
+  - Nouvelle méthode `forward_eval()` qui ignore le dropout
+  - `evaluate()` et `predict()` utilisent toujours le mode eval
+  - Plus besoin d'appeler `eval_mode()` avant validation
+
 ### Corrections Mathématiques (v0.2)
 - [x] **Séparation pré-activation / post-activation**
   - Nouvelle méthode `derivative_from_preactivation(z)` pour calculs corrects
@@ -16,8 +26,8 @@
   - Méthode `set_seed(u64)` pour entraînement déterministe
   - RNG stocké dans Network pour éviter recréations répétées
 
-- [x] **Sécurité Softmax**
-  - `debug_assert!` ajouté pour prévenir usage incorrect de la dérivée générique
+- [x] **Initialisation des poids vérifiée**
+  - Xavier/He/LeCun : Box-Muller génère correctement N(0,1) puis multiplie par std
 
 ---
 

@@ -469,15 +469,15 @@ impl Activation {
                 // For Softmax, the full Jacobian is complex.
                 // When used with CCE loss, the combined gradient simplifies.
                 // This is handled specially in train() and train_batch().
-                // WARNING: This fallback should NOT be used in practice!
-                debug_assert!(
-                    false,
+                // 
+                // SAFETY: This code path should NEVER be reached in correct usage.
+                // Softmax must be paired with CategoricalCrossEntropy, which bypasses
+                // this derivative entirely (using the simplified target - output).
+                unreachable!(
                     "Softmax derivative should not be called directly. \
-                     Use Softmax + CategoricalCrossEntropy which simplifies to (output - target)."
-                );
-                // Fallback: diagonal approximation (mathematically incorrect for general use)
-                let a = self.apply(z);
-                &a * &(1.0 - &a)
+                     Use Softmax + CategoricalCrossEntropy which simplifies to (output - target). \
+                     If you see this error, check your loss function configuration."
+                )
             },
             Activation::Linear => Array1::ones(z.len()),
         }
@@ -717,7 +717,26 @@ impl Network {
     /// Vector of all layer activations (including input and final output).
     /// Index 0 is the input, last index is the final output.
     fn forward(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
-        self.forward_full(input, &mut rng()).activations
+        if self.training_mode {
+            self.forward_full(input, &mut rng()).activations
+        } else {
+            self.forward_eval(input)
+        }
+    }
+    
+    /// Forward pass for evaluation (no dropout, no RNG needed).
+    /// Always runs in "eval mode" regardless of training_mode flag.
+    fn forward_eval(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
+        let mut activations = vec![input.clone()];
+        
+        for layer in &self.layers {
+            let z = layer.weights.dot(activations.last().unwrap()) + &layer.biases;
+            let a = layer.activation.apply(&z);
+            // No dropout applied in eval mode
+            activations.push(a);
+        }
+        
+        activations
     }
     
     /// Forward pass using the stored RNG (for reproducibility) or system entropy.
@@ -1045,7 +1064,8 @@ impl Network {
         let mut total_loss = 0.0;
         
         for (input, target) in inputs.iter().zip(targets.iter()) {
-            let activations = self.forward(input);
+            // Always use eval mode for evaluation (no dropout)
+            let activations = self.forward_eval(input);
             let prediction = activations.last().unwrap();
             total_loss += self.loss_function.compute(prediction, target);
         }
@@ -1063,6 +1083,7 @@ impl Network {
     /// Makes a prediction for a single input.
     ///
     /// This is the main inference method - use it to get predictions after training.
+    /// Always runs without dropout, regardless of training_mode.
     ///
     /// # Arguments
     /// - `input`: Input vector
@@ -1070,7 +1091,8 @@ impl Network {
     /// # Returns
     /// Output vector (network's prediction)
     pub fn predict(&self, input: &Array1<f64>) -> Array1<f64> {
-        let activations = self.forward(input);
+        // Always use eval mode for predictions (no dropout)
+        let activations = self.forward_eval(input);
         activations.last().unwrap().clone()
     }
     
