@@ -1,2 +1,86 @@
 <app-page-title [options]="pageTitleOptions()"/>
+<app-navigation-back/>
+<div class="container">
+    <div id="loading" class="card loading">
+        <div class="spinner"></div>
+        <p>Loading Neural Network...</p>
+    </div>
+
+    <div id="app" style="display: none;">
+        <!-- Interactive Predictor -->
+        <div class="card">
+            <div class="card-title">⚡ Interactive Predictor</div>
+            <div class="predictor">
+                <div class="input-group">
+                    <div class="input-label">Input A</div>
+                    <button id="inputA" class="toggle-btn" onclick="toggleInput('A')">0</button>
+                </div>
+                <div class="operator">⊕</div>
+                <div class="input-group">
+                    <div class="input-label">Input B</div>
+                    <button id="inputB" class="toggle-btn" onclick="toggleInput('B')">0</button>
+                </div>
+                <div class="operator">=</div>
+                <div class="result-box">
+                    <div id="result" class="result-value">0</div>
+                    <div id="confidence" class="result-confidence">99.0% confidence</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network Visualization -->
+        <div class="card">
+            <div class="card-title">🔬 Network Visualization</div>
+            <svg id="networkViz" width="100%" height="300" viewBox="0 0 500 280"></svg>
+            <div id="activationDetails" style="margin-top: 1rem; font-size: 0.8rem; color: var(--muted);"></div>
+        </div>
+
+        <!-- Truth Table -->
+        <div class="card">
+            <div class="card-title">📊 XOR Truth Table</div>
+            <table class="truth-table">
+                <thead>
+                    <tr>
+                        <th>A</th>
+                        <th>B</th>
+                        <th>Expected</th>
+                        <th>Prediction</th>
+                        <th>Confidence</th>
+                    </tr>
+                </thead>
+                <tbody id="truthTable">
+                    <!-- Filled by JavaScript -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Model Info -->
+        <div class="card">
+            <div class="card-title">🔧 Model Information</div>
+            <div class="model-info">
+                <div class="info-item">
+                    <div class="info-value" id="architecture">2 → 8 → 1</div>
+                    <div class="info-label">Architecture</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-value">Tanh → Sigmoid</div>
+                    <div class="info-label">Activations</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-value" id="accuracy">100%</div>
+                    <div class="info-label">Accuracy</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-value">WASM</div>
+                    <div class="info-label">Runtime</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="error" class="card error" style="display: none;">
+        <p>❌ Failed to load Neural Network</p>
+        <p id="errorMsg"></p>
+    </div>
+</div>
 <footer></footer>

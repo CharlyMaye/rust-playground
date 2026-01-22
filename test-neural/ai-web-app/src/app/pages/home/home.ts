@@ -3,10 +3,11 @@ import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
 import { PageFooter } from '../../ui/page-footer/page-footer';
 import { About } from '../../ui/about/about';
 import { RouterLink, RouterLinkWithHref } from '@angular/router';
+import { NavigationBack } from '../../ui/navigation-back/navigation-back';
 
 @Component({
   selector: 'app-home',
-  imports: [PageTitle, About, PageFooter, RouterLinkWithHref],
+  imports: [PageTitle, NavigationBack, About, PageFooter, RouterLinkWithHref],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })

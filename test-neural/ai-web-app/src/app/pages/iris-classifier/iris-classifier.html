@@ -1,2 +1,105 @@
 <app-page-title [options]="pageTitleOptions()"/>
+<app-navigation-back/>
+<div class="container">
+    <div id="loading" class="card loading">
+        <div class="spinner"></div>
+        <p>Loading Neural Network...</p>
+    </div>
+
+    <div id="app" style="display: none;">
+        <!-- Interactive Classifier -->
+        <div class="card">
+            <div class="card-title">🔬 Interactive Classifier</div>
+            
+            <div class="input-grid">
+                <div class="input-field">
+                    <label for="sepalLength">Sepal Length (cm)</label>
+                    <input type="number" id="sepalLength" value="5.1" step="0.1" min="0" max="10">
+                </div>
+                <div class="input-field">
+                    <label for="sepalWidth">Sepal Width (cm)</label>
+                    <input type="number" id="sepalWidth" value="3.5" step="0.1" min="0" max="10">
+                </div>
+                <div class="input-field">
+                    <label for="petalLength">Petal Length (cm)</label>
+                    <input type="number" id="petalLength" value="1.4" step="0.1" min="0" max="10">
+                </div>
+                <div class="input-field">
+                    <label for="petalWidth">Petal Width (cm)</label>
+                    <input type="number" id="petalWidth" value="0.2" step="0.1" min="0" max="10">
+                </div>
+            </div>
+            
+            <button class="predict-btn" onclick="predictIris()">🌸 Classify</button>
+            
+            <div class="presets">
+                <strong style="color: var(--muted); font-size: 0.875rem;">Quick Presets:</strong>
+                <button class="preset-btn" onclick="loadPreset('setosa')">Setosa</button>
+                <button class="preset-btn" onclick="loadPreset('versicolor')">Versicolor</button>
+                <button class="preset-btn" onclick="loadPreset('virginica')">Virginica</button>
+            </div>
+        </div>
+
+        <!-- Prediction Result -->
+        <div id="result" class="card result-card hidden">
+            <div class="predicted-class" id="predictedClass">-</div>
+            <div class="predicted-confidence" id="predictedConfidence">-</div>
+            
+            <div class="probabilities">
+                <div class="prob-item">
+                    <div class="prob-label">Setosa</div>
+                    <div class="prob-bar-container">
+                        <div class="prob-bar" id="probSetosa">
+                            <div class="prob-value" id="probSetosaValue">0%</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="prob-item">
+                    <div class="prob-label">Versicolor</div>
+                    <div class="prob-bar-container">
+                        <div class="prob-bar" id="probVersicolor">
+                            <div class="prob-value" id="probVersicolorValue">0%</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="prob-item">
+                    <div class="prob-label">Virginica</div>
+                    <div class="prob-bar-container">
+                        <div class="prob-bar" id="probVirginica">
+                            <div class="prob-value" id="probVirginicaValue">0%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Info -->
+        <div class="card">
+            <div class="card-title">ℹ️ Model Information</div>
+            <div id="modelInfo" class="model-info">
+                <div class="info-item">
+                    <div class="info-value" id="architecture">-</div>
+                    <div class="info-label">Architecture</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-value" id="accuracy">-</div>
+                    <div class="info-label">Test Accuracy</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-value">3</div>
+                    <div class="info-label">Classes</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test All Samples -->
+        <div class="card">
+            <div class="card-title">🧪 Test Samples</div>
+            <button class="predict-btn" onclick="testAllSamples()">Run All Test Samples</button>
+            <div id="testResults" class="test-results" style="margin-top: 1rem;"></div>
+        </div>
+    </div>
+
+    <div id="error" class="card error" style="display: none;"></div>
+</div>
 <footer></footer>
