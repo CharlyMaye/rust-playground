@@ -1,1 +1,1 @@
-export {WasmService} from "./wasm";
+export {WasmFacade as WasmService} from "./wasm";
