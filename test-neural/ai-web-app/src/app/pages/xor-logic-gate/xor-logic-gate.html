@@ -53,27 +53,8 @@
             </div>
     
             <!-- Model Info -->
-            <div class="card">
-                <div class="card-title">🔧 Model Information</div>
-                <div class="model-info">
-                    <div class="info-item">
-                        <div class="info-value" id="architecture">2 → 8 → 1</div>
-                        <div class="info-label">Architecture</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-value">Tanh → Sigmoid</div>
-                        <div class="info-label">Activations</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-value" id="accuracy">100%</div>
-                        <div class="info-label">Accuracy</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-value">WASM</div>
-                        <div class="info-label">Runtime</div>
-                    </div>
-                </div>
-            </div>
+            <app-model-info [modelInfo]="xorModelInfo()"/>
+
         </div>
         <div id="error" class="card error" style="display: none;">
             <p>❌ Failed to load Neural Network</p>

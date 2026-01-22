@@ -1,7 +1,7 @@
 <app-page-title [options]="pageTitleOptions()"/>
 <app-navigation-back/>
 <div class="container">
-      @if (xorIsLoading()) {
+      @if (irisIsLoading()) {
         <app-loader id="loading" [message]="'Loading Neural Network...'"/>
     } @else {
         <div id="app">
@@ -86,23 +86,7 @@
             </div>
     
             <!-- Model Info -->
-            <div class="card">
-                <div class="card-title">ℹ️ Model Information</div>
-                <div id="modelInfo" class="model-info">
-                    <div class="info-item">
-                        <div class="info-value" id="architecture">-</div>
-                        <div class="info-label">Architecture</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-value" id="accuracy">-</div>
-                        <div class="info-label">Test Accuracy</div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-value">3</div>
-                        <div class="info-label">Classes</div>
-                    </div>
-                </div>
-            </div>
+            <app-model-info [modelInfo]="irisModelInfo()"/>
     
         </div>
     

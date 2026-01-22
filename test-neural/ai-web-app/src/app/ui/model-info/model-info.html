@@ -1,1 +1,24 @@
-<p>model-info works!</p>
+@let _modelInfo = modelInfo();
+
+<div class="card">
+    <div class="card-title">ℹ️ Model Information</div>
+    <div id="modelInfo" class="model-info">
+        <div class="info-item">
+            <div class="info-value" id="architecture">{{_modelInfo?.architecture}}</div>
+            <div class="info-label">Architecture</div>
+        </div>
+        <div class="info-item">
+            <div class="info-value" id="accuracy">{{_modelInfo?.accuracy | number : '1.1-1'}}%</div>
+            <div class="info-label">Accuracy</div>
+        </div>
+        <!--TODO-->
+        <div class="info-item">
+            <div class="info-value">Tanh → Sigmoid</div>
+            <div class="info-label">Activations</div>
+        </div>
+        <div class="info-item">
+            <div class="info-value">WASM</div>
+            <div class="info-label">Runtime</div>
+        </div>
+    </div>
+</div>
