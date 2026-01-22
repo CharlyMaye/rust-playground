@@ -38,11 +38,5 @@ export class IrisWasmService {
         return Number(trimmedLayer);
       });
   });
-
-  constructor() {
-    effect(() => {
-      console.log('Iris Classifier architecture changed:', this.architecture());
-    });
-  }
-  
+ 
 }

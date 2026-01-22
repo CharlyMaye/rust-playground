@@ -40,11 +40,4 @@ export class XorWasmService {
         return Number(trimmedLayer);
       });
   });
-
-  constructor() {
-    effect(() => {
-      console.log('XOR Network architecture changed:', this.architecture());
-    });
-  }
- 
 }

@@ -1,0 +1,189 @@
+/* Iris-specific styles */
+.input-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.input-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.input-field label {
+    font-size: 0.875rem;
+    color: var(--muted);
+    font-weight: 500;
+}
+
+.input-field input {
+    padding: 0.75rem;
+    background: rgba(148, 163, 184, 0.1);
+    border: 2px solid rgba(148, 163, 184, 0.3);
+    border-radius: 0.5rem;
+    color: var(--text);
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.input-field input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.predict-btn {
+    padding: 0.875rem 2rem;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    border: none;
+    border-radius: 0.5rem;
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    width: 100%;
+}
+
+.predict-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(59, 130, 246, 0.3);
+}
+
+.predict-btn:active {
+    transform: translateY(0);
+}
+
+.result-card {
+    text-align: center;
+    padding: 2rem;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(139, 92, 246, 0.1));
+    border-radius: 1rem;
+    border: 2px solid rgba(59, 130, 246, 0.3);
+}
+
+.result-card.hidden {
+    display: none;
+}
+
+.predicted-class {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, var(--accent), #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.predicted-confidence {
+    font-size: 1rem;
+    color: var(--muted);
+    margin-bottom: 1.5rem;
+}
+
+.probabilities {
+    display: flex;
+    justify-content: space-around;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.prob-item {
+    flex: 1;
+    text-align: center;
+}
+
+.prob-label {
+    font-size: 0.875rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+}
+
+.prob-bar-container {
+    height: 100px;
+    background: rgba(148, 163, 184, 0.2);
+    border-radius: 0.5rem;
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    padding: 0.5rem;
+}
+
+.prob-bar {
+    width: 100%;
+    background: linear-gradient(to top, var(--accent), #8b5cf6);
+    border-radius: 0.25rem;
+    transition: height 0.3s;
+    position: relative;
+}
+
+.prob-value {
+    position: absolute;
+    top: -1.5rem;
+    left: 0;
+    right: 0;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.presets {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+}
+
+.preset-btn {
+    padding: 0.5rem 1rem;
+    background: rgba(148, 163, 184, 0.2);
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 0.5rem;
+    color: var(--muted);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.preset-btn:hover {
+    background: rgba(59, 130, 246, 0.2);
+    border-color: var(--accent);
+    color: var(--text);
+}
+
+.test-results {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.test-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+    font-size: 0.875rem;
+}
+
+.test-item:last-child {
+    border-bottom: none;
+}
+
+.test-item.correct {
+    background: rgba(34, 197, 94, 0.1);
+}
+
+.test-item.incorrect {
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.test-inputs {
+    color: var(--muted);
+    font-family: monospace;
+}
+
+.test-prediction {
+    font-weight: 600;
+}
