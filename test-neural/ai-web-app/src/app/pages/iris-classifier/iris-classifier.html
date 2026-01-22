@@ -38,6 +38,13 @@
                 </div>
             </div>
     
+            <!-- Network Visualization -->
+            <div class="card">
+                <div class="card-title">🔬 Network Visualization</div>
+                <svg id="networkViz" width="100%" height="300" viewBox="0 0 500 280"></svg>
+                <div id="activationDetails" style="margin-top: 1rem; font-size: 0.8rem; color: var(--muted);"></div>
+            </div>
+
             <!-- Prediction Result -->
             <div id="result" class="card result-card hidden">
                 <div class="predicted-class" id="predictedClass">-</div>
@@ -70,6 +77,13 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Test All Samples -->
+            <div class="card">
+                <div class="card-title">🧪 Test Samples</div>
+                <button class="predict-btn" onclick="testAllSamples()">Run All Test Samples</button>
+                <div id="testResults" class="test-results" style="margin-top: 1rem;"></div>
+            </div>
     
             <!-- Model Info -->
             <div class="card">
@@ -90,12 +104,6 @@
                 </div>
             </div>
     
-            <!-- Test All Samples -->
-            <div class="card">
-                <div class="card-title">🧪 Test Samples</div>
-                <button class="predict-btn" onclick="testAllSamples()">Run All Test Samples</button>
-                <div id="testResults" class="test-results" style="margin-top: 1rem;"></div>
-            </div>
         </div>
     
         <div id="error" class="card error" style="display: none;"></div>
