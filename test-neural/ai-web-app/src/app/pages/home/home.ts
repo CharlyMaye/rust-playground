@@ -1,9 +1,10 @@
 import { Component, signal, Signal } from '@angular/core';
 import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
+import { PageFooter } from '../../ui/page-footer/page-footer';
 
 @Component({
   selector: 'app-home',
-  imports: [PageTitle],
+  imports: [PageTitle, PageFooter],
   templateUrl: './home.html',
   styleUrl: './home.scss',
 })

@@ -1,9 +1,10 @@
 import { Component, signal, Signal } from '@angular/core';
 import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
+import { PageFooter } from '../../ui/page-footer/page-footer';
 
 @Component({
   selector: 'app-iris-classifier',
-  imports: [PageTitle],
+  imports: [PageTitle, PageFooter],
   templateUrl: './iris-classifier.html',
   styleUrl: './iris-classifier.scss',
 })
