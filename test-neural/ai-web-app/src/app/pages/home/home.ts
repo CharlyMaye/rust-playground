@@ -33,19 +33,4 @@ export class Home {
   public readonly irisModelInfo = this.wasmService.irisModelInfo;
   public readonly irisArchitecture = this.wasmService.irisArchitecture;
 
-  constructor() {
-    effect  (() => {
-      const initOutput = this.xorModelInfo();
-      if (!initOutput) {
-        return;
-      }
-    });
-    effect  (() => {
-      const initOutput = this.irisModelInfo();
-      if (!initOutput) {
-        return;
-      }
-    });
-  }
-
 }
