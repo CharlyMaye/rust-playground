@@ -1,5 +1,26 @@
 # TODO - Améliorations du Réseau de Neurones
 
+## ✅ Récemment Accompli
+
+### Corrections Mathématiques (v0.2)
+- [x] **Séparation pré-activation / post-activation**
+  - Nouvelle méthode `derivative_from_preactivation(z)` pour calculs corrects
+  - Les dérivées GELU, Mish, Swish, SELU, ELU, Softplus sont maintenant mathématiquement exactes
+  - Structure `ForwardResult` stocke z et a séparément
+
+- [x] **Dropout complet en backward**
+  - Les masques dropout sont stockés et réappliqués au gradient
+  - Inverted dropout correctement implémenté
+
+- [x] **Reproductibilité**
+  - Méthode `set_seed(u64)` pour entraînement déterministe
+  - RNG stocké dans Network pour éviter recréations répétées
+
+- [x] **Sécurité Softmax**
+  - `debug_assert!` ajouté pour prévenir usage incorrect de la dérivée générique
+
+---
+
 ## 🎯 Prochaines Priorités
 
 ### 1. **Datasets et Benchmarks** 📊
