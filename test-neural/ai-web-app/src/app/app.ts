@@ -1,6 +1,7 @@
-import { Component, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import init, { XorNetwork} from '../wasm/xor_wasm/neural_wasm_xor.js';
+import { WasmService } from '@cma/wasm/shared';
+import init, { XorNetwork} from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
 
 @Component({
   selector: 'app-root',
@@ -9,17 +10,16 @@ import init, { XorNetwork} from '../wasm/xor_wasm/neural_wasm_xor.js';
   styleUrl: './app.scss'
 })
 export class App {
+  private readonly wasmService = inject(WasmService);
+  public readonly xorInitOutput = this.wasmService.xorWasmResource.value.asReadonly();
+  public readonly irisInitOutput = this.wasmService.irisWasmResource.value.asReadonly();
 
   constructor() {
-  fetch('/wasm/xor_wasm/neural_wasm_xor_bg.wasm')
-    .then(r => console.log('status:', r.status))
-    .then(() =>
-      init('/wasm/xor_wasm/neural_wasm_xor_bg.wasm')
-    )
-    .then(() => {
-      const xorNetwork = new XorNetwork();
-      console.log('XOR Network initialized:', xorNetwork);
-    })
-    .catch(e => console.error(e));
+    effect  (() => {
+      console.log('WASM Resource loaded:', this.xorInitOutput());
+    });
+    effect  (() => {
+      console.log('WASM Resource loaded:', this.irisInitOutput());
+    });
   }
 }
