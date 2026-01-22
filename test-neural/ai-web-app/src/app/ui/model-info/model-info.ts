@@ -1,11 +1,13 @@
-import { Component } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { Component, input } from '@angular/core';
+import { ModelInfo } from '@cma/wasm/shared/model-info';
 
 @Component({
   selector: 'app-model-info',
-  imports: [],
+  imports: [DecimalPipe],
   templateUrl: './model-info.html',
-  styleUrl: './model-info.scss',
+  styleUrl: './model-info.scss'
 })
-export class ModelInfo {
-
+export class ModelInfoComponent {
+  public readonly modelInfo = input<ModelInfo | undefined>(undefined)
 }

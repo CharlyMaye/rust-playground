@@ -108,25 +108,3 @@
     transition: width 0.3s;
 }
 
-/* Model Info */
-.model-info {
-    display: flex;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
-
-.info-item {
-    text-align: center;
-}
-
-.info-value {
-    font-size: 1.25rem;
-    font-weight: bold;
-    color: var(--accent);
-}
-
-.info-label {
-    font-size: 0.75rem;
-    color: var(--muted);
-}
