@@ -111,6 +111,8 @@ fn main() {
             .optimizer(optimizer)
             .build();
         
+        net.set_seed(42); // Reproducible results
+        
         // Quick training
         for _ in 0..1000 {
             for (input, target) in test_inputs.iter().zip(test_targets.iter()) {
@@ -134,6 +136,8 @@ fn main() {
         .loss(LossFunction::BinaryCrossEntropy)
         .optimizer(OptimizerType::adam(0.05))
         .build();
+
+    network.set_seed(42); // Reproducible training
 
     println!("   Configuration:");
     println!("   • EarlyStopping (patience=15, 0.1% relative improvement)");
@@ -167,7 +171,7 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════════════
     println!("\n📈 6. Evaluation and metrics\n");
     
-    network.eval_mode();  // Disable dropout for inference
+    // Note: predict() automatically uses eval mode (no dropout)
     
     let predictions: Vec<_> = test_inputs.iter()
         .map(|input| network.predict(input))

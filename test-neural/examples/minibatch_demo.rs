@@ -58,6 +58,8 @@ fn main() {
         .optimizer(OptimizerType::adam(0.001))
         .build();
     
+    network_single.set_seed(42); // Reproducible training
+    
     let start = Instant::now();
     let epochs = 50;
     
@@ -87,6 +89,8 @@ fn main() {
         .loss(LossFunction::BinaryCrossEntropy)
         .optimizer(OptimizerType::adam(0.01))  // Increased learning rate for batch training
         .build();
+    
+    network_batch32.set_seed(42); // Reproducible training
     
     let start = Instant::now();
     let batch_size = 32;
@@ -124,6 +128,8 @@ fn main() {
         .optimizer(OptimizerType::adam(0.01))
         .build();
     
+    network_batch64.set_seed(42); // Reproducible training
+    
     let start = Instant::now();
     let batch_size = 64;
     
@@ -157,6 +163,8 @@ fn main() {
         .loss(LossFunction::BinaryCrossEntropy)
         .optimizer(OptimizerType::adam(0.01))
         .build();
+    
+    network_batch128.set_seed(42); // Reproducible training
     
     let start = Instant::now();
     let batch_size = 128;

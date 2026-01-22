@@ -46,6 +46,8 @@ A lightweight, educational neural network library written in pure Rust. Designed
   - [Confusion Matrix](#confusion-matrix)
 - [Serialization](#serialization)
   - [JSON and Binary Formats](#json-and-binary-formats)
+- [Reproducibility](#reproducibility)
+  - [Setting a Seed](#setting-a-seed)
 - [References](#references)
 
 ---
@@ -1090,6 +1092,48 @@ println!("JSON: {} bytes, Binary: {} bytes", json_size, bin_size);
 | Swish/SiLU | (-∞, ∞) | Medium | ReLU alternative | 2017 |
 | GELU | (-∞, ∞) | Slow | **Transformers (GPT, BERT)** | 2016 |
 | Softmax | [0, 1] (sum=1) | Medium | Multi-class output | Classic |
+
+---
+
+## Reproducibility
+
+For reproducible experiments, you can set a random seed that controls dropout masks during training.
+
+### Setting a Seed
+
+```rust
+use cma_neural_network::builder::NetworkBuilder;
+use cma_neural_network::network::Activation;
+
+let mut network = NetworkBuilder::new(2, 1)
+    .hidden_layer(16, Activation::ReLU)
+    .dropout(0.3)
+    .build();
+
+// Set seed for reproducible training
+network.set_seed(42);
+
+// Training will now be deterministic
+for epoch in 0..100 {
+    network.train_batch(&inputs, &targets);
+}
+
+// Clear seed to use system entropy again
+network.clear_seed();
+```
+
+**Why reproducibility matters:**
+- **Debugging**: Same results help isolate issues
+- **Research**: Required for scientific reproducibility
+- **Comparison**: Fair comparison between experiments
+
+**What is controlled by the seed:**
+- Dropout masks during training
+- Order is still deterministic if you shuffle data with the same seed
+
+**What is NOT controlled:**
+- Weight initialization (set at network creation time)
+- Data shuffling (use `Dataset::shuffle_with_seed()` if available)
 
 ---
 
