@@ -22,4 +22,6 @@ export type NeuralNetworkLayer = {
     activation: string,
     shape: number[]
 }; 
-export type NeuralNetworkLayers = NeuralNetworkLayer[];
+export type NeuralNetworkLayers = {
+    layers: NeuralNetworkLayer[];
+};
