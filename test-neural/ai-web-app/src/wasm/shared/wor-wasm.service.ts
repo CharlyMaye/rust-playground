@@ -1,6 +1,6 @@
 import { computed, effect, Injectable, resource, ResourceLoaderParams, ResourceRef, Signal, signal } from '@angular/core';
 import init, { InitOutput as InitXorOutput, XorNetwork} from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
-import { ModelInfo, XORTestResult } from './model-info';
+import { ModelInfo, NeuralNetworkLayers, XORTestResult } from './model-info';
 
 @Injectable({
   providedIn: 'root',
@@ -46,6 +46,16 @@ export class XorWasmService {
         }
         return Number(trimmedLayer);
       });
+  });
+  public readonly weights: Signal<NeuralNetworkLayers | undefined> = computed(() => {
+    const network = this.network();
+    if (!network) {
+      return undefined;
+    }
+    const weightsJson: string = network.get_weights();
+    const weights = JSON.parse(weightsJson) as NeuralNetworkLayers;
+    console.log('XOR Network weights:', weights);
+    return weights;
   });
 
   public readonly testAll: Signal<XORTestResult[] | undefined> = computed(() => {

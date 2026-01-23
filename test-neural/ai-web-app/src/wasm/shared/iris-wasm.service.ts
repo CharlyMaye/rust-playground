@@ -1,6 +1,6 @@
-import { computed, effect, Injectable, resource, ResourceLoaderParams, ResourceRef, signal } from '@angular/core';
+import { computed, effect, Injectable, resource, ResourceLoaderParams, ResourceRef, Signal, signal } from '@angular/core';
 import init, { InitOutput as InitIraisOutput, IrisClassifier} from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
-import { ModelInfo } from './model-info';
+import { ModelInfo, NeuralNetworkLayers } from './model-info';
 
 @Injectable({
   providedIn: 'root',
@@ -22,11 +22,11 @@ export class IrisWasmService {
     return new IrisClassifier();
   });
   public readonly modelInfo = computed(() => {
-    const irisClassifier = this.network();
-    if (!irisClassifier) {
+    const network = this.network();
+    if (!network) {
       return undefined;
     }
-    const modelInfoJson: string = irisClassifier.model_info();
+    const modelInfoJson: string = network.model_info();
     const modelInfo: ModelInfo = JSON.parse(modelInfoJson);
     console.log('Iris Classifier model info:', modelInfo);
     return modelInfo;
@@ -45,5 +45,26 @@ export class IrisWasmService {
         return Number(trimmedLayer);
       });
   });
- 
+  public readonly weights: Signal<NeuralNetworkLayers | undefined> = computed(() => {
+    const network = this.network();
+    if (!network) {
+      return undefined;
+    }
+    const weightsJson: string = network.get_weights();
+    const weights = JSON.parse(weightsJson) as NeuralNetworkLayers;
+    console.log('IRIS Classifier weights:', weights);
+    return weights;
+  });
+
+  public readonly testAll = computed(() => {
+    const network = this.network();
+    if (!network) {
+      return undefined;
+    }
+    const testResultsJson: string = network.test_all();
+    const testResults = JSON.parse(testResultsJson);
+    console.log('IRIS Classifier test all results:', testResults);
+    return testResults;
+  });
+
 }

@@ -29,6 +29,7 @@ export class XorLogicGate {
   public readonly xorNetwork = this.wasmService.xorNetwork;
   public readonly xorModelInfo = this.wasmService.xorModelInfo;
   public readonly xorArchitecture = this.wasmService.xorArchitecture;
+  public readonly xorWeights = this.wasmService.xorWeights;
   public readonly xorTestAll = this.wasmService.xorTestAll;
   
   public readonly pageTitleOptions: Signal<PageTitleOptions> = signal({
@@ -51,6 +52,16 @@ export class XorLogicGate {
     console.log('XOR Prediction:', output);
     return output;
   });
+  public readonly activations = computed(() => {
+    const network = this.xorNetwork();
+    if (!network) {
+      return null;
+    }
+    const inputA = this.inputA();
+    const inputB = this.inputB();
+    const acts = network.get_activations(inputA, inputB);
+    return acts;
+  })
   public readonly predictionDisplay = computed(() => {
     const output = this.output();
     if (!output) {
@@ -72,7 +83,7 @@ export class XorLogicGate {
     } else {
       this.inputB.set(this.inputB() === 0 ? 1 : 0);
     }
-    console.log(this.xorTestAll())
+    console.log(this.xorWeights());
   }
 
 }

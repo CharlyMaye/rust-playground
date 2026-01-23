@@ -15,10 +15,13 @@ export class WasmFacade {
   public readonly xorNetwork = this._xor.network;
   public readonly xorModelInfo = this._xor.modelInfo;
   public readonly xorArchitecture = this._xor.architecture;
+  public readonly xorWeights = this._xor.weights;
   public readonly xorTestAll = this._xor.testAll;
 
   public readonly irisWasmResource: ResourceRef<InitIraisOutput | undefined> = this._iris.wasmResource;
   public readonly irisNetwork = this._iris.network;
   public readonly irisModelInfo = this._iris.modelInfo;
   public readonly irisArchitecture = this._iris.architecture;
+  public readonly irisWeights = this._iris.weights;
+  public readonly irisTestAll = this._iris.testAll;
 }

@@ -15,3 +15,11 @@ export interface XORTestResult  {
     raw: number;
     confidence: number;
 }
+
+export type NeuralNetworkLayer = {
+    weights: number[],
+    biases: number[],
+    activation: string,
+    shape: number[]
+}; 
+export type NeuralNetworkLayers = NeuralNetworkLayer[];
