@@ -12,13 +12,20 @@ export class IrisWasmService {
     loader: (param: ResourceLoaderParams<string>) =>  init(param.params),
     defaultValue: undefined,
   });
-  public readonly modelInfo = computed(() => {
+
+  public readonly network = computed(() => {
     const initOutput = this.wasmResource.value();
     if (!initOutput) {
       return undefined;
     }
     console.log('Iris Classifier model wasm output:', initOutput);
-    const  irisClassifier = new IrisClassifier();
+    return new IrisClassifier();
+  });
+  public readonly modelInfo = computed(() => {
+    const irisClassifier = this.network();
+    if (!irisClassifier) {
+      return undefined;
+    }
     const modelInfoJson: string = irisClassifier.model_info();
     const modelInfo: ModelInfo = JSON.parse(modelInfoJson);
     console.log('Iris Classifier model info:', modelInfo);

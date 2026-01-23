@@ -6,3 +6,12 @@ export interface ModelInfo {
     test_samples: number;
     trained_at: Date;
 }
+
+export interface XORTestResult  {
+    a: number;
+    b: number;
+    expected: number;
+    prediction: number;
+    raw: number;
+    confidence: number;
+}

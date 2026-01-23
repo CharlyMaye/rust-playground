@@ -1,6 +1,6 @@
-import { computed, effect, Injectable, resource, ResourceLoaderParams, ResourceRef, signal } from '@angular/core';
+import { computed, effect, Injectable, resource, ResourceLoaderParams, ResourceRef, Signal, signal } from '@angular/core';
 import init, { InitOutput as InitXorOutput, XorNetwork} from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
-import { ModelInfo } from './model-info';
+import { ModelInfo, XORTestResult } from './model-info';
 
 @Injectable({
   providedIn: 'root',
@@ -13,13 +13,20 @@ export class XorWasmService {
     defaultValue: undefined,
   });
 
-  public readonly modelInfo = computed(() => {
+  public readonly network = computed(() => {
     const initOutput = this.wasmResource.value();
     if (!initOutput) {
       return undefined;
     }
     console.log('XOR Network model wasm output:', initOutput);
-    const  xorNetwork = new XorNetwork();
+    return new XorNetwork();
+  });
+
+  public readonly modelInfo = computed(() => {
+    const xorNetwork = this.network();
+    if (!xorNetwork) {
+      return undefined;
+    }
     const modelInfoJson: string = xorNetwork.model_info();
     const modelInfo: ModelInfo = JSON.parse(modelInfoJson);
     console.log('XOR Network model info:', modelInfo);
@@ -39,5 +46,16 @@ export class XorWasmService {
         }
         return Number(trimmedLayer);
       });
+  });
+
+  public readonly testAll: Signal<XORTestResult[] | undefined> = computed(() => {
+    const xorNetwork = this.network();
+    if (!xorNetwork) {
+      return undefined;
+    }
+    const testResultsJson: string = xorNetwork.test_all();
+    const testResults = JSON.parse(testResultsJson);
+    console.log('XOR Network test all results:', testResults);
+    return testResults;
   });
 }
