@@ -1,3 +1,9 @@
+<!-- XOR Logic Gate Demo Template
+     - Interactive predictor with toggle buttons
+     - Network visualization
+     - Truth table with test results
+     - Model information
+-->
 @if (xorIsLoading()) {
   <app-loader id="loading" [message]="'Loading Neural Network...'" />
 } @else {
@@ -80,7 +86,7 @@
                     [attr.aria-valuenow]="result.confidence"
                     aria-valuemin="0"
                     aria-valuemax="100"
-                    [attr.aria-label]="'Confiance: ' + (result.confidence | number: '1.2-2') + '%'"
+                    [attr.aria-label]="'Confidence: ' + (result.confidence | number: '1.2-2') + '%'"
                   >
                     <div class="confidence-fill" [style.width.%]="result.confidence"></div>
                   </div>

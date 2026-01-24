@@ -1,4 +1,12 @@
-/* XOR-specific styles */
+/**
+ * XOR Logic Gate Demo Styles
+ * 
+ * Sections:
+ * - Predictor: Interactive toggle buttons and result display
+ * - Truth Table: Test results grid with confidence bars
+ */
+
+/* Predictor Section */
 .predictor {
   display: flex;
   align-items: center;

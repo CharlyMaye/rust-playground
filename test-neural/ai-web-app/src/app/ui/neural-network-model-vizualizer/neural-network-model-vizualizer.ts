@@ -2,56 +2,96 @@ import { Component, computed, input } from '@angular/core';
 import { Activation, NeuralNetworkLayers } from '@cma/wasm/shared';
 
 // ============================================================================
-// Types pour le rendu SVG déclaratif
+// Types for declarative SVG rendering
 // ============================================================================
 
-/** Représente une connexion (ligne) entre deux neurones */
+/**
+ * Represents a connection (line) between two neurons in the visualization.
+ */
 export interface SvgConnection {
+  /** Starting X coordinate */
   x1: number;
+  /** Starting Y coordinate */
   y1: number;
+  /** Ending X coordinate */
   x2: number;
+  /** Ending Y coordinate */
   y2: number;
+  /** Line color (positive/negative weight) */
   color: string;
+  /** Line thickness based on weight magnitude */
   strokeWidth: number;
+  /** Line opacity based on weight magnitude */
   opacity: number;
 }
 
-/** Représente un neurone (cercle + texte) */
+/**
+ * Represents a neuron (circle with text value) in the visualization.
+ */
 export interface SvgNeuron {
+  /** Circle center X coordinate */
   cx: number;
+  /** Circle center Y coordinate */
   cy: number;
+  /** Circle radius */
   radius: number;
+  /** Fill color based on activation value */
   fill: string;
+  /** Border thickness */
   strokeWidth: number;
+  /** Displayed activation value */
   value: string;
+  /** Optional label text (e.g., 'A', 'B', 'Out') */
   label?: string;
+  /** Label X position */
   labelX?: number;
+  /** Text anchor alignment */
   labelAnchor?: 'start' | 'middle' | 'end';
+  /** Font size for the value text */
   fontSize: string;
+  /** Font weight for the value text */
   fontWeight: string;
+  /** Vertical offset for centering text */
   textOffsetY: number;
 }
 
-/** Représente un label de couche */
+/**
+ * Represents a layer label displayed at the bottom of the visualization.
+ */
 export interface SvgLayerLabel {
+  /** X coordinate */
   x: number;
+  /** Y coordinate */
   y: number;
+  /** Label text (e.g., 'Input', 'Hidden 1 (ReLU)') */
   text: string;
 }
 
-/** Détails d'activation pour une couche */
+/**
+ * Activation details for a network layer.
+ */
 export interface ActivationDetail {
+  /** Layer index (1-based) */
   layerIndex: number;
+  /** Activation function name */
   functionName: string;
+  /** Formatted activation values */
   values: string;
 }
 
-/** Structure complète pour le rendu SVG */
+/**
+ * Complete data structure for rendering the neural network SVG.
+ */
 export interface NetworkVisualizationData {
+  /** All connections between neurons */
   connections: SvgConnection[];
+  /** All neurons across all layers */
   neurons: SvgNeuron[];
+  /** Labels for each layer */
   layerLabels: SvgLayerLabel[];
+  /** Activation details for debugging */
   activationDetails: ActivationDetail[];
+  /** Summary of the output values */
   outputSummary: string;
 }
 
@@ -94,9 +134,20 @@ const ACTIVATION_THRESHOLD = {
 } as const;
 
 // ============================================================================
-// Composant
+// Component
 // ============================================================================
 
+/**
+ * Declarative SVG neural network visualizer component.
+ *
+ * Renders a visual representation of a neural network showing:
+ * - Neurons as circles with activation values
+ * - Connections as lines with weight-based styling
+ * - Layer labels with activation function names
+ *
+ * Uses computed signals to reactively generate SVG data from
+ * activations and weights inputs.
+ */
 @Component({
   selector: 'app-neural-network-model-vizualizer',
   imports: [],
@@ -107,10 +158,12 @@ const ACTIVATION_THRESHOLD = {
   },
 })
 export class NeuralNetworkModelVizualizer {
+  /** Current network activations for each layer */
   public readonly activations = input<Activation<unknown, unknown> | null>();
+  /** Network weight matrices */
   public readonly weights = input<NeuralNetworkLayers | undefined>();
 
-  /** Données calculées pour le rendu SVG déclaratif */
+  /** Computed visualization data for declarative SVG rendering */
   public readonly visualizationData = computed<NetworkVisualizationData | null>(() => {
     const activations = this.activations();
     const weights = this.weights();
@@ -120,12 +173,13 @@ export class NeuralNetworkModelVizualizer {
     return this._buildVisualizationData(activations, weights);
   });
 
-  // Configuration exposée pour le template
+  /** Configuration exposed to template */
   protected readonly config = SVG_CONFIG;
+  /** Color scheme exposed to template */
   protected readonly colors = COLORS;
 
   // ==========================================================================
-  // Méthodes de construction des données de visualisation
+  // Visualization data builders
   // ==========================================================================
 
   private _buildVisualizationData(
@@ -165,7 +219,7 @@ export class NeuralNetworkModelVizualizer {
   }
 
   // ==========================================================================
-  // Construction des connexions
+  // Connection builders
   // ==========================================================================
 
   private _buildAllConnections(
@@ -176,7 +230,7 @@ export class NeuralNetworkModelVizualizer {
   ): SvgConnection[] {
     const connections: SvgConnection[] = [];
 
-    // Connexions entre input et première couche cachée
+    // Connections between input and first hidden layer
     connections.push(
       ...this._buildConnectionsBetweenLayers(
         weights.layers[0],
@@ -189,7 +243,7 @@ export class NeuralNetworkModelVizualizer {
       ),
     );
 
-    // Connexions entre couches cachées et vers output
+    // Connections between hidden layers and to output
     for (let i = 1; i < weights.layers.length; i++) {
       connections.push(
         ...this._buildConnectionsBetweenLayers(
@@ -254,7 +308,7 @@ export class NeuralNetworkModelVizualizer {
   }
 
   // ==========================================================================
-  // Construction des neurones
+  // Neuron builders
   // ==========================================================================
 
   private _buildAllNeurons(
@@ -264,10 +318,10 @@ export class NeuralNetworkModelVizualizer {
   ): SvgNeuron[] {
     const neurons: SvgNeuron[] = [];
 
-    // Neurones d'entrée
+    // Input neurons
     neurons.push(...this._buildInputNeurons(activations, layerX[0], layerYPositions[0]));
 
-    // Couches cachées et de sortie
+    // Hidden and output layers
     neurons.push(...this._buildHiddenAndOutputNeurons(activations, layerX, layerYPositions));
 
     return neurons;
@@ -359,7 +413,7 @@ export class NeuralNetworkModelVizualizer {
   }
 
   // ==========================================================================
-  // Construction des labels
+  // Label builders
   // ==========================================================================
 
   private _buildLayerLabels(
@@ -385,7 +439,7 @@ export class NeuralNetworkModelVizualizer {
   }
 
   // ==========================================================================
-  // Construction des détails d'activation
+  // Activation details builders
   // ==========================================================================
 
   private _buildActivationDetails(activations: Activation<unknown, unknown>): ActivationDetail[] {
@@ -411,7 +465,7 @@ export class NeuralNetworkModelVizualizer {
   }
 
   // ==========================================================================
-  // Fonctions utilitaires
+  // Utility functions
   // ==========================================================================
 
   private _getInputLabel(index: number): string {

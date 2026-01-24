@@ -2,14 +2,15 @@
 
 @let data = visualizationData();
 @if (data) {
+  <!-- SVG neural network visualization -->
   <svg
     width="100%"
     height="300"
     viewBox="0 0 500 280"
     role="img"
-    aria-label="Visualisation interactive du réseau de neurones"
+    aria-label="Interactive neural network visualization"
   >
-    <!-- Connexions entre neurones -->
+    <!-- Connections between neurons -->
     @for (conn of data.connections; track $index) {
       <line
         [attr.x1]="conn.x1"
@@ -22,9 +23,9 @@
       />
     }
 
-    <!-- Neurones (cercles + valeurs + labels) -->
+    <!-- Neurons (circles + values + labels) -->
     @for (neuron of data.neurons; track $index) {
-      <!-- Cercle du neurone -->
+      <!-- Neuron circle -->
       <circle
         [attr.cx]="neuron.cx"
         [attr.cy]="neuron.cy"
@@ -33,7 +34,7 @@
         [attr.stroke]="colors.stroke"
         [attr.stroke-width]="neuron.strokeWidth"
       />
-      <!-- Valeur du neurone -->
+      <!-- Neuron value -->
       <text
         [attr.x]="neuron.cx"
         [attr.y]="neuron.cy + neuron.textOffsetY"
@@ -44,7 +45,7 @@
       >
         {{ neuron.value }}
       </text>
-      <!-- Label du neurone (si présent) -->
+      <!-- Neuron label (if present) -->
       @if (neuron.label) {
         <text
           [attr.x]="neuron.labelX"
@@ -58,7 +59,7 @@
       }
     }
 
-    <!-- Labels des couches -->
+    <!-- Layer labels -->
     @for (label of data.layerLabels; track $index) {
       <text
         [attr.x]="label.x"
@@ -72,7 +73,7 @@
     }
   </svg>
 
-  <!-- Détails des activations -->
+  <!-- Activation details for debugging -->
   <div class="activation-details">
     @for (detail of data.activationDetails; track detail.layerIndex) {
       <div>
@@ -83,12 +84,13 @@
     <div><strong>Output: </strong>{{ data.outputSummary }}</div>
   </div>
 } @else {
+  <!-- Empty state when no data available -->
   <svg
     width="100%"
     height="300"
     viewBox="0 0 500 280"
     role="img"
-    aria-label="Visualisation du réseau de neurones en attente de données"
+    aria-label="Neural network visualization waiting for data"
   >
     <text x="250" y="140" text-anchor="middle" [attr.fill]="colors.neutral">
       Waiting for data...

@@ -1,8 +1,14 @@
+/**
+ * Model Info Card Styles
+ * Displays neural network metadata (architecture, accuracy, activations, runtime)
+ */
+
 :host {
   display: flex;
   flex-direction: column;
 }
-/* Model Info */
+
+/* Model Info Grid */
 .model-info {
   display: flex;
   justify-content: space-between;

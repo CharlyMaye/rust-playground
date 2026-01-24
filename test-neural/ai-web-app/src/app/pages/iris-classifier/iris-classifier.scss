@@ -1,4 +1,15 @@
-/* Iris-specific styles */
+/**
+ * Iris Classifier Demo Styles
+ * 
+ * Sections:
+ * - Input Grid: Form fields for flower measurements
+ * - Predict Button: CTA for running predictions
+ * - Result Card: Predicted class with probability bars
+ * - Presets: Quick preset buttons
+ * - Test Results: Validation results list
+ */
+
+/* Input Grid Section */
 .input-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

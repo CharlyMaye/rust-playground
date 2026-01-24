@@ -1,5 +1,8 @@
+<!-- About section -->
 <app-about />
-<div class="demo-grid" aria-label="Démos de réseaux de neurones disponibles">
+
+<!-- Demo cards grid -->
+<div class="demo-grid" aria-label="Available neural network demos">
   <!-- XOR Demo -->
   <a [routerLink]="['/xor-logic-gate']" class="demo-card">
     @if (!xorIsLoading()) {

@@ -1,5 +1,9 @@
 import { Component } from '@angular/core';
 
+/**
+ * MNIST digit classifier demo page.
+ * Placeholder for future handwritten digit recognition feature.
+ */
 @Component({
   selector: 'app-mnist-digit',
   imports: [],

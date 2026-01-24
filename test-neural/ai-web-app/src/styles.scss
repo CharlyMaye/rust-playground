@@ -1,4 +1,24 @@
+/**
+ * Global Styles for Neural Network Demo App
+ * 
+ * Sections:
+ * - CSS Custom Properties (Theme variables)
+ * - Accessibility utilities (sr-only, focus-visible)
+ * - Base styles (reset, typography)
+ * - Layout components (container, card)
+ * - Demo cards (homepage grid)
+ * - Badges (status indicators)
+ * - Loading states
+ * - Navigation
+ * - Footer
+ * - Responsive breakpoints
+ */
+
+/* ============================================
+   CSS Custom Properties - Theme Variables
+   ============================================ */
 :root {
+  /* Base colors */
   --bg: #0f172a;
   --card: #1e293b;
   --accent: #3b82f6;
@@ -25,6 +45,10 @@
   --badge-warning-bg: rgba(251, 191, 36, 0.15);
   --badge-warning-text: #fcd34d;
 }
+
+/* ============================================
+   Accessibility Utilities
+   ============================================ */
 
 /* Screen reader only - visually hidden but accessible */
 .sr-only {
@@ -56,6 +80,10 @@ button:focus-visible {
   outline-offset: 4px;
   border-color: var(--accent);
 }
+
+/* ============================================
+   Base Styles - Reset & Typography
+   ============================================ */
 
 * {
   box-sizing: border-box;
@@ -115,6 +143,10 @@ h3 {
   font-size: 1.1rem;
 }
 
+/* ============================================
+   Layout Components
+   ============================================ */
+
 .container {
   max-width: 900px;
   width: 100%;
@@ -143,7 +175,10 @@ h3 {
   font-weight: 500;
 }
 
-/* Demo Cards (Homepage) */
+/* ============================================
+   Demo Cards - Homepage Grid
+   ============================================ */
+
 .demo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -203,7 +238,10 @@ h3 {
   justify-content: center;
 }
 
-/* Badges */
+/* ============================================
+   Badges - Status Indicators
+   ============================================ */
+
 .badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
@@ -227,7 +265,10 @@ h3 {
   color: var(--badge-warning-text);
 }
 
-/* Loading State */
+/* ============================================
+   Loading States
+   ============================================ */
+
 .loading {
   text-align: center;
   padding: 3rem;
@@ -258,7 +299,10 @@ h3 {
   text-align: center;
 }
 
-/* Navigation */
+/* ============================================
+   Navigation
+   ============================================ */
+
 .nav-back {
   display: inline-flex;
   align-items: center;
@@ -274,7 +318,10 @@ h3 {
   color: var(--accent);
 }
 
-/* Footer */
+/* ============================================
+   Footer
+   ============================================ */
+
 footer {
   margin-top: 3rem;
   color: var(--muted);
@@ -292,7 +339,10 @@ footer a:hover {
   color: var(--accent-hover);
 }
 
-/* Responsive */
+/* ============================================
+   Responsive Breakpoints
+   ============================================ */
+
 @media (max-width: 768px) {
   body {
     padding: 1rem;

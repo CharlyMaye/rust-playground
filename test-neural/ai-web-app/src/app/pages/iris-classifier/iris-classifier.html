@@ -1,3 +1,10 @@
+<!-- Iris Classifier Demo Template
+     - Interactive classifier with measurement inputs
+     - Preset buttons for quick testing
+     - Prediction result with probability bars
+     - Network visualization
+     - Test samples validation
+-->
 @if (irisIsLoading()) {
   <app-loader id="loading" [message]="'Loading Neural Network...'" />
 } @else {
@@ -25,7 +32,8 @@
         </div>
       </div>
 
-      <div class="presets" role="group" aria-label="Préréglages rapides">
+      <!-- Preset buttons for quick input -->
+      <div class="presets" role="group" aria-label="Quick presets">
         <strong class="presets-label" id="presetsLabel">Quick Presets:</strong>
         <button class="preset-btn" (click)="loadPreset('setosa')" aria-describedby="presetsLabel">
           Setosa
@@ -56,7 +64,8 @@
           {{ confidenceDisplay() }}
         </div>
 
-        <div class="probabilities" role="group" aria-label="Probabilités par classe">
+        <!-- Class probability bars -->
+        <div class="probabilities" role="group" aria-label="Class probabilities">
           <div class="prob-item">
             <div class="prob-label" id="labelSetosa">Setosa</div>
             <div
@@ -117,7 +126,8 @@
       <div class="card-title"><span aria-hidden="true">🧪</span> Test Samples</div>
       <button class="predict-btn" (click)="testAllSamples()">Run All Test Samples</button>
       @if (!!showTestSamplesResult()) {
-        <div id="testResults" class="test-results" role="list" aria-label="Résultats des tests">
+        <!-- Test results list -->
+        <div id="testResults" class="test-results" role="list" aria-label="Test results">
           @for (result of irisTestAll(); track $index) {
             <div
               class="test-item"
