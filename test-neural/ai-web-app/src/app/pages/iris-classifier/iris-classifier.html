@@ -26,7 +26,7 @@
       </div>
 
       <div class="presets">
-        <strong style="color: var(--muted); font-size: 0.875rem">Quick Presets:</strong>
+        <strong class="presets-label">Quick Presets:</strong>
         <button class="preset-btn" (click)="loadPreset('setosa')">Setosa</button>
         <button class="preset-btn" (click)="loadPreset('versicolor')">Versicolor</button>
         <button class="preset-btn" (click)="loadPreset('virginica')">Virginica</button>
@@ -82,7 +82,7 @@
       <div class="card-title">🧪 Test Samples</div>
       <button class="predict-btn" (click)="testAllSamples()">Run All Test Samples</button>
       @if (!!showTestSamplesResult()) {
-        <div id="testResults" class="test-results" style="margin-top: 1rem">
+        <div id="testResults" class="test-results">
           @for (result of irisTestAll(); track $index) {
             <div
               class="test-item"
@@ -106,6 +106,4 @@
       }
     </div>
   </div>
-
-  <div id="error" class="card error" style="display: none"></div>
 }

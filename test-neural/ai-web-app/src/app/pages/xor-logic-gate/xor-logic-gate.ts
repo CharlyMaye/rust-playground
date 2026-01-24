@@ -6,7 +6,7 @@ import { ModelInfoComponent } from '../../ui/model-info/model-info';
 
 import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
 
-type NetworkPrediction = {
+type XorPrediction = {
   confidence: number;
   prediction: number;
   probabilities: [number, number];
@@ -39,7 +39,7 @@ export class XorLogicGate {
     const inputA = this.inputA();
     const inputB = this.inputB();
     const prediction = network.predict(inputA, inputB);
-    const output = JSON.parse(prediction) as NetworkPrediction;
+    const output = JSON.parse(prediction) as XorPrediction;
     return output;
   });
   public readonly activations = computed(() => {

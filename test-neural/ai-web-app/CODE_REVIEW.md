@@ -16,7 +16,7 @@
 | **Accessibilité (a11y)** | ❌ Faible | Manques critiques sur les labels, ARIA, focus |
 | **TypeScript** | ✅ Bon | Typage strict activé, interfaces définies |
 | **Performance** | ✅ Bon | Mode zoneless avec signaux (console.log à supprimer) |
-| **Maintenabilité** | ⚠️ Moyen | Code dupliqué, manipulation DOM directe |
+| **Maintenabilité** | ✅ Bon | Structure claire, peu de duplication |
 
 ---
 
@@ -102,35 +102,20 @@ svg.appendChild(circle);
 
 ---
 
-#### 2.3. Corriger les styles inline dans les templates
-**Fichiers concernés** :
-- [iris-classifier.html](src/app/pages/iris-classifier/iris-classifier.html) : `style="color: var(--muted); font-size: 0.875rem"`
-- [about.html](src/app/ui/about/about.html) : `style="color: var(--muted); line-height: 1.8"`
-- [model-info.html](src/app/ui/model-info/model-info.html) : `style="margin-top: 1rem; ..."`
-- [xor-logic-gate.html](src/app/pages/xor-logic-gate/xor-logic-gate.html) : `style="display: none"` (code mort ?)
-
-**Action** : Déplacer les styles dans les fichiers SCSS correspondants.
+#### 2.3. ~~Corriger les styles inline dans les templates~~ ✅ CORRIGÉ
+**Statut** : Styles inline déplacés vers SCSS et code mort supprimé.
 
 ---
 
-#### 2.4. Supprimer le code HTML mort/inutilisé
-**Fichiers** :
-- [iris-classifier.html](src/app/pages/iris-classifier/iris-classifier.html) ligne ~103 : `<div id="error" class="card error" style="display: none">` (jamais utilisé)
-- [xor-logic-gate.html](src/app/pages/xor-logic-gate/xor-logic-gate.html) ligne ~87-90 : Bloc error inutilisé
-- Commentaire `<!-- Filled by JavaScript -->` (vestige de l'adaptation)
+#### 2.4. ~~Supprimer le code HTML mort/inutilisé~~ ✅ CORRIGÉ
+**Statut** : Les divs `#error` avec `display: none` ont été supprimées.
 
 ---
 
 ### 🟡 Priorité 3 - ROI Modéré (Amélioration architecture)
 
-#### 3.1. Créer des types/interfaces partagés
-**Problème** : Types `NetworkPrediction` dupliqués et définis localement dans les composants.
-
-**Fichiers** :
-- [iris-classifier.ts](src/app/pages/iris-classifier/iris-classifier.ts) : `NetworkPrediction` (lignes 14-20)
-- [xor-logic-gate.ts](src/app/pages/xor-logic-gate/xor-logic-gate.ts) : `NetworkPrediction` (lignes 9-14)
-
-**Action** : Déplacer dans `src/wasm/shared/model-info.ts`.
+#### 3.1. ~~Renommer les types pour plus de clarté~~ ✅ CORRIGÉ
+**Statut** : Types renommés en `IrisPrediction` et `XorPrediction`.
 
 ---
 
@@ -215,11 +200,11 @@ svg.appendChild(circle);
 ### 🟠 Priorité Moyenne (Sprint suivant)
 - [ ] Refactorer `NeuralNetworkModelVizualizer` pour éliminer la manipulation DOM directe
 - [ ] Corriger les problèmes d'accessibilité (a11y)
-- [ ] Déplacer les styles inline vers SCSS
-- [ ] Supprimer le code HTML mort
+- [x] ~~Déplacer les styles inline vers SCSS~~ ✅
+- [x] ~~Supprimer le code HTML mort~~ ✅
 
 ### 🟡 Priorité Modérée (Backlog)
-- [ ] Extraire les types `NetworkPrediction` dans un fichier partagé
+- [x] ~~Renommer les types `NetworkPrediction` → `IrisPrediction` / `XorPrediction`~~ ✅
 - [ ] Créer des services pour la logique métier des pages
 - [ ] Refactorer le composant de visualisation (448 lignes)
 - [ ] Utiliser le composant `Card` partout

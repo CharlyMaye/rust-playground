@@ -11,7 +11,7 @@ interface IrisFormState {
   petalLength: number;
   petalWidth: number;
 }
-type NetworkPrediction = {
+type IrisPrediction = {
   class: string;
   class_idx: number;
   probabilities: [number, number, number];
@@ -89,7 +89,7 @@ export class IrisClassifier {
     const petalLength = this.irisForm.petalLength().value();
     const petalWidth = this.irisForm.petalWidth().value();
     const resultJSON = network.predict(sepalLength, sepalWidth, petalLength, petalWidth);
-    const result = JSON.parse(resultJSON) as NetworkPrediction;
+    const result = JSON.parse(resultJSON) as IrisPrediction;
     return result;
   });
   public readonly activations = computed(() => {
