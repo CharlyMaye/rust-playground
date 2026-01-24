@@ -52,6 +52,7 @@ export class XorLogicGate {
     const acts = JSON.parse(network.get_activations(inputA, inputB)) as Activation<number, number>;
     // TODO - modifier le code cote neural network
     acts.output = [acts.output as unknown as number];
+    console.log('Activations:', acts);
     return acts;
   });
   public readonly predictionDisplay = computed(() => {

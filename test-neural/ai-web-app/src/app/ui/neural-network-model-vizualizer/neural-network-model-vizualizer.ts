@@ -11,12 +11,13 @@ import { Activation, NeuralNetworkLayers } from '@cma/wasm/shared';
   },
 })
 export class NeuralNetworkModelVizualizer {
-  public readonly activations = input<Activation<unknown, unknown>>();
+  public readonly activations = input<Activation<unknown, unknown> | null>();
   public readonly weights = input<NeuralNetworkLayers | undefined>();
 
   constructor() {
     effect(() => {
       const activations = this.activations();
+      console.log('NeuralNetworkModelVizualizer - activations changed:', activations);
       const weights = this.weights();
       if (!activations || !weights) {
         return;
@@ -45,231 +46,419 @@ export class NeuralNetworkModelVizualizer {
     if (!svg) {
       return;
     }
+
+    // Calculate dynamic structure
+    const layerSizes = this._calculateLayerSizes(activations);
+    const layerX = this._calculateLayerXPositions(layerSizes.length);
+    const layerYPositions = this._calculateAllLayerYPositions(layerSizes);
+
+    // Clear previous content
+    this._clearSvg(svg);
+
     const NS = 'http://www.w3.org/2000/svg';
 
-    const layerSizes = [2, ...weights.layers.map((l: any) => l.shape[0])];
-    const layerX = [60, 250, 440];
+    // Draw all connections between layers
+    this._drawAllConnections(svg, NS, weights, layerSizes, layerX, layerYPositions);
+
+    // Draw all neuron layers
+    this._drawInputLayer(svg, NS, activations, layerX[0], layerYPositions[0]);
+    this._drawHiddenLayers(svg, NS, activations, layerX, layerYPositions);
+    this._drawOutputLayer(
+      svg,
+      NS,
+      activations,
+      layerX[layerX.length - 1],
+      layerYPositions[layerYPositions.length - 1],
+    );
+
+    // Draw layer labels
+    this._drawLayerLabels(svg, NS, activations, layerX);
+
+    // Update activation details
+    this._updateActivationDetails(activations);
+  }
+
+  private _calculateLayerSizes(activations: Activation<unknown, unknown>): number[] {
+    const inputCount = activations.inputs.length;
+    const hiddenCounts = activations.layers.map((layer) => layer.activation.length);
+    const outputCount = (activations.output as number[]).length;
+    return [inputCount, ...hiddenCounts, outputCount];
+  }
+
+  private _calculateLayerXPositions(layerCount: number): number[] {
+    const svgWidth = 500;
+    const margin = 60;
+    const spacing = (svgWidth - 2 * margin) / (layerCount - 1);
+    const positions = [];
+    for (let i = 0; i < layerCount; i++) {
+      positions.push(margin + i * spacing);
+    }
+    return positions;
+  }
+
+  private _calculateAllLayerYPositions(layerSizes: number[]): number[][] {
+    return layerSizes.map((size) => this._getNeuronYPositions(size, 280));
+  }
+
+  private _clearSvg(svg: HTMLElement): void {
+    while (svg.firstChild) {
+      svg.removeChild(svg.firstChild);
+    }
+  }
+
+  private _drawAllConnections(
+    svg: HTMLElement,
+    NS: string,
+    weights: NeuralNetworkLayers,
+    layerSizes: number[],
+    layerX: number[],
+    layerYPositions: number[][],
+  ): void {
+    // Draw connections between input and first hidden layer
+    this._drawConnectionsBetweenLayers(
+      svg,
+      NS,
+      weights.layers[0],
+      layerSizes[0],
+      layerSizes[1],
+      layerX[0],
+      layerX[1],
+      layerYPositions[0],
+      layerYPositions[1],
+    );
+
+    // Draw connections between hidden layers and to output
+    for (let i = 1; i < weights.layers.length; i++) {
+      this._drawConnectionsBetweenLayers(
+        svg,
+        NS,
+        weights.layers[i],
+        layerSizes[i],
+        layerSizes[i + 1],
+        layerX[i],
+        layerX[i + 1],
+        layerYPositions[i],
+        layerYPositions[i + 1],
+      );
+    }
+  }
+
+  private _drawConnectionsBetweenLayers(
+    svg: HTMLElement,
+    NS: string,
+    layer: any,
+    fromSize: number,
+    toSize: number,
+    fromX: number,
+    toX: number,
+    fromY: number[],
+    toY: number[],
+  ): void {
+    const colors = {
+      positive: '#22c55e',
+      negative: '#ef4444',
+    };
+
+    // Check if weights is an array of arrays or a flat array
+    const isNestedArray = Array.isArray(layer.weights[0]);
+
+    for (let i = 0; i < toSize; i++) {
+      for (let j = 0; j < fromSize; j++) {
+        let w: number;
+
+        if (isNestedArray) {
+          // Weights are stored as array per output neuron
+          w = layer.weights[i][j];
+        } else {
+          // Weights are stored as flat array
+          w = layer.weights[i * fromSize + j];
+        }
+
+        if (w === undefined || isNaN(w)) {
+          console.warn(`Invalid weight at [${i}][${j}]:`, w);
+          continue;
+        }
+
+        const absWeight = Math.abs(w);
+        // Ajuster l'opacité pour rendre les poids plus visibles (min 0.3, max 0.9)
+        const opacity = Math.min(absWeight / 2, 0.9) + 0.3;
+        // Ajuster l'épaisseur pour rendre les poids plus visibles (min 0.8, max 3)
+        const strokeWidth = Math.min(absWeight * 2, 2.5) + 0.8;
+        const color = w > 0 ? colors.positive : colors.negative;
+
+        const line = document.createElementNS(NS, 'line');
+        line.setAttribute('x1', fromX.toString());
+        line.setAttribute('y1', fromY[j].toString());
+        line.setAttribute('x2', toX.toString());
+        line.setAttribute('y2', toY[i].toString());
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', strokeWidth.toString());
+        line.setAttribute('stroke-opacity', opacity.toString());
+        svg.appendChild(line);
+      }
+    }
+  }
+
+  private _drawInputLayer(
+    svg: HTMLElement,
+    NS: string,
+    activations: Activation<unknown, unknown>,
+    x: number,
+    yPositions: number[],
+  ): void {
+    const colors = {
+      positive: '#22c55e',
+      neutral: '#64748b',
+    };
+
+    activations.inputs.forEach((val: unknown, i: number) => {
+      const numVal = val as number;
+      const intensity = numVal;
+
+      // Draw circle
+      const circle = document.createElementNS(NS, 'circle');
+      circle.setAttribute('cx', x.toString());
+      circle.setAttribute('cy', yPositions[i].toString());
+      circle.setAttribute('r', '20');
+      circle.setAttribute('fill', intensity > 0.5 ? colors.positive : colors.neutral);
+      circle.setAttribute('stroke', 'white');
+      circle.setAttribute('stroke-width', '2');
+      svg.appendChild(circle);
+
+      // Draw value
+      const valueText = document.createElementNS(NS, 'text');
+      valueText.setAttribute('x', x.toString());
+      valueText.setAttribute('y', (yPositions[i] + 5).toString());
+      valueText.setAttribute('text-anchor', 'middle');
+      valueText.setAttribute('fill', 'white');
+      valueText.setAttribute('font-weight', 'bold');
+      valueText.setAttribute('font-size', '14');
+      valueText.textContent = numVal.toFixed(1);
+      svg.appendChild(valueText);
+
+      // Draw label
+      const label = this._getInputLabel(i);
+      const labelText = document.createElementNS(NS, 'text');
+      labelText.setAttribute('x', (x - 35).toString());
+      labelText.setAttribute('y', (yPositions[i] + 5).toString());
+      labelText.setAttribute('text-anchor', 'middle');
+      labelText.setAttribute('fill', '#94a3b8');
+      labelText.setAttribute('font-size', '11');
+      labelText.textContent = label;
+      svg.appendChild(labelText);
+    });
+  }
+
+  private _drawHiddenLayers(
+    svg: HTMLElement,
+    NS: string,
+    activations: Activation<unknown, unknown>,
+    layerX: number[],
+    layerYPositions: number[][],
+  ): void {
+    activations.layers.forEach((layer, layerIndex) => {
+      const x = layerX[layerIndex + 1]; // +1 because input is at index 0
+      const yPositions = layerYPositions[layerIndex + 1];
+
+      layer.activation.forEach((val: number, neuronIndex: number) => {
+        const color = this._getNeuronColor(val, layer.function);
+
+        // Draw circle
+        const circle = document.createElementNS(NS, 'circle');
+        circle.setAttribute('cx', x.toString());
+        circle.setAttribute('cy', yPositions[neuronIndex].toString());
+        circle.setAttribute('r', '16');
+        circle.setAttribute('fill', color);
+        circle.setAttribute('stroke', 'white');
+        circle.setAttribute('stroke-width', '2');
+        svg.appendChild(circle);
+
+        // Draw value
+        const valueText = document.createElementNS(NS, 'text');
+        valueText.setAttribute('x', x.toString());
+        valueText.setAttribute('y', (yPositions[neuronIndex] + 4).toString());
+        valueText.setAttribute('text-anchor', 'middle');
+        valueText.setAttribute('fill', 'white');
+        valueText.setAttribute('font-size', '9');
+        valueText.textContent = val.toFixed(2);
+        svg.appendChild(valueText);
+      });
+    });
+  }
+
+  private _drawOutputLayer(
+    svg: HTMLElement,
+    NS: string,
+    activations: Activation<unknown, unknown>,
+    x: number,
+    yPositions: number[],
+  ): void {
     const colors = {
       positive: '#22c55e',
       negative: '#ef4444',
       neutral: '#64748b',
     };
 
-    // Clear previous content
-    while (svg.firstChild) {
-      svg.removeChild(svg.firstChild);
-    }
-
-    // Helper to create SVG elements safely
-    function createLine(
-      x1: string,
-      y1: string,
-      x2: string,
-      y2: string,
-      stroke: string,
-      strokeWidth: string,
-      strokeOpacity: string,
-    ) {
-      const line = document.createElementNS(NS, 'line');
-      line.setAttribute('x1', x1);
-      line.setAttribute('y1', y1);
-      line.setAttribute('x2', x2);
-      line.setAttribute('y2', y2);
-      line.setAttribute('stroke', stroke);
-      line.setAttribute('stroke-width', strokeWidth);
-      line.setAttribute('stroke-opacity', strokeOpacity);
-      return line;
-    }
-
-    function createCircle(
-      cx: string,
-      cy: string,
-      r: string,
-      fill: string,
-      stroke: string,
-      strokeWidth: string,
-    ) {
-      const circle = document.createElementNS(NS, 'circle');
-      circle.setAttribute('cx', cx);
-      circle.setAttribute('cy', cy);
-      circle.setAttribute('r', r);
-      circle.setAttribute('fill', fill);
-      circle.setAttribute('stroke', stroke);
-      circle.setAttribute('stroke-width', strokeWidth);
-      return circle;
-    }
-
-    function createText(
-      x: string,
-      y: string,
-      content: string,
-      options: { anchor?: string; fill?: string; fontSize?: string; fontWeight?: string } = {},
-    ) {
-      const text = document.createElementNS(NS, 'text');
-      text.setAttribute('x', x);
-      text.setAttribute('y', y);
-      text.setAttribute('text-anchor', options.anchor || 'middle');
-      text.setAttribute('fill', options.fill || 'white');
-      if (options.fontSize) text.setAttribute('font-size', options.fontSize);
-      if (options.fontWeight) text.setAttribute('font-weight', options.fontWeight);
-      text.textContent = content;
-      return text;
-    }
-
-    // Calculate positions
-    const hiddenY = this._getNeuronYPositions(layerSizes[1], 280);
-    const inputY = this._getNeuronYPositions(2, 280);
-    const outputY = [140];
-
-    // Draw connections: input → hidden
-    for (let i = 0; i < layerSizes[1]; i++) {
-      for (let j = 0; j < 2; j++) {
-        const w = weights.layers[0].weights[i * 2 + j];
-        const opacity = Math.min(Math.abs(w) / 5, 1);
-        const color = w > 0 ? colors.positive : colors.negative;
-        svg.appendChild(
-          createLine(
-            layerX[0].toString(),
-            inputY[j].toString(),
-            layerX[1].toString(),
-            hiddenY[i].toString(),
-            color,
-            (Math.abs(w) / 3 + 0.5).toString(),
-            (opacity * 0.6).toString(),
-          ),
-        );
-      }
-    }
-
-    // Draw connections: hidden → output
-    for (let i = 0; i < layerSizes[1]; i++) {
-      const w = weights.layers[1].weights[i];
-      const opacity = Math.min(Math.abs(w) / 5, 1);
-      const color = w > 0 ? colors.positive : colors.negative;
-      svg.appendChild(
-        createLine(
-          layerX[1].toString(),
-          hiddenY[i].toString(),
-          layerX[2].toString(),
-          outputY[0].toString(),
-          color,
-          (Math.abs(w) / 3 + 0.5).toString(),
-          (opacity * 0.6).toString(),
-        ),
-      );
-    }
-
-    // Draw neurons - Input layer
-    activations.inputs.forEach((val: unknown, i: number) => {
-      const intensity = val as number;
-      svg.appendChild(
-        createCircle(
-          layerX[0].toString(),
-          inputY[i].toString(),
-          '20',
-          intensity > 0.5 ? colors.positive : colors.neutral,
-          'white',
-          '2',
-        ),
-      );
-      svg.appendChild(
-        createText(layerX[0].toString(), (inputY[i] + 5).toString(), (val as number).toFixed(0), {
-          fontWeight: 'bold',
-          fontSize: '14',
-        }),
-      );
-      svg.appendChild(
-        createText((layerX[0] - 35).toString(), (inputY[i] + 5).toString(), i === 0 ? 'A' : 'B', {
-          fill: '#94a3b8',
-          fontSize: '11',
-        }),
-      );
-    });
-
-    // Draw neurons - Hidden layer
-    const hiddenActivations = activations.layers[0].activation;
-    hiddenActivations.forEach((val: number, i: number) => {
-      const normalized = (val + 1) / 2; // tanh output is -1 to 1
-      const r = Math.round(normalized * 34 + (1 - normalized) * 239);
-      const g = Math.round(normalized * 197 + (1 - normalized) * 68);
-      const b = Math.round(normalized * 94 + (1 - normalized) * 68);
-      svg.appendChild(
-        createCircle(
-          layerX[1].toString(),
-          hiddenY[i].toString(),
-          '16',
-          `rgb(${r},${g},${b})`,
-          'white',
-          '2',
-        ),
-      );
-      svg.appendChild(
-        createText(layerX[1].toString(), (hiddenY[i] + 4).toString(), val.toFixed(2), {
-          fontSize: '9',
-        }),
-      );
-    });
-
-    // Draw neurons - Output layer
     const outputVal = activations.output as number[];
-    const outColor = outputVal[0] > 0.5 ? colors.positive : colors.negative;
-    svg.appendChild(
-      createCircle(layerX[2].toString(), outputY[0].toString(), '25', outColor, 'white', '3'),
-    );
-    svg.appendChild(
-      createText(layerX[2].toString(), (outputY[0] + 6).toString(), outputVal[0].toFixed(2), {
-        fontWeight: 'bold',
-        fontSize: '16',
-      }),
-    );
-    svg.appendChild(
-      createText((layerX[2] + 40).toString(), (outputY[0] + 5).toString(), 'Out', {
-        anchor: 'start',
-        fill: '#94a3b8',
-        fontSize: '11',
-      }),
-    );
+    const lastLayer = activations.layers[activations.layers.length - 1];
+    const isSoftmax = lastLayer.function.toLowerCase() === 'softmax';
 
-    // Layer labels
-    svg.appendChild(
-      createText(layerX[0].toString(), '270', 'Input', { fill: '#64748b', fontSize: '10' }),
-    );
-    svg.appendChild(
-      createText(layerX[1].toString(), '270', 'Hidden (Tanh)', { fill: '#64748b', fontSize: '10' }),
-    );
-    svg.appendChild(
-      createText(layerX[2].toString(), '270', 'Output (Sigmoid)', {
-        fill: '#64748b',
-        fontSize: '10',
-      }),
-    );
+    outputVal.forEach((val: number, i: number) => {
+      // Determine color based on activation function
+      let outColor: string;
+      if (isSoftmax) {
+        // For softmax, use gradient based on probability
+        outColor = val > 0.33 ? colors.positive : colors.neutral;
+      } else {
+        outColor = val > 0.5 ? colors.positive : colors.negative;
+      }
 
-    // Update details (safe - using textContent for dynamic values)
+      // Draw circle
+      const circle = document.createElementNS(NS, 'circle');
+      circle.setAttribute('cx', x.toString());
+      circle.setAttribute('cy', yPositions[i].toString());
+      circle.setAttribute('r', '25');
+      circle.setAttribute('fill', outColor);
+      circle.setAttribute('stroke', 'white');
+      circle.setAttribute('stroke-width', '3');
+      svg.appendChild(circle);
+
+      // Draw value
+      const valueText = document.createElementNS(NS, 'text');
+      valueText.setAttribute('x', x.toString());
+      valueText.setAttribute('y', (yPositions[i] + 6).toString());
+      valueText.setAttribute('text-anchor', 'middle');
+      valueText.setAttribute('fill', 'white');
+      valueText.setAttribute('font-weight', 'bold');
+      valueText.setAttribute('font-size', '16');
+      valueText.textContent = val.toFixed(2);
+      svg.appendChild(valueText);
+
+      // Draw label
+      const label = outputVal.length > 1 ? `Out ${i}` : 'Out';
+      const labelText = document.createElementNS(NS, 'text');
+      labelText.setAttribute('x', (x + 40).toString());
+      labelText.setAttribute('y', (yPositions[i] + 5).toString());
+      labelText.setAttribute('text-anchor', 'start');
+      labelText.setAttribute('fill', '#94a3b8');
+      labelText.setAttribute('font-size', '11');
+      labelText.textContent = label;
+      svg.appendChild(labelText);
+    });
+  }
+
+  private _drawLayerLabels(
+    svg: HTMLElement,
+    NS: string,
+    activations: Activation<unknown, unknown>,
+    layerX: number[],
+  ): void {
+    // Input label
+    const inputLabel = document.createElementNS(NS, 'text');
+    inputLabel.setAttribute('x', layerX[0].toString());
+    inputLabel.setAttribute('y', '270');
+    inputLabel.setAttribute('text-anchor', 'middle');
+    inputLabel.setAttribute('fill', '#64748b');
+    inputLabel.setAttribute('font-size', '10');
+    inputLabel.textContent = 'Input';
+    svg.appendChild(inputLabel);
+
+    // Hidden layers labels
+    activations.layers.forEach((layer, i) => {
+      const label = document.createElementNS(NS, 'text');
+      label.setAttribute('x', layerX[i + 1].toString());
+      label.setAttribute('y', '270');
+      label.setAttribute('text-anchor', 'middle');
+      label.setAttribute('fill', '#64748b');
+      label.setAttribute('font-size', '10');
+      label.textContent = `Hidden ${i + 1} (${layer.function})`;
+      svg.appendChild(label);
+    });
+
+    // Output label
+    const lastLayer = activations.layers[activations.layers.length - 1];
+    const outputLabel = document.createElementNS(NS, 'text');
+    outputLabel.setAttribute('x', layerX[layerX.length - 1].toString());
+    outputLabel.setAttribute('y', '270');
+    outputLabel.setAttribute('text-anchor', 'middle');
+    outputLabel.setAttribute('fill', '#64748b');
+    outputLabel.setAttribute('font-size', '10');
+    outputLabel.textContent = `Output (${lastLayer.function})`;
+    svg.appendChild(outputLabel);
+  }
+
+  private _updateActivationDetails(activations: Activation<unknown, unknown>): void {
     const detailsEl = document.getElementById('activationDetails');
     if (!detailsEl) {
       return;
     }
     detailsEl.textContent = '';
 
-    const strong1 = document.createElement('strong');
-    strong1.textContent = 'Hidden layer activations: ';
-    detailsEl.appendChild(strong1);
-    detailsEl.appendChild(
-      document.createTextNode(
-        '[' + hiddenActivations.map((v: number) => v.toFixed(3)).join(', ') + ']',
-      ),
-    );
-    detailsEl.appendChild(document.createElement('br'));
+    // Display all hidden layers
+    activations.layers.forEach((layer, i) => {
+      const strong = document.createElement('strong');
+      strong.textContent = `Layer ${i + 1} activations (${layer.function}): `;
+      detailsEl.appendChild(strong);
+      detailsEl.appendChild(
+        document.createTextNode(
+          '[' + layer.activation.map((v: number) => v.toFixed(3)).join(', ') + ']',
+        ),
+      );
+      detailsEl.appendChild(document.createElement('br'));
+    });
 
+    // Display output
+    const outputVal = activations.output as number[];
     const strong2 = document.createElement('strong');
     strong2.textContent = 'Output: ';
     detailsEl.appendChild(strong2);
-    detailsEl.appendChild(document.createTextNode(outputVal[0].toFixed(6) + ' → '));
 
-    const strong3 = document.createElement('strong');
-    strong3.textContent = outputVal[0] > 0.5 ? '1' : '0';
-    detailsEl.appendChild(strong3);
+    if (outputVal.length === 1) {
+      detailsEl.appendChild(document.createTextNode(outputVal[0].toFixed(6) + ' → '));
+      const strong3 = document.createElement('strong');
+      strong3.textContent = outputVal[0] > 0.5 ? '1' : '0';
+      detailsEl.appendChild(strong3);
+    } else {
+      detailsEl.appendChild(
+        document.createTextNode('[' + outputVal.map((v: number) => v.toFixed(4)).join(', ') + ']'),
+      );
+      const maxIndex = outputVal.indexOf(Math.max(...outputVal));
+      const strong3 = document.createElement('strong');
+      strong3.textContent = ` → Class ${maxIndex}`;
+      detailsEl.appendChild(strong3);
+    }
   }
+
+  private _getInputLabel(index: number): string {
+    const labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    return labels[index] || `I${index}`;
+  }
+
+  private _getNeuronColor(value: number, activationFunction: string): string {
+    const func = activationFunction.toLowerCase();
+    let normalized: number;
+
+    if (func === 'tanh') {
+      // Tanh output is -1 to 1
+      normalized = (value + 1) / 2;
+    } else if (func === 'sigmoid' || func === 'softmax') {
+      // Sigmoid and Softmax output is 0 to 1
+      normalized = value;
+    } else if (func === 'relu') {
+      // ReLU output is 0 to +inf, cap at 1
+      normalized = Math.min(value, 1);
+    } else {
+      // Default normalization
+      normalized = (value + 1) / 2;
+    }
+
+    // Gradient from red/blue to green
+    const r = Math.round(normalized * 34 + (1 - normalized) * 239);
+    const g = Math.round(normalized * 197 + (1 - normalized) * 68);
+    const b = Math.round(normalized * 94 + (1 - normalized) * 68);
+    return `rgb(${r},${g},${b})`;
+  }
+
   private _getNeuronYPositions(count: number, height: number): number[] {
     const margin = 30;
     const available = height - 2 * margin - 40;
