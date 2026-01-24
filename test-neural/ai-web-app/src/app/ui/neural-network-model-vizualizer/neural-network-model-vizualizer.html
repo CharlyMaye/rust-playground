@@ -1,10 +1,97 @@
 <div class="card-title"><span aria-hidden="true">🔬</span> Network Visualization</div>
-<svg
-  id="networkViz"
-  width="100%"
-  height="300"
-  viewBox="0 0 500 280"
-  role="img"
-  aria-label="Visualisation interactive du réseau de neurones"
-></svg>
-<div id="activationDetails" class="activation-details"></div>
+
+@let data = visualizationData();
+@if (data) {
+  <svg
+    width="100%"
+    height="300"
+    viewBox="0 0 500 280"
+    role="img"
+    aria-label="Visualisation interactive du réseau de neurones"
+  >
+    <!-- Connexions entre neurones -->
+    @for (conn of data.connections; track $index) {
+      <line
+        [attr.x1]="conn.x1"
+        [attr.y1]="conn.y1"
+        [attr.x2]="conn.x2"
+        [attr.y2]="conn.y2"
+        [attr.stroke]="conn.color"
+        [attr.stroke-width]="conn.strokeWidth"
+        [attr.stroke-opacity]="conn.opacity"
+      />
+    }
+
+    <!-- Neurones (cercles + valeurs + labels) -->
+    @for (neuron of data.neurons; track $index) {
+      <!-- Cercle du neurone -->
+      <circle
+        [attr.cx]="neuron.cx"
+        [attr.cy]="neuron.cy"
+        [attr.r]="neuron.radius"
+        [attr.fill]="neuron.fill"
+        [attr.stroke]="colors.stroke"
+        [attr.stroke-width]="neuron.strokeWidth"
+      />
+      <!-- Valeur du neurone -->
+      <text
+        [attr.x]="neuron.cx"
+        [attr.y]="neuron.cy + neuron.textOffsetY"
+        text-anchor="middle"
+        [attr.fill]="colors.stroke"
+        [attr.font-size]="neuron.fontSize"
+        [attr.font-weight]="neuron.fontWeight"
+      >
+        {{ neuron.value }}
+      </text>
+      <!-- Label du neurone (si présent) -->
+      @if (neuron.label) {
+        <text
+          [attr.x]="neuron.labelX"
+          [attr.y]="neuron.cy + 5"
+          [attr.text-anchor]="neuron.labelAnchor"
+          [attr.fill]="colors.label"
+          [attr.font-size]="config.fontSize.label"
+        >
+          {{ neuron.label }}
+        </text>
+      }
+    }
+
+    <!-- Labels des couches -->
+    @for (label of data.layerLabels; track $index) {
+      <text
+        [attr.x]="label.x"
+        [attr.y]="label.y"
+        text-anchor="middle"
+        [attr.fill]="colors.neutral"
+        [attr.font-size]="config.fontSize.layerLabel"
+      >
+        {{ label.text }}
+      </text>
+    }
+  </svg>
+
+  <!-- Détails des activations -->
+  <div class="activation-details">
+    @for (detail of data.activationDetails; track detail.layerIndex) {
+      <div>
+        <strong>Layer {{ detail.layerIndex }} activations ({{ detail.functionName }}): </strong>
+        {{ detail.values }}
+      </div>
+    }
+    <div><strong>Output: </strong>{{ data.outputSummary }}</div>
+  </div>
+} @else {
+  <svg
+    width="100%"
+    height="300"
+    viewBox="0 0 500 280"
+    role="img"
+    aria-label="Visualisation du réseau de neurones en attente de données"
+  >
+    <text x="250" y="140" text-anchor="middle" [attr.fill]="colors.neutral">
+      Waiting for data...
+    </text>
+  </svg>
+}

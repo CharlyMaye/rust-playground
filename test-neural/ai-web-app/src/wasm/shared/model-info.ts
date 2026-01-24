@@ -49,3 +49,16 @@ export type IrisPrediction = {
   probabilities: [number, number, number];
   confidence: number;
 };
+
+export interface IrisTestResult {
+  sepal_length: number;
+  sepal_width: number;
+  petal_length: number;
+  petal_width: number;
+  expected: string;
+  predicted: string;
+  is_correct: boolean;
+  correct: boolean; // Alias pour compatibilité
+  confidence: number;
+  probabilities: [number, number, number];
+}

@@ -11,7 +11,7 @@ import init, {
   InitOutput as InitIraisOutput,
   IrisClassifier,
 } from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
-import { ModelInfo, NeuralNetworkLayers } from './model-info';
+import { IrisTestResult, ModelInfo, NeuralNetworkLayers } from './model-info';
 
 @Injectable({
   providedIn: 'root',
@@ -72,7 +72,7 @@ export class IrisWasmService {
       return undefined;
     }
     const testResultsJson: string = network.test_all();
-    const testResults = JSON.parse(testResultsJson) as any[];
+    const testResults = JSON.parse(testResultsJson) as IrisTestResult[];
     return testResults;
   });
 }

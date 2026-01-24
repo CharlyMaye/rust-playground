@@ -1,7 +1,63 @@
-import { Component, effect, input } from '@angular/core';
+import { Component, computed, input } from '@angular/core';
 import { Activation, NeuralNetworkLayers } from '@cma/wasm/shared';
 
-const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+// ============================================================================
+// Types pour le rendu SVG déclaratif
+// ============================================================================
+
+/** Représente une connexion (ligne) entre deux neurones */
+export interface SvgConnection {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: string;
+  strokeWidth: number;
+  opacity: number;
+}
+
+/** Représente un neurone (cercle + texte) */
+export interface SvgNeuron {
+  cx: number;
+  cy: number;
+  radius: number;
+  fill: string;
+  strokeWidth: number;
+  value: string;
+  label?: string;
+  labelX?: number;
+  labelAnchor?: 'start' | 'middle' | 'end';
+  fontSize: string;
+  fontWeight: string;
+  textOffsetY: number;
+}
+
+/** Représente un label de couche */
+export interface SvgLayerLabel {
+  x: number;
+  y: number;
+  text: string;
+}
+
+/** Détails d'activation pour une couche */
+export interface ActivationDetail {
+  layerIndex: number;
+  functionName: string;
+  values: string;
+}
+
+/** Structure complète pour le rendu SVG */
+export interface NetworkVisualizationData {
+  connections: SvgConnection[];
+  neurons: SvgNeuron[];
+  layerLabels: SvgLayerLabel[];
+  activationDetails: ActivationDetail[];
+  outputSummary: string;
+}
+
+// ============================================================================
+// Configuration
+// ============================================================================
 
 const SVG_CONFIG = {
   width: 500,
@@ -37,6 +93,10 @@ const ACTIVATION_THRESHOLD = {
   softmax: 0.33,
 } as const;
 
+// ============================================================================
+// Composant
+// ============================================================================
+
 @Component({
   selector: 'app-neural-network-model-vizualizer',
   imports: [],
@@ -50,64 +110,50 @@ export class NeuralNetworkModelVizualizer {
   public readonly activations = input<Activation<unknown, unknown> | null>();
   public readonly weights = input<NeuralNetworkLayers | undefined>();
 
-  constructor() {
-    effect(() => {
-      const activations = this.activations();
-      const weights = this.weights();
-      if (!activations || !weights) {
-        return;
-      }
-      setTimeout(() => {
-        this._updateNetworkViz(activations, weights);
-      }, 0);
-    });
-  }
+  /** Données calculées pour le rendu SVG déclaratif */
+  public readonly visualizationData = computed<NetworkVisualizationData | null>(() => {
+    const activations = this.activations();
+    const weights = this.weights();
+    if (!activations || !weights) {
+      return null;
+    }
+    return this._buildVisualizationData(activations, weights);
+  });
 
-  private _updateNetworkViz(
+  // Configuration exposée pour le template
+  protected readonly config = SVG_CONFIG;
+  protected readonly colors = COLORS;
+
+  // ==========================================================================
+  // Méthodes de construction des données de visualisation
+  // ==========================================================================
+
+  private _buildVisualizationData(
     activations: Activation<unknown, unknown>,
     weights: NeuralNetworkLayers,
-  ): void {
-    if (!activations || !weights) {
-      return;
-    }
-
-    const svg = document.getElementById('networkViz');
-    if (!svg) {
-      return;
-    }
-
-    // Calculate dynamic structure
+  ): NetworkVisualizationData {
     const layerSizes = this._calculateLayerSizes(activations);
     const layerX = this._calculateLayerXPositions(layerSizes.length);
     const layerYPositions = this._calculateAllLayerYPositions(layerSizes);
 
-    // Clear previous content
-    this._clearSvg(svg);
-
-    // Draw all connections between layers
-    this._drawAllConnections(svg, weights, layerSizes, layerX, layerYPositions);
-
-    // Draw all neuron layers
-    this._drawInputLayer(svg, activations, layerX[0], layerYPositions[0]);
-    this._drawHiddenAndOutputLayers(svg, activations, layerX, layerYPositions);
-
-    // Draw layer labels
-    this._drawLayerLabels(svg, activations, layerX);
-
-    // Update activation details
-    this._updateActivationDetails(activations);
+    return {
+      connections: this._buildAllConnections(weights, layerSizes, layerX, layerYPositions),
+      neurons: this._buildAllNeurons(activations, layerX, layerYPositions),
+      layerLabels: this._buildLayerLabels(activations, layerX),
+      activationDetails: this._buildActivationDetails(activations),
+      outputSummary: this._buildOutputSummary(activations),
+    };
   }
 
   private _calculateLayerSizes(activations: Activation<unknown, unknown>): number[] {
     const inputCount = activations.inputs.length;
     const hiddenCounts = activations.layers.map((layer) => layer.activation.length);
-    // Ne pas ajouter outputCount car la dernière couche de activations.layers EST la sortie
     return [inputCount, ...hiddenCounts];
   }
 
   private _calculateLayerXPositions(layerCount: number): number[] {
     const spacing = (SVG_CONFIG.width - 2 * SVG_CONFIG.margin) / (layerCount - 1);
-    const positions = [];
+    const positions: number[] = [];
     for (let i = 0; i < layerCount; i++) {
       positions.push(SVG_CONFIG.margin + i * spacing);
     }
@@ -118,48 +164,50 @@ export class NeuralNetworkModelVizualizer {
     return layerSizes.map((size) => this._getNeuronYPositions(size, SVG_CONFIG.height));
   }
 
-  private _clearSvg(svg: HTMLElement): void {
-    while (svg.firstChild) {
-      svg.removeChild(svg.firstChild);
-    }
-  }
+  // ==========================================================================
+  // Construction des connexions
+  // ==========================================================================
 
-  private _drawAllConnections(
-    svg: HTMLElement,
+  private _buildAllConnections(
     weights: NeuralNetworkLayers,
     layerSizes: number[],
     layerX: number[],
     layerYPositions: number[][],
-  ): void {
-    // Draw connections between input and first hidden layer
-    this._drawConnectionsBetweenLayers(
-      svg,
-      weights.layers[0],
-      layerSizes[0],
-      layerSizes[1],
-      layerX[0],
-      layerX[1],
-      layerYPositions[0],
-      layerYPositions[1],
+  ): SvgConnection[] {
+    const connections: SvgConnection[] = [];
+
+    // Connexions entre input et première couche cachée
+    connections.push(
+      ...this._buildConnectionsBetweenLayers(
+        weights.layers[0],
+        layerSizes[0],
+        layerSizes[1],
+        layerX[0],
+        layerX[1],
+        layerYPositions[0],
+        layerYPositions[1],
+      ),
     );
 
-    // Draw connections between hidden layers and to output
+    // Connexions entre couches cachées et vers output
     for (let i = 1; i < weights.layers.length; i++) {
-      this._drawConnectionsBetweenLayers(
-        svg,
-        weights.layers[i],
-        layerSizes[i],
-        layerSizes[i + 1],
-        layerX[i],
-        layerX[i + 1],
-        layerYPositions[i],
-        layerYPositions[i + 1],
+      connections.push(
+        ...this._buildConnectionsBetweenLayers(
+          weights.layers[i],
+          layerSizes[i],
+          layerSizes[i + 1],
+          layerX[i],
+          layerX[i + 1],
+          layerYPositions[i],
+          layerYPositions[i + 1],
+        ),
       );
     }
+
+    return connections;
   }
 
-  private _drawConnectionsBetweenLayers(
-    svg: HTMLElement,
+  private _buildConnectionsBetweenLayers(
     layer: { weights: number[] | number[][] },
     fromSize: number,
     toSize: number,
@@ -167,8 +215,8 @@ export class NeuralNetworkModelVizualizer {
     toX: number,
     fromY: number[],
     toY: number[],
-  ): void {
-    // Check if weights is an array of arrays or a flat array
+  ): SvgConnection[] {
+    const connections: SvgConnection[] = [];
     const isNestedArray = Array.isArray(layer.weights[0]);
 
     for (let i = 0; i < toSize; i++) {
@@ -176,10 +224,8 @@ export class NeuralNetworkModelVizualizer {
         let weight: number;
 
         if (isNestedArray) {
-          // Weights are stored as array per output neuron
           weight = (layer.weights as number[][])[i][j];
         } else {
-          // Weights are stored as flat array
           weight = (layer.weights as number[])[i * fromSize + j];
         }
 
@@ -188,86 +234,82 @@ export class NeuralNetworkModelVizualizer {
         }
 
         const absWeight = Math.abs(weight);
-        // Ajuster l'opacité pour rendre les poids plus visibles (min 0.3, max 0.9)
         const opacity = Math.min(absWeight / 2, 0.9) + 0.3;
-        // Ajuster l'épaisseur pour rendre les poids plus visibles (min 0.8, max 3)
         const strokeWidth = Math.min(absWeight * 2, 2.5) + 0.8;
         const color = weight > 0 ? COLORS.positive : COLORS.negative;
 
-        const line = document.createElementNS(SVG_NAMESPACE, 'line');
-        line.setAttribute('x1', fromX.toString());
-        line.setAttribute('y1', fromY[j].toString());
-        line.setAttribute('x2', toX.toString());
-        line.setAttribute('y2', toY[i].toString());
-        line.setAttribute('stroke', color);
-        line.setAttribute('stroke-width', strokeWidth.toString());
-        line.setAttribute('stroke-opacity', opacity.toString());
-        svg.appendChild(line);
+        connections.push({
+          x1: fromX,
+          y1: fromY[j],
+          x2: toX,
+          y2: toY[i],
+          color,
+          strokeWidth,
+          opacity,
+        });
       }
     }
+
+    return connections;
   }
 
-  private _drawInputLayer(
-    svg: HTMLElement,
-    activations: Activation<unknown, unknown>,
-    x: number,
-    yPositions: number[],
-  ): void {
-    activations.inputs.forEach((inputValue: unknown, i: number) => {
-      const numericValue = inputValue as number;
+  // ==========================================================================
+  // Construction des neurones
+  // ==========================================================================
 
-      // Draw circle
-      const circle = document.createElementNS(SVG_NAMESPACE, 'circle');
-      circle.setAttribute('cx', x.toString());
-      circle.setAttribute('cy', yPositions[i].toString());
-      circle.setAttribute('r', SVG_CONFIG.neuronRadius.input.toString());
-      circle.setAttribute(
-        'fill',
-        numericValue > ACTIVATION_THRESHOLD.binary ? COLORS.positive : COLORS.neutral,
-      );
-      circle.setAttribute('stroke', COLORS.stroke);
-      circle.setAttribute('stroke-width', '2');
-      svg.appendChild(circle);
-
-      // Draw value
-      const valueText = document.createElementNS(SVG_NAMESPACE, 'text');
-      valueText.setAttribute('x', x.toString());
-      valueText.setAttribute('y', (yPositions[i] + 5).toString());
-      valueText.setAttribute('text-anchor', 'middle');
-      valueText.setAttribute('fill', COLORS.stroke);
-      valueText.setAttribute('font-weight', 'bold');
-      valueText.setAttribute('font-size', SVG_CONFIG.fontSize.input);
-      valueText.textContent = numericValue.toFixed(1);
-      svg.appendChild(valueText);
-
-      // Draw label
-      const label = this._getInputLabel(i);
-      const labelText = document.createElementNS(SVG_NAMESPACE, 'text');
-      labelText.setAttribute('x', (x - 35).toString());
-      labelText.setAttribute('y', (yPositions[i] + 5).toString());
-      labelText.setAttribute('text-anchor', 'middle');
-      labelText.setAttribute('fill', COLORS.label);
-      labelText.setAttribute('font-size', SVG_CONFIG.fontSize.label);
-      labelText.textContent = label;
-      svg.appendChild(labelText);
-    });
-  }
-
-  private _drawHiddenAndOutputLayers(
-    svg: HTMLElement,
+  private _buildAllNeurons(
     activations: Activation<unknown, unknown>,
     layerX: number[],
     layerYPositions: number[][],
-  ): void {
+  ): SvgNeuron[] {
+    const neurons: SvgNeuron[] = [];
+
+    // Neurones d'entrée
+    neurons.push(...this._buildInputNeurons(activations, layerX[0], layerYPositions[0]));
+
+    // Couches cachées et de sortie
+    neurons.push(...this._buildHiddenAndOutputNeurons(activations, layerX, layerYPositions));
+
+    return neurons;
+  }
+
+  private _buildInputNeurons(
+    activations: Activation<unknown, unknown>,
+    x: number,
+    yPositions: number[],
+  ): SvgNeuron[] {
+    return activations.inputs.map((inputValue: unknown, i: number) => {
+      const numericValue = inputValue as number;
+      return {
+        cx: x,
+        cy: yPositions[i],
+        radius: SVG_CONFIG.neuronRadius.input,
+        fill: numericValue > ACTIVATION_THRESHOLD.binary ? COLORS.positive : COLORS.neutral,
+        strokeWidth: 2,
+        value: numericValue.toFixed(1),
+        label: this._getInputLabel(i),
+        labelX: x - 35,
+        labelAnchor: 'middle' as const,
+        fontSize: SVG_CONFIG.fontSize.input,
+        fontWeight: 'bold',
+        textOffsetY: 5,
+      };
+    });
+  }
+
+  private _buildHiddenAndOutputNeurons(
+    activations: Activation<unknown, unknown>,
+    layerX: number[],
+    layerYPositions: number[][],
+  ): SvgNeuron[] {
+    const neurons: SvgNeuron[] = [];
     const outputValues = activations.output as number[];
 
     activations.layers.forEach((layer, layerIndex) => {
-      const x = layerX[layerIndex + 1]; // +1 because input is at index 0
+      const x = layerX[layerIndex + 1];
       const yPositions = layerYPositions[layerIndex + 1];
       const isOutputLayer = layerIndex === activations.layers.length - 1;
       const isSoftmax = layer.function.toLowerCase() === 'softmax';
-
-      // Pour la couche de sortie, utiliser activations.output au lieu de layer.activation
       const layerValues = isOutputLayer ? outputValues : layer.activation;
 
       layerValues.forEach((activationValue: number, neuronIndex: number) => {
@@ -276,140 +318,101 @@ export class NeuralNetworkModelVizualizer {
         let fontSize: string;
 
         if (isOutputLayer) {
-          // Style pour la couche de sortie (grands cercles)
           radius = SVG_CONFIG.neuronRadius.output;
           fontSize = SVG_CONFIG.fontSize.output;
-
-          if (isSoftmax) {
-            color =
-              activationValue > ACTIVATION_THRESHOLD.softmax ? COLORS.positive : COLORS.neutral;
-          } else {
-            color =
-              activationValue > ACTIVATION_THRESHOLD.binary ? COLORS.positive : COLORS.negative;
-          }
+          color = isSoftmax
+            ? activationValue > ACTIVATION_THRESHOLD.softmax
+              ? COLORS.positive
+              : COLORS.neutral
+            : activationValue > ACTIVATION_THRESHOLD.binary
+              ? COLORS.positive
+              : COLORS.negative;
         } else {
-          // Style pour les couches cachées (petits cercles)
           radius = SVG_CONFIG.neuronRadius.hidden;
           fontSize = SVG_CONFIG.fontSize.hidden;
           color = this._getNeuronColor(activationValue, layer.function);
         }
 
-        // Draw circle
-        const circle = document.createElementNS(SVG_NAMESPACE, 'circle');
-        circle.setAttribute('cx', x.toString());
-        circle.setAttribute('cy', yPositions[neuronIndex].toString());
-        circle.setAttribute('r', radius.toString());
-        circle.setAttribute('fill', color);
-        circle.setAttribute('stroke', COLORS.stroke);
-        circle.setAttribute('stroke-width', isOutputLayer ? '3' : '2');
-        svg.appendChild(circle);
+        const neuron: SvgNeuron = {
+          cx: x,
+          cy: yPositions[neuronIndex],
+          radius,
+          fill: color,
+          strokeWidth: isOutputLayer ? 3 : 2,
+          value: activationValue.toFixed(2),
+          fontSize,
+          fontWeight: isOutputLayer ? 'bold' : 'normal',
+          textOffsetY: isOutputLayer ? 6 : 4,
+        };
 
-        // Draw value
-        const valueText = document.createElementNS(SVG_NAMESPACE, 'text');
-        valueText.setAttribute('x', x.toString());
-        valueText.setAttribute('y', (yPositions[neuronIndex] + (isOutputLayer ? 6 : 4)).toString());
-        valueText.setAttribute('text-anchor', 'middle');
-        valueText.setAttribute('fill', COLORS.stroke);
-        valueText.setAttribute('font-size', fontSize);
         if (isOutputLayer) {
-          valueText.setAttribute('font-weight', 'bold');
+          neuron.label = outputValues.length > 1 ? `Out ${neuronIndex}` : 'Out';
+          neuron.labelX = x + 40;
+          neuron.labelAnchor = 'start';
         }
-        valueText.textContent = activationValue.toFixed(2);
-        svg.appendChild(valueText);
 
-        // Draw label for output neurons
-        if (isOutputLayer) {
-          const label = outputValues.length > 1 ? `Out ${neuronIndex}` : 'Out';
-          const labelText = document.createElementNS(SVG_NAMESPACE, 'text');
-          labelText.setAttribute('x', (x + 40).toString());
-          labelText.setAttribute('y', (yPositions[neuronIndex] + 5).toString());
-          labelText.setAttribute('text-anchor', 'start');
-          labelText.setAttribute('fill', COLORS.label);
-          labelText.setAttribute('font-size', SVG_CONFIG.fontSize.label);
-          labelText.textContent = label;
-          svg.appendChild(labelText);
-        }
+        neurons.push(neuron);
       });
     });
+
+    return neurons;
   }
 
-  private _drawLayerLabels(
-    svg: HTMLElement,
+  // ==========================================================================
+  // Construction des labels
+  // ==========================================================================
+
+  private _buildLayerLabels(
     activations: Activation<unknown, unknown>,
     layerX: number[],
-  ): void {
-    // Input label
-    const inputLabel = document.createElementNS(SVG_NAMESPACE, 'text');
-    inputLabel.setAttribute('x', layerX[0].toString());
-    inputLabel.setAttribute('y', SVG_CONFIG.labelY.toString());
-    inputLabel.setAttribute('text-anchor', 'middle');
-    inputLabel.setAttribute('fill', COLORS.neutral);
-    inputLabel.setAttribute('font-size', SVG_CONFIG.fontSize.layerLabel);
-    inputLabel.textContent = 'Input';
-    svg.appendChild(inputLabel);
+  ): SvgLayerLabel[] {
+    const labels: SvgLayerLabel[] = [{ x: layerX[0], y: SVG_CONFIG.labelY, text: 'Input' }];
 
-    // Hidden layers labels
     activations.layers.forEach((layer, i) => {
-      const label = document.createElementNS(SVG_NAMESPACE, 'text');
-      label.setAttribute('x', layerX[i + 1].toString());
-      label.setAttribute('y', SVG_CONFIG.labelY.toString());
-      label.setAttribute('text-anchor', 'middle');
-      label.setAttribute('fill', COLORS.neutral);
-      label.setAttribute('font-size', SVG_CONFIG.fontSize.layerLabel);
-
       const isOutputLayer = i === activations.layers.length - 1;
-      if (isOutputLayer) {
-        label.textContent = `Output (${layer.function})`;
-      } else {
-        label.textContent = `Hidden ${i + 1} (${layer.function})`;
-      }
-      svg.appendChild(label);
+      const text = isOutputLayer
+        ? `Output (${layer.function})`
+        : `Hidden ${i + 1} (${layer.function})`;
+
+      labels.push({
+        x: layerX[i + 1],
+        y: SVG_CONFIG.labelY,
+        text,
+      });
     });
+
+    return labels;
   }
 
-  private _updateActivationDetails(activations: Activation<unknown, unknown>): void {
-    const detailsEl = document.getElementById('activationDetails');
-    if (!detailsEl) {
-      return;
-    }
-    detailsEl.textContent = '';
+  // ==========================================================================
+  // Construction des détails d'activation
+  // ==========================================================================
 
-    // Display all hidden layers
-    activations.layers.forEach((layer, i) => {
-      const strong = document.createElement('strong');
-      strong.textContent = `Layer ${i + 1} activations (${layer.function}): `;
-      detailsEl.appendChild(strong);
-      detailsEl.appendChild(
-        document.createTextNode(
-          '[' + layer.activation.map((v: number) => v.toFixed(3)).join(', ') + ']',
-        ),
-      );
-      detailsEl.appendChild(document.createElement('br'));
-    });
+  private _buildActivationDetails(activations: Activation<unknown, unknown>): ActivationDetail[] {
+    return activations.layers.map((layer, i) => ({
+      layerIndex: i + 1,
+      functionName: layer.function,
+      values: '[' + layer.activation.map((v: number) => v.toFixed(3)).join(', ') + ']',
+    }));
+  }
 
-    // Display output
+  private _buildOutputSummary(activations: Activation<unknown, unknown>): string {
     const outputValues = activations.output as number[];
-    const strong2 = document.createElement('strong');
-    strong2.textContent = 'Output: ';
-    detailsEl.appendChild(strong2);
 
     if (outputValues.length === 1) {
-      detailsEl.appendChild(document.createTextNode(outputValues[0].toFixed(6) + ' → '));
-      const strong3 = document.createElement('strong');
-      strong3.textContent = outputValues[0] > ACTIVATION_THRESHOLD.binary ? '1' : '0';
-      detailsEl.appendChild(strong3);
+      const value = outputValues[0];
+      const binary = value > ACTIVATION_THRESHOLD.binary ? '1' : '0';
+      return `${value.toFixed(6)} → ${binary}`;
     } else {
-      detailsEl.appendChild(
-        document.createTextNode(
-          '[' + outputValues.map((v: number) => v.toFixed(4)).join(', ') + ']',
-        ),
-      );
+      const formatted = '[' + outputValues.map((v: number) => v.toFixed(4)).join(', ') + ']';
       const maxIndex = outputValues.indexOf(Math.max(...outputValues));
-      const strong3 = document.createElement('strong');
-      strong3.textContent = ` → Class ${maxIndex}`;
-      detailsEl.appendChild(strong3);
+      return `${formatted} → Class ${maxIndex}`;
     }
   }
+
+  // ==========================================================================
+  // Fonctions utilitaires
+  // ==========================================================================
 
   private _getInputLabel(index: number): string {
     const labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -421,20 +424,15 @@ export class NeuralNetworkModelVizualizer {
     let normalized: number;
 
     if (func === 'tanh') {
-      // Tanh output is -1 to 1
       normalized = (value + 1) / 2;
     } else if (func === 'sigmoid' || func === 'softmax') {
-      // Sigmoid and Softmax output is 0 to 1
       normalized = value;
     } else if (func === 'relu') {
-      // ReLU output is 0 to +inf, cap at 1
       normalized = Math.min(value, 1);
     } else {
-      // Default normalization
       normalized = (value + 1) / 2;
     }
 
-    // Gradient from red/blue to green
     const r = Math.round(normalized * 34 + (1 - normalized) * 239);
     const g = Math.round(normalized * 197 + (1 - normalized) * 68);
     const b = Math.round(normalized * 94 + (1 - normalized) * 68);
@@ -444,7 +442,7 @@ export class NeuralNetworkModelVizualizer {
   private _getNeuronYPositions(count: number, height: number): number[] {
     const available = height - 2 * SVG_CONFIG.verticalMargin - SVG_CONFIG.verticalPadding;
     const spacing = count > 1 ? available / (count - 1) : 0;
-    const positions = [];
+    const positions: number[] = [];
     const startY =
       SVG_CONFIG.verticalMargin +
       (height -
