@@ -1,17 +1,9 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { Activation, WasmFacade } from '@cma/wasm/shared';
+import { Activation, WasmFacade, XorPrediction } from '@cma/wasm/shared';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
-
 import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
-
-type XorPrediction = {
-  confidence: number;
-  prediction: number;
-  probabilities: [number, number];
-  raw: number;
-};
 
 @Component({
   selector: 'app-xor-logic-gate',

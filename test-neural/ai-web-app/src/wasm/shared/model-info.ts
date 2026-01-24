@@ -35,3 +35,17 @@ export type Activation<TIn = number, TOut = number> = {
   }[];
   output: TOut[];
 };
+
+export type XorPrediction = {
+  confidence: number;
+  prediction: number;
+  probabilities: [number, number];
+  raw: number;
+};
+
+export type IrisPrediction = {
+  class: string;
+  class_idx: number;
+  probabilities: [number, number, number];
+  confidence: number;
+};

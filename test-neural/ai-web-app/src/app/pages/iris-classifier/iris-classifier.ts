@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { form, FormField, max, min } from '@angular/forms/signals';
-import { Activation, WasmFacade } from '@cma/wasm/shared';
+import { Activation, IrisPrediction, WasmFacade } from '@cma/wasm/shared';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
 import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
@@ -11,12 +11,6 @@ interface IrisFormState {
   petalLength: number;
   petalWidth: number;
 }
-type IrisPrediction = {
-  class: string;
-  class_idx: number;
-  probabilities: [number, number, number];
-  confidence: number;
-};
 
 @Component({
   selector: 'app-iris-classifier',
@@ -41,13 +35,7 @@ export class IrisClassifier {
     if (!testResults) {
       return 0;
     }
-    let correctCount = 0;
-    for (const result of testResults) {
-      if (result.correct) {
-        correctCount++;
-      }
-    }
-    return correctCount;
+    return testResults.filter((result) => result.correct).length;
   });
   private readonly _preset = signal({
     setosa: { sepalLength: 5.1, sepalWidth: 3.5, petalLength: 1.4, petalWidth: 0.2 },
@@ -79,15 +67,20 @@ export class IrisClassifier {
     },
     {},
   );
+
+  private readonly formInputs = computed(() => ({
+    sepalLength: this.irisForm.sepalLength().value(),
+    sepalWidth: this.irisForm.sepalWidth().value(),
+    petalLength: this.irisForm.petalLength().value(),
+    petalWidth: this.irisForm.petalWidth().value(),
+  }));
+
   public readonly output = computed(() => {
     const network = this.irisNetwork();
     if (!network) {
       return null;
     }
-    const sepalLength = this.irisForm.sepalLength().value();
-    const sepalWidth = this.irisForm.sepalWidth().value();
-    const petalLength = this.irisForm.petalLength().value();
-    const petalWidth = this.irisForm.petalWidth().value();
+    const { sepalLength, sepalWidth, petalLength, petalWidth } = this.formInputs();
     const resultJSON = network.predict(sepalLength, sepalWidth, petalLength, petalWidth);
     const result = JSON.parse(resultJSON) as IrisPrediction;
     return result;
@@ -97,15 +90,11 @@ export class IrisClassifier {
     if (!network) {
       return null;
     }
-
-    const sepalLength = this.irisForm.sepalLength().value();
-    const sepalWidth = this.irisForm.sepalWidth().value();
-    const petalLength = this.irisForm.petalLength().value();
-    const petalWidth = this.irisForm.petalWidth().value();
-    const acts = JSON.parse(
+    const { sepalLength, sepalWidth, petalLength, petalWidth } = this.formInputs();
+    const activationData = JSON.parse(
       network.get_activations(sepalLength, sepalWidth, petalLength, petalWidth),
     ) as Activation<number, number>;
-    return acts;
+    return activationData;
   });
   public readonly predictionDisplay = computed(() => {
     const output = this.output();

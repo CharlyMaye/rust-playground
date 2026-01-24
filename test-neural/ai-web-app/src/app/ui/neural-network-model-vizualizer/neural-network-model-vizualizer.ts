@@ -1,6 +1,42 @@
 import { Component, effect, input } from '@angular/core';
 import { Activation, NeuralNetworkLayers } from '@cma/wasm/shared';
 
+const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
+
+const SVG_CONFIG = {
+  width: 500,
+  height: 280,
+  margin: 60,
+  neuronRadius: {
+    input: 20,
+    hidden: 16,
+    output: 25,
+  },
+  fontSize: {
+    hidden: '9',
+    output: '16',
+    label: '11',
+    layerLabel: '10',
+    input: '14',
+  },
+  labelY: 270,
+  verticalMargin: 30,
+  verticalPadding: 40,
+} as const;
+
+const COLORS = {
+  positive: '#22c55e',
+  negative: '#ef4444',
+  neutral: '#64748b',
+  stroke: 'white',
+  label: '#94a3b8',
+} as const;
+
+const ACTIVATION_THRESHOLD = {
+  binary: 0.5,
+  softmax: 0.33,
+} as const;
+
 @Component({
   selector: 'app-neural-network-model-vizualizer',
   imports: [],
@@ -48,17 +84,15 @@ export class NeuralNetworkModelVizualizer {
     // Clear previous content
     this._clearSvg(svg);
 
-    const NS = 'http://www.w3.org/2000/svg';
-
     // Draw all connections between layers
-    this._drawAllConnections(svg, NS, weights, layerSizes, layerX, layerYPositions);
+    this._drawAllConnections(svg, weights, layerSizes, layerX, layerYPositions);
 
     // Draw all neuron layers
-    this._drawInputLayer(svg, NS, activations, layerX[0], layerYPositions[0]);
-    this._drawHiddenAndOutputLayers(svg, NS, activations, layerX, layerYPositions);
+    this._drawInputLayer(svg, activations, layerX[0], layerYPositions[0]);
+    this._drawHiddenAndOutputLayers(svg, activations, layerX, layerYPositions);
 
     // Draw layer labels
-    this._drawLayerLabels(svg, NS, activations, layerX);
+    this._drawLayerLabels(svg, activations, layerX);
 
     // Update activation details
     this._updateActivationDetails(activations);
@@ -72,18 +106,16 @@ export class NeuralNetworkModelVizualizer {
   }
 
   private _calculateLayerXPositions(layerCount: number): number[] {
-    const svgWidth = 500;
-    const margin = 60;
-    const spacing = (svgWidth - 2 * margin) / (layerCount - 1);
+    const spacing = (SVG_CONFIG.width - 2 * SVG_CONFIG.margin) / (layerCount - 1);
     const positions = [];
     for (let i = 0; i < layerCount; i++) {
-      positions.push(margin + i * spacing);
+      positions.push(SVG_CONFIG.margin + i * spacing);
     }
     return positions;
   }
 
   private _calculateAllLayerYPositions(layerSizes: number[]): number[][] {
-    return layerSizes.map((size) => this._getNeuronYPositions(size, 280));
+    return layerSizes.map((size) => this._getNeuronYPositions(size, SVG_CONFIG.height));
   }
 
   private _clearSvg(svg: HTMLElement): void {
@@ -94,7 +126,6 @@ export class NeuralNetworkModelVizualizer {
 
   private _drawAllConnections(
     svg: HTMLElement,
-    NS: string,
     weights: NeuralNetworkLayers,
     layerSizes: number[],
     layerX: number[],
@@ -103,7 +134,6 @@ export class NeuralNetworkModelVizualizer {
     // Draw connections between input and first hidden layer
     this._drawConnectionsBetweenLayers(
       svg,
-      NS,
       weights.layers[0],
       layerSizes[0],
       layerSizes[1],
@@ -117,7 +147,6 @@ export class NeuralNetworkModelVizualizer {
     for (let i = 1; i < weights.layers.length; i++) {
       this._drawConnectionsBetweenLayers(
         svg,
-        NS,
         weights.layers[i],
         layerSizes[i],
         layerSizes[i + 1],
@@ -131,8 +160,7 @@ export class NeuralNetworkModelVizualizer {
 
   private _drawConnectionsBetweenLayers(
     svg: HTMLElement,
-    NS: string,
-    layer: any,
+    layer: { weights: number[] | number[][] },
     fromSize: number,
     toSize: number,
     fromX: number,
@@ -140,39 +168,33 @@ export class NeuralNetworkModelVizualizer {
     fromY: number[],
     toY: number[],
   ): void {
-    const colors = {
-      positive: '#22c55e',
-      negative: '#ef4444',
-    };
-
     // Check if weights is an array of arrays or a flat array
     const isNestedArray = Array.isArray(layer.weights[0]);
 
     for (let i = 0; i < toSize; i++) {
       for (let j = 0; j < fromSize; j++) {
-        let w: number;
+        let weight: number;
 
         if (isNestedArray) {
           // Weights are stored as array per output neuron
-          w = layer.weights[i][j];
+          weight = (layer.weights as number[][])[i][j];
         } else {
           // Weights are stored as flat array
-          w = layer.weights[i * fromSize + j];
+          weight = (layer.weights as number[])[i * fromSize + j];
         }
 
-        if (w === undefined || isNaN(w)) {
-          console.warn(`Invalid weight at [${i}][${j}]:`, w);
+        if (weight === undefined || isNaN(weight)) {
           continue;
         }
 
-        const absWeight = Math.abs(w);
+        const absWeight = Math.abs(weight);
         // Ajuster l'opacité pour rendre les poids plus visibles (min 0.3, max 0.9)
         const opacity = Math.min(absWeight / 2, 0.9) + 0.3;
         // Ajuster l'épaisseur pour rendre les poids plus visibles (min 0.8, max 3)
         const strokeWidth = Math.min(absWeight * 2, 2.5) + 0.8;
-        const color = w > 0 ? colors.positive : colors.negative;
+        const color = weight > 0 ? COLORS.positive : COLORS.negative;
 
-        const line = document.createElementNS(NS, 'line');
+        const line = document.createElementNS(SVG_NAMESPACE, 'line');
         line.setAttribute('x1', fromX.toString());
         line.setAttribute('y1', fromY[j].toString());
         line.setAttribute('x2', toX.toString());
@@ -187,49 +209,45 @@ export class NeuralNetworkModelVizualizer {
 
   private _drawInputLayer(
     svg: HTMLElement,
-    NS: string,
     activations: Activation<unknown, unknown>,
     x: number,
     yPositions: number[],
   ): void {
-    const colors = {
-      positive: '#22c55e',
-      neutral: '#64748b',
-    };
-
-    activations.inputs.forEach((val: unknown, i: number) => {
-      const numVal = val as number;
-      const intensity = numVal;
+    activations.inputs.forEach((inputValue: unknown, i: number) => {
+      const numericValue = inputValue as number;
 
       // Draw circle
-      const circle = document.createElementNS(NS, 'circle');
+      const circle = document.createElementNS(SVG_NAMESPACE, 'circle');
       circle.setAttribute('cx', x.toString());
       circle.setAttribute('cy', yPositions[i].toString());
-      circle.setAttribute('r', '20');
-      circle.setAttribute('fill', intensity > 0.5 ? colors.positive : colors.neutral);
-      circle.setAttribute('stroke', 'white');
+      circle.setAttribute('r', SVG_CONFIG.neuronRadius.input.toString());
+      circle.setAttribute(
+        'fill',
+        numericValue > ACTIVATION_THRESHOLD.binary ? COLORS.positive : COLORS.neutral,
+      );
+      circle.setAttribute('stroke', COLORS.stroke);
       circle.setAttribute('stroke-width', '2');
       svg.appendChild(circle);
 
       // Draw value
-      const valueText = document.createElementNS(NS, 'text');
+      const valueText = document.createElementNS(SVG_NAMESPACE, 'text');
       valueText.setAttribute('x', x.toString());
       valueText.setAttribute('y', (yPositions[i] + 5).toString());
       valueText.setAttribute('text-anchor', 'middle');
-      valueText.setAttribute('fill', 'white');
+      valueText.setAttribute('fill', COLORS.stroke);
       valueText.setAttribute('font-weight', 'bold');
-      valueText.setAttribute('font-size', '14');
-      valueText.textContent = numVal.toFixed(1);
+      valueText.setAttribute('font-size', SVG_CONFIG.fontSize.input);
+      valueText.textContent = numericValue.toFixed(1);
       svg.appendChild(valueText);
 
       // Draw label
       const label = this._getInputLabel(i);
-      const labelText = document.createElementNS(NS, 'text');
+      const labelText = document.createElementNS(SVG_NAMESPACE, 'text');
       labelText.setAttribute('x', (x - 35).toString());
       labelText.setAttribute('y', (yPositions[i] + 5).toString());
       labelText.setAttribute('text-anchor', 'middle');
-      labelText.setAttribute('fill', '#94a3b8');
-      labelText.setAttribute('font-size', '11');
+      labelText.setAttribute('fill', COLORS.label);
+      labelText.setAttribute('font-size', SVG_CONFIG.fontSize.label);
       labelText.textContent = label;
       svg.appendChild(labelText);
     });
@@ -237,17 +255,11 @@ export class NeuralNetworkModelVizualizer {
 
   private _drawHiddenAndOutputLayers(
     svg: HTMLElement,
-    NS: string,
     activations: Activation<unknown, unknown>,
     layerX: number[],
     layerYPositions: number[][],
   ): void {
-    const outputVal = activations.output as number[];
-    const colors = {
-      positive: '#22c55e',
-      negative: '#ef4444',
-      neutral: '#64748b',
-    };
+    const outputValues = activations.output as number[];
 
     activations.layers.forEach((layer, layerIndex) => {
       const x = layerX[layerIndex + 1]; // +1 because input is at index 0
@@ -256,62 +268,64 @@ export class NeuralNetworkModelVizualizer {
       const isSoftmax = layer.function.toLowerCase() === 'softmax';
 
       // Pour la couche de sortie, utiliser activations.output au lieu de layer.activation
-      const layerValues = isOutputLayer ? outputVal : layer.activation;
+      const layerValues = isOutputLayer ? outputValues : layer.activation;
 
-      layerValues.forEach((val: number, neuronIndex: number) => {
+      layerValues.forEach((activationValue: number, neuronIndex: number) => {
         let color: string;
-        let radius: string;
+        let radius: number;
         let fontSize: string;
 
         if (isOutputLayer) {
           // Style pour la couche de sortie (grands cercles)
-          radius = '25';
-          fontSize = '16';
+          radius = SVG_CONFIG.neuronRadius.output;
+          fontSize = SVG_CONFIG.fontSize.output;
 
           if (isSoftmax) {
-            color = val > 0.33 ? colors.positive : colors.neutral;
+            color =
+              activationValue > ACTIVATION_THRESHOLD.softmax ? COLORS.positive : COLORS.neutral;
           } else {
-            color = val > 0.5 ? colors.positive : colors.negative;
+            color =
+              activationValue > ACTIVATION_THRESHOLD.binary ? COLORS.positive : COLORS.negative;
           }
         } else {
           // Style pour les couches cachées (petits cercles)
-          radius = '16';
-          fontSize = '9';
-          color = this._getNeuronColor(val, layer.function);
+          radius = SVG_CONFIG.neuronRadius.hidden;
+          fontSize = SVG_CONFIG.fontSize.hidden;
+          color = this._getNeuronColor(activationValue, layer.function);
         }
 
         // Draw circle
-        const circle = document.createElementNS(NS, 'circle');
+        const circle = document.createElementNS(SVG_NAMESPACE, 'circle');
         circle.setAttribute('cx', x.toString());
         circle.setAttribute('cy', yPositions[neuronIndex].toString());
-        circle.setAttribute('r', radius);
+        circle.setAttribute('r', radius.toString());
         circle.setAttribute('fill', color);
-        circle.setAttribute('stroke', 'white');
+        circle.setAttribute('stroke', COLORS.stroke);
         circle.setAttribute('stroke-width', isOutputLayer ? '3' : '2');
         svg.appendChild(circle);
 
         // Draw value
-        const valueText = document.createElementNS(NS, 'text');
+        const valueText = document.createElementNS(SVG_NAMESPACE, 'text');
         valueText.setAttribute('x', x.toString());
         valueText.setAttribute('y', (yPositions[neuronIndex] + (isOutputLayer ? 6 : 4)).toString());
         valueText.setAttribute('text-anchor', 'middle');
-        valueText.setAttribute('fill', 'white');
+        valueText.setAttribute('fill', COLORS.stroke);
         valueText.setAttribute('font-size', fontSize);
         if (isOutputLayer) {
           valueText.setAttribute('font-weight', 'bold');
         }
-        valueText.textContent = val.toFixed(2);
+        valueText.textContent = activationValue.toFixed(2);
         svg.appendChild(valueText);
 
         // Draw label for output neurons
         if (isOutputLayer) {
-          const label = outputVal.length > 1 ? `Out ${neuronIndex}` : 'Out';
-          const labelText = document.createElementNS(NS, 'text');
+          const label = outputValues.length > 1 ? `Out ${neuronIndex}` : 'Out';
+          const labelText = document.createElementNS(SVG_NAMESPACE, 'text');
           labelText.setAttribute('x', (x + 40).toString());
           labelText.setAttribute('y', (yPositions[neuronIndex] + 5).toString());
           labelText.setAttribute('text-anchor', 'start');
-          labelText.setAttribute('fill', '#94a3b8');
-          labelText.setAttribute('font-size', '11');
+          labelText.setAttribute('fill', COLORS.label);
+          labelText.setAttribute('font-size', SVG_CONFIG.fontSize.label);
           labelText.textContent = label;
           svg.appendChild(labelText);
         }
@@ -321,28 +335,27 @@ export class NeuralNetworkModelVizualizer {
 
   private _drawLayerLabels(
     svg: HTMLElement,
-    NS: string,
     activations: Activation<unknown, unknown>,
     layerX: number[],
   ): void {
     // Input label
-    const inputLabel = document.createElementNS(NS, 'text');
+    const inputLabel = document.createElementNS(SVG_NAMESPACE, 'text');
     inputLabel.setAttribute('x', layerX[0].toString());
-    inputLabel.setAttribute('y', '270');
+    inputLabel.setAttribute('y', SVG_CONFIG.labelY.toString());
     inputLabel.setAttribute('text-anchor', 'middle');
-    inputLabel.setAttribute('fill', '#64748b');
-    inputLabel.setAttribute('font-size', '10');
+    inputLabel.setAttribute('fill', COLORS.neutral);
+    inputLabel.setAttribute('font-size', SVG_CONFIG.fontSize.layerLabel);
     inputLabel.textContent = 'Input';
     svg.appendChild(inputLabel);
 
     // Hidden layers labels
     activations.layers.forEach((layer, i) => {
-      const label = document.createElementNS(NS, 'text');
+      const label = document.createElementNS(SVG_NAMESPACE, 'text');
       label.setAttribute('x', layerX[i + 1].toString());
-      label.setAttribute('y', '270');
+      label.setAttribute('y', SVG_CONFIG.labelY.toString());
       label.setAttribute('text-anchor', 'middle');
-      label.setAttribute('fill', '#64748b');
-      label.setAttribute('font-size', '10');
+      label.setAttribute('fill', COLORS.neutral);
+      label.setAttribute('font-size', SVG_CONFIG.fontSize.layerLabel);
 
       const isOutputLayer = i === activations.layers.length - 1;
       if (isOutputLayer) {
@@ -375,21 +388,23 @@ export class NeuralNetworkModelVizualizer {
     });
 
     // Display output
-    const outputVal = activations.output as number[];
+    const outputValues = activations.output as number[];
     const strong2 = document.createElement('strong');
     strong2.textContent = 'Output: ';
     detailsEl.appendChild(strong2);
 
-    if (outputVal.length === 1) {
-      detailsEl.appendChild(document.createTextNode(outputVal[0].toFixed(6) + ' → '));
+    if (outputValues.length === 1) {
+      detailsEl.appendChild(document.createTextNode(outputValues[0].toFixed(6) + ' → '));
       const strong3 = document.createElement('strong');
-      strong3.textContent = outputVal[0] > 0.5 ? '1' : '0';
+      strong3.textContent = outputValues[0] > ACTIVATION_THRESHOLD.binary ? '1' : '0';
       detailsEl.appendChild(strong3);
     } else {
       detailsEl.appendChild(
-        document.createTextNode('[' + outputVal.map((v: number) => v.toFixed(4)).join(', ') + ']'),
+        document.createTextNode(
+          '[' + outputValues.map((v: number) => v.toFixed(4)).join(', ') + ']',
+        ),
       );
-      const maxIndex = outputVal.indexOf(Math.max(...outputVal));
+      const maxIndex = outputValues.indexOf(Math.max(...outputValues));
       const strong3 = document.createElement('strong');
       strong3.textContent = ` → Class ${maxIndex}`;
       detailsEl.appendChild(strong3);
@@ -427,11 +442,16 @@ export class NeuralNetworkModelVizualizer {
   }
 
   private _getNeuronYPositions(count: number, height: number): number[] {
-    const margin = 30;
-    const available = height - 2 * margin - 40;
+    const available = height - 2 * SVG_CONFIG.verticalMargin - SVG_CONFIG.verticalPadding;
     const spacing = count > 1 ? available / (count - 1) : 0;
     const positions = [];
-    const startY = margin + (height - 2 * margin - 40 - spacing * (count - 1)) / 2;
+    const startY =
+      SVG_CONFIG.verticalMargin +
+      (height -
+        2 * SVG_CONFIG.verticalMargin -
+        SVG_CONFIG.verticalPadding -
+        spacing * (count - 1)) /
+        2;
     for (let i = 0; i < count; i++) {
       positions.push(startY + i * spacing);
     }
