@@ -40,7 +40,6 @@ export class XorLogicGate {
     const inputB = this.inputB();
     const prediction = network.predict(inputA, inputB);
     const output = JSON.parse(prediction) as NetworkPrediction;
-    console.log('XOR Prediction:', output);
     return output;
   });
   public readonly activations = computed(() => {

@@ -9,30 +9,66 @@
       <div class="input-grid">
         <div class="input-field">
           <label for="sepalLength">Sepal Length (cm)</label>
-          <input type="number" id="sepalLength" value="5.1" step="0.1" min="0" max="10" />
+          <input type="number" [formField]="irisForm.sepalLength" id="sepalLength" step="0.1" />
         </div>
         <div class="input-field">
           <label for="sepalWidth">Sepal Width (cm)</label>
-          <input type="number" id="sepalWidth" value="3.5" step="0.1" min="0" max="10" />
+          <input type="number" [formField]="irisForm.sepalWidth" id="sepalWidth" step="0.1" />
         </div>
         <div class="input-field">
           <label for="petalLength">Petal Length (cm)</label>
-          <input type="number" id="petalLength" value="1.4" step="0.1" min="0" max="10" />
+          <input type="number" [formField]="irisForm.petalLength" id="petalLength" step="0.1" />
         </div>
         <div class="input-field">
           <label for="petalWidth">Petal Width (cm)</label>
-          <input type="number" id="petalWidth" value="0.2" step="0.1" min="0" max="10" />
+          <input type="number" [formField]="irisForm.petalWidth" id="petalWidth" step="0.1" />
         </div>
       </div>
 
-      <button class="predict-btn" onclick="predictIris()">🌸 Classify</button>
-
       <div class="presets">
         <strong style="color: var(--muted); font-size: 0.875rem">Quick Presets:</strong>
-        <button class="preset-btn" onclick="loadPreset('setosa')">Setosa</button>
-        <button class="preset-btn" onclick="loadPreset('versicolor')">Versicolor</button>
-        <button class="preset-btn" onclick="loadPreset('virginica')">Virginica</button>
+        <button class="preset-btn" (click)="loadPreset('setosa')">Setosa</button>
+        <button class="preset-btn" (click)="loadPreset('versicolor')">Versicolor</button>
+        <button class="preset-btn" (click)="loadPreset('virginica')">Virginica</button>
       </div>
+    </div>
+
+    @let _output = output();
+    <!-- Prediction Result -->
+    <div id="result" class="card result-card">
+      @if (!!_output) {
+        <div class="predicted-class" id="predictedClass">{{ predictionDisplay() }}</div>
+        <div class="predicted-confidence" id="predictedConfidence">
+          {{ confidenceDisplay() }}
+        </div>
+
+        <div class="probabilities">
+          <div class="prob-item">
+            <div class="prob-label">Setosa</div>
+            <div class="prob-bar-container">
+              <div class="prob-bar" id="probSetosa" [style.height.%]="probability()[0]">
+                <div class="prob-value" id="probSetosaValue">{{ probability()[0] }}%</div>
+              </div>
+            </div>
+          </div>
+          <div class="prob-item">
+            <div class="prob-label">Versicolor</div>
+            <div class="prob-bar-container">
+              <div class="prob-bar" id="probVersicolor" [style.height.%]="probability()[1]">
+                <div class="prob-value" id="probVersicolorValue">{{ probability()[1] }}%</div>
+              </div>
+            </div>
+          </div>
+          <div class="prob-item">
+            <div class="prob-label">Virginica</div>
+            <div class="prob-bar-container">
+              <div class="prob-bar" id="probVirginica" [style.height.%]="probability()[2]">
+                <div class="prob-value" id="probVirginicaValue">{{ probability()[2] }}%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
     </div>
 
     <!-- Network Visualization -->
@@ -45,48 +81,37 @@
       ></div>
     </div>
 
-    <!-- Prediction Result -->
-    <div id="result" class="card result-card hidden">
-      <div class="predicted-class" id="predictedClass">-</div>
-      <div class="predicted-confidence" id="predictedConfidence">-</div>
-
-      <div class="probabilities">
-        <div class="prob-item">
-          <div class="prob-label">Setosa</div>
-          <div class="prob-bar-container">
-            <div class="prob-bar" id="probSetosa">
-              <div class="prob-value" id="probSetosaValue">0%</div>
-            </div>
-          </div>
-        </div>
-        <div class="prob-item">
-          <div class="prob-label">Versicolor</div>
-          <div class="prob-bar-container">
-            <div class="prob-bar" id="probVersicolor">
-              <div class="prob-value" id="probVersicolorValue">0%</div>
-            </div>
-          </div>
-        </div>
-        <div class="prob-item">
-          <div class="prob-label">Virginica</div>
-          <div class="prob-bar-container">
-            <div class="prob-bar" id="probVirginica">
-              <div class="prob-value" id="probVirginicaValue">0%</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <!-- Model Info -->
+    <app-model-info [modelInfo]="irisModelInfo()" />
 
     <!-- Test All Samples -->
     <div class="card">
       <div class="card-title">🧪 Test Samples</div>
-      <button class="predict-btn" onclick="testAllSamples()">Run All Test Samples</button>
-      <div id="testResults" class="test-results" style="margin-top: 1rem"></div>
+      <button class="predict-btn" (click)="testAllSamples()">Run All Test Samples</button>
+      @if (!!showTestSamplesResult()) {
+        <div id="testResults" class="test-results" style="margin-top: 1rem">
+          @for (result of irisTestAll(); track $index) {
+            <div
+              class="test-item"
+              [class.correct]="result.is_correct"
+              [class.incorrect]="!result.is_correct"
+            >
+              <span class="test-inputs">{{
+                `[${result.sepal_length.toFixed(1)}, ${result.sepal_width.toFixed(1)}, ${result.petal_length.toFixed(1)}, ${result.petal_width.toFixed(1)}]`
+              }}</span>
+              <span
+                class="test-prediction"
+                [style.color]="result.is_correct ? 'var(--success)' : 'var(--error)'"
+              >
+                {{
+                  `${result.is_correct ? '✓' : '✗'} ${result.predicted} (expected: ${result.expected})`
+                }}
+              </span>
+            </div>
+          }
+        </div>
+      }
     </div>
-
-    <!-- Model Info -->
-    <app-model-info [modelInfo]="irisModelInfo()" />
   </div>
 
   <div id="error" class="card error" style="display: none"></div>

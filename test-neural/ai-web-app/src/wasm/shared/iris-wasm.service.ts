@@ -1,5 +1,16 @@
-import { computed, effect, Injectable, resource, ResourceLoaderParams, ResourceRef, Signal, signal } from '@angular/core';
-import init, { InitOutput as InitIraisOutput, IrisClassifier} from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
+import {
+  computed,
+  Injectable,
+  resource,
+  ResourceLoaderParams,
+  ResourceRef,
+  Signal,
+  signal,
+} from '@angular/core';
+import init, {
+  InitOutput as InitIraisOutput,
+  IrisClassifier,
+} from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
 import { ModelInfo, NeuralNetworkLayers } from './model-info';
 
 @Injectable({
@@ -9,7 +20,7 @@ export class IrisWasmService {
   protected readonly _wasPath = signal('/wasm/iris_wasm/neural_wasm_iris_bg.wasm');
   public readonly wasmResource: ResourceRef<InitIraisOutput | undefined> = resource({
     params: this._wasPath,
-    loader: (param: ResourceLoaderParams<string>) =>  init(param.params),
+    loader: (param: ResourceLoaderParams<string>) => init(param.params),
     defaultValue: undefined,
   });
 
@@ -36,14 +47,16 @@ export class IrisWasmService {
     if (!modelInfo) {
       return undefined;
     }
-    return modelInfo.architecture.split('→')
-      .map(layer => {
-        const trimmedLayer = layer.trim();
-        if (trimmedLayer.startsWith('[') && trimmedLayer.endsWith(']')) {
-          return trimmedLayer.slice(1, -1).split(',').map(numStr => Number(numStr.trim()));
-        }
-        return Number(trimmedLayer);
-      });
+    return modelInfo.architecture.split('→').map((layer) => {
+      const trimmedLayer = layer.trim();
+      if (trimmedLayer.startsWith('[') && trimmedLayer.endsWith(']')) {
+        return trimmedLayer
+          .slice(1, -1)
+          .split(',')
+          .map((numStr) => Number(numStr.trim()));
+      }
+      return Number(trimmedLayer);
+    });
   });
   public readonly weights: Signal<NeuralNetworkLayers | undefined> = computed(() => {
     const network = this.network();
@@ -62,9 +75,8 @@ export class IrisWasmService {
       return undefined;
     }
     const testResultsJson: string = network.test_all();
-    const testResults = JSON.parse(testResultsJson);
+    const testResults = JSON.parse(testResultsJson) as any[];
     console.log('IRIS Classifier test all results:', testResults);
     return testResults;
   });
-
 }
