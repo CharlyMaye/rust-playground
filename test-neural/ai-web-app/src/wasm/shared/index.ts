@@ -1,2 +1,2 @@
-export {WasmFacade as WasmService} from "./wasm";
-export type {ModelInfo, XORTestResult} from "./model-info";
+export type { Activation, ModelInfo, NeuralNetworkLayers, XORTestResult } from './model-info';
+export { WasmFacade } from './wasm';

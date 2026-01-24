@@ -1,8 +1,9 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { form, FormField, max, min } from '@angular/forms/signals';
-import { WasmFacade } from '@cma/wasm/shared/wasm';
+import { Activation, WasmFacade } from '@cma/wasm/shared';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
+import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
 
 interface IrisFormState {
   sepalLength: number;
@@ -19,7 +20,7 @@ type NetworkPrediction = {
 
 @Component({
   selector: 'app-iris-classifier',
-  imports: [FormField, Loader, ModelInfoComponent],
+  imports: [FormField, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
   templateUrl: './iris-classifier.html',
   styleUrl: './iris-classifier.scss',
   host: { class: 'container' },
@@ -89,8 +90,22 @@ export class IrisClassifier {
     const petalWidth = this.irisForm.petalWidth().value();
     const resultJSON = network.predict(sepalLength, sepalWidth, petalLength, petalWidth);
     const result = JSON.parse(resultJSON) as NetworkPrediction;
-    console.log('Iris Prediction:', result);
     return result;
+  });
+  public readonly activations = computed(() => {
+    const network = this.irisNetwork();
+    if (!network) {
+      return null;
+    }
+
+    const sepalLength = this.irisForm.sepalLength().value();
+    const sepalWidth = this.irisForm.sepalWidth().value();
+    const petalLength = this.irisForm.petalLength().value();
+    const petalWidth = this.irisForm.petalWidth().value();
+    const acts = JSON.parse(
+      network.get_activations(sepalLength, sepalWidth, petalLength, petalWidth),
+    ) as Activation<number, number>;
+    return acts;
   });
   public readonly predictionDisplay = computed(() => {
     const output = this.output();
@@ -123,12 +138,6 @@ export class IrisClassifier {
     ] as [string, string, string];
   });
 
-  constructor() {
-    effect(() => {
-      console.log('hi', this.output());
-    });
-  }
-
   public loadPreset(preset: 'setosa' | 'versicolor' | 'virginica'): void {
     this._selectedPreset.set(preset);
     const values = this._preset()[preset];
@@ -140,6 +149,7 @@ export class IrisClassifier {
     }));
   }
   public testAllSamples(): void {
+    this.activations();
     this._showTestSamplesResult.set(true);
   }
 }

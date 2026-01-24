@@ -1,5 +1,5 @@
 import { Component, effect, input } from '@angular/core';
-import { NeuralNetworkLayers } from '@cma/wasm/shared/model-info';
+import { Activation, NeuralNetworkLayers } from '@cma/wasm/shared';
 
 @Component({
   selector: 'app-neural-network-model-vizualizer',
@@ -11,7 +11,7 @@ import { NeuralNetworkLayers } from '@cma/wasm/shared/model-info';
   },
 })
 export class NeuralNetworkModelVizualizer {
-  public readonly activations = input<any>();
+  public readonly activations = input<Activation<unknown, unknown>>();
   public readonly weights = input<NeuralNetworkLayers | undefined>();
 
   constructor() {
@@ -27,7 +27,10 @@ export class NeuralNetworkModelVizualizer {
     });
   }
 
-  private _updateNetworkViz(activations: any, weights: NeuralNetworkLayers): void {
+  private _updateNetworkViz(
+    activations: Activation<unknown, unknown>,
+    weights: NeuralNetworkLayers,
+  ): void {
     if (!activations || !weights) {
       return;
     }
@@ -157,8 +160,8 @@ export class NeuralNetworkModelVizualizer {
     }
 
     // Draw neurons - Input layer
-    activations.inputs.forEach((val: number, i: number) => {
-      const intensity = val;
+    activations.inputs.forEach((val: unknown, i: number) => {
+      const intensity = val as number;
       svg.appendChild(
         createCircle(
           layerX[0].toString(),
@@ -170,7 +173,7 @@ export class NeuralNetworkModelVizualizer {
         ),
       );
       svg.appendChild(
-        createText(layerX[0].toString(), (inputY[i] + 5).toString(), val.toFixed(0), {
+        createText(layerX[0].toString(), (inputY[i] + 5).toString(), (val as number).toFixed(0), {
           fontWeight: 'bold',
           fontSize: '14',
         }),
@@ -208,13 +211,13 @@ export class NeuralNetworkModelVizualizer {
     });
 
     // Draw neurons - Output layer
-    const outputVal = activations.output;
-    const outColor = outputVal > 0.5 ? colors.positive : colors.negative;
+    const outputVal = activations.output as number[];
+    const outColor = outputVal[0] > 0.5 ? colors.positive : colors.negative;
     svg.appendChild(
       createCircle(layerX[2].toString(), outputY[0].toString(), '25', outColor, 'white', '3'),
     );
     svg.appendChild(
-      createText(layerX[2].toString(), (outputY[0] + 6).toString(), outputVal.toFixed(2), {
+      createText(layerX[2].toString(), (outputY[0] + 6).toString(), outputVal[0].toFixed(2), {
         fontWeight: 'bold',
         fontSize: '16',
       }),
@@ -261,10 +264,10 @@ export class NeuralNetworkModelVizualizer {
     const strong2 = document.createElement('strong');
     strong2.textContent = 'Output: ';
     detailsEl.appendChild(strong2);
-    detailsEl.appendChild(document.createTextNode(outputVal.toFixed(6) + ' → '));
+    detailsEl.appendChild(document.createTextNode(outputVal[0].toFixed(6) + ' → '));
 
     const strong3 = document.createElement('strong');
-    strong3.textContent = outputVal > 0.5 ? '1' : '0';
+    strong3.textContent = outputVal[0] > 0.5 ? '1' : '0';
     detailsEl.appendChild(strong3);
   }
   private _getNeuronYPositions(count: number, height: number): number[] {

@@ -1,7 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLinkWithHref } from '@angular/router';
-import { WasmFacade } from '@cma/wasm/shared/wasm';
+import { WasmFacade } from '@cma/wasm/shared';
 import { About } from '../../ui/about/about';
 import { Loader } from '../../ui/loader/loader';
 

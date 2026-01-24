@@ -72,6 +72,8 @@
     </div>
 
     <!-- Network Visualization -->
+    <app-neural-network-model-vizualizer [activations]="activations()" [weights]="irisWeights()" />
+
     <div class="card">
       <div class="card-title">🔬 Network Visualization</div>
       <svg id="networkViz" width="100%" height="300" viewBox="0 0 500 280"></svg>

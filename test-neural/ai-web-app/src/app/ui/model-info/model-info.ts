@@ -1,6 +1,6 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, input } from '@angular/core';
-import { ModelInfo } from '@cma/wasm/shared/model-info';
+import { ModelInfo } from '@cma/wasm/shared';
 
 @Component({
   selector: 'app-model-info',

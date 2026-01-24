@@ -1,6 +1,6 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { WasmFacade } from '@cma/wasm/shared/wasm';
+import { Activation, WasmFacade } from '@cma/wasm/shared';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
 
@@ -49,7 +49,9 @@ export class XorLogicGate {
     }
     const inputA = this.inputA();
     const inputB = this.inputB();
-    const acts = JSON.parse(network.get_activations(inputA, inputB));
+    const acts = JSON.parse(network.get_activations(inputA, inputB)) as Activation<number, number>;
+    // TODO - modifier le code cote neural network
+    acts.output = [acts.output as unknown as number];
     return acts;
   });
   public readonly predictionDisplay = computed(() => {
@@ -73,6 +75,5 @@ export class XorLogicGate {
     } else {
       this.inputB.set(this.inputB() === 0 ? 1 : 0);
     }
-    console.log(this.xorWeights());
   }
 }
