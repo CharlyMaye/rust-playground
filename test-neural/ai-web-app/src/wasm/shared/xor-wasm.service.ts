@@ -1,16 +1,5 @@
-import {
-  computed,
-  Injectable,
-  resource,
-  ResourceLoaderParams,
-  ResourceRef,
-  Signal,
-  signal,
-} from '@angular/core';
-import init, {
-  InitOutput as InitXorOutput,
-  XorNetwork,
-} from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
+import { computed, effect, Injectable, resource, ResourceLoaderParams, ResourceRef, Signal, signal } from '@angular/core';
+import init, { InitOutput as InitXorOutput, XorNetwork} from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
 import { ModelInfo, NeuralNetworkLayers, XORTestResult } from './model-info';
 
 @Injectable({
@@ -20,7 +9,7 @@ export class XorWasmService {
   protected readonly _wasPath = signal('/wasm/xor_wasm/neural_wasm_xor_bg.wasm');
   public readonly wasmResource: ResourceRef<InitXorOutput | undefined> = resource({
     params: this._wasPath,
-    loader: (param: ResourceLoaderParams<string>) => init(param.params),
+    loader: (param: ResourceLoaderParams<string>) =>  init(param.params),
     defaultValue: undefined,
   });
 
@@ -47,16 +36,14 @@ export class XorWasmService {
     if (!modelInfo) {
       return undefined;
     }
-    return modelInfo.architecture.split('→').map((layer) => {
-      const trimmedLayer = layer.trim();
-      if (trimmedLayer.startsWith('[') && trimmedLayer.endsWith(']')) {
-        return trimmedLayer
-          .slice(1, -1)
-          .split(',')
-          .map((numStr) => Number(numStr.trim()));
-      }
-      return Number(trimmedLayer);
-    });
+    return modelInfo.architecture.split('→')
+      .map(layer => {
+        const trimmedLayer = layer.trim();
+        if (trimmedLayer.startsWith('[') && trimmedLayer.endsWith(']')) {
+          return trimmedLayer.slice(1, -1).split(',').map(numStr => Number(numStr.trim()));
+        }
+        return Number(trimmedLayer);
+      });
   });
   public readonly weights: Signal<NeuralNetworkLayers | undefined> = computed(() => {
     const network = this.network();

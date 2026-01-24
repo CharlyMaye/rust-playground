@@ -17,7 +17,6 @@ export class NeuralNetworkModelVizualizer {
   constructor() {
     effect(() => {
       const activations = this.activations();
-      console.log('NeuralNetworkModelVizualizer - activations changed:', activations);
       const weights = this.weights();
       if (!activations || !weights) {
         return;
@@ -35,12 +34,6 @@ export class NeuralNetworkModelVizualizer {
     if (!activations || !weights) {
       return;
     }
-    console.log(
-      'Updating network visualization with activations:',
-      activations,
-      'and weights:',
-      weights,
-    );
 
     const svg = document.getElementById('networkViz');
     if (!svg) {

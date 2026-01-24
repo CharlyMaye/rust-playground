@@ -29,7 +29,6 @@ export class IrisWasmService {
     if (!initOutput) {
       return undefined;
     }
-    console.log('Iris Classifier model wasm output:', initOutput);
     return new IrisClassifier();
   });
   public readonly modelInfo = computed(() => {
@@ -39,7 +38,6 @@ export class IrisWasmService {
     }
     const modelInfoJson: string = network.model_info();
     const modelInfo: ModelInfo = JSON.parse(modelInfoJson);
-    console.log('Iris Classifier model info:', modelInfo);
     return modelInfo;
   });
   public readonly architecture = computed(() => {
@@ -65,7 +63,6 @@ export class IrisWasmService {
     }
     const weightsJson: string = network.get_weights();
     const weights = JSON.parse(weightsJson) as NeuralNetworkLayers;
-    console.log('IRIS Classifier weights:', weights);
     return weights;
   });
 
@@ -76,7 +73,6 @@ export class IrisWasmService {
     }
     const testResultsJson: string = network.test_all();
     const testResults = JSON.parse(testResultsJson) as any[];
-    console.log('IRIS Classifier test all results:', testResults);
     return testResults;
   });
 }

@@ -105,7 +105,6 @@ export class IrisClassifier {
     const acts = JSON.parse(
       network.get_activations(sepalLength, sepalWidth, petalLength, petalWidth),
     ) as Activation<number, number>;
-    console.log('Activations:', acts);
     return acts;
   });
   public readonly predictionDisplay = computed(() => {

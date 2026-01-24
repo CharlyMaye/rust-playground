@@ -1,8 +1,8 @@
 import { inject, Injectable, ResourceRef } from '@angular/core';
-import { InitOutput as InitXorOutput } from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
 import { InitOutput as InitIraisOutput } from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
-import { XorWasmService } from './wor-wasm.service';
+import { InitOutput as InitXorOutput } from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
 import { IrisWasmService } from './iris-wasm.service';
+import { XorWasmService } from './xor-wasm.service';
 
 @Injectable({
   providedIn: 'root',
@@ -18,7 +18,8 @@ export class WasmFacade {
   public readonly xorWeights = this._xor.weights;
   public readonly xorTestAll = this._xor.testAll;
 
-  public readonly irisWasmResource: ResourceRef<InitIraisOutput | undefined> = this._iris.wasmResource;
+  public readonly irisWasmResource: ResourceRef<InitIraisOutput | undefined> =
+    this._iris.wasmResource;
   public readonly irisNetwork = this._iris.network;
   public readonly irisModelInfo = this._iris.modelInfo;
   public readonly irisArchitecture = this._iris.architecture;
