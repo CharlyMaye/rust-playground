@@ -1,0 +1,15 @@
+{
+  "name": "neural-wasm-iris",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "neural_wasm_iris_bg.wasm",
+    "neural_wasm_iris.js",
+    "neural_wasm_iris.d.ts"
+  ],
+  "main": "neural_wasm_iris.js",
+  "types": "neural_wasm_iris.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

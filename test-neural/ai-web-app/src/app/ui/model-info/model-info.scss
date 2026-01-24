@@ -1,0 +1,32 @@
+/**
+ * Model Info Card Styles
+ * Displays neural network metadata (architecture, accuracy, activations, runtime)
+ */
+
+:host {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Model Info Grid */
+.model-info {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.info-item {
+  text-align: center;
+}
+
+.info-value {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.info-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
