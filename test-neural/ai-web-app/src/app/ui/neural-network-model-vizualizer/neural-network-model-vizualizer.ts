@@ -81,11 +81,11 @@ const SVG_CONFIG = {
 } as const;
 
 const COLORS = {
-  positive: '#22c55e',
-  negative: '#ef4444',
-  neutral: '#64748b',
-  stroke: 'white',
-  label: '#94a3b8',
+  positive: 'var(--nn-positive)',
+  negative: 'var(--nn-negative)',
+  neutral: 'var(--nn-neutral)',
+  stroke: 'var(--nn-stroke)',
+  label: 'var(--nn-label)',
 } as const;
 
 const ACTIVATION_THRESHOLD = {

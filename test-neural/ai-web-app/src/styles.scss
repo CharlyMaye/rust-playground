@@ -8,6 +8,14 @@
   --error: #ef4444;
   --text: #f1f5f9;
   --muted: #94a3b8;
+  --neutral: #64748b;
+
+  /* Neural network visualization colors */
+  --nn-positive: var(--success);
+  --nn-negative: var(--error);
+  --nn-neutral: var(--neutral);
+  --nn-stroke: white;
+  --nn-label: var(--muted);
 
   /* High contrast text colors for badges (WCAG AA compliant) */
   --badge-success-bg: rgba(34, 197, 94, 0.15);
