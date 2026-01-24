@@ -1,9 +1,9 @@
 <app-about />
-<div class="demo-grid">
+<div class="demo-grid" role="list" aria-label="Démos de réseaux de neurones disponibles">
   <!-- XOR Demo -->
-  <a [routerLink]="['/xor-logic-gate']" class="demo-card">
+  <a [routerLink]="['/xor-logic-gate']" class="demo-card" role="listitem">
     @if (!xorIsLoading()) {
-      <div class="demo-icon">⊕</div>
+      <div class="demo-icon" aria-hidden="true">⊕</div>
       <h3>{{ xorModelInfo()?.name }}</h3>
       <p>{{ xorModelInfo()?.description }}</p>
       <div class="demo-meta">
@@ -19,9 +19,9 @@
   </a>
 
   <!-- Iris Demo -->
-  <a [routerLink]="['/iris-classifier']" class="demo-card">
+  <a [routerLink]="['/iris-classifier']" class="demo-card" role="listitem">
     @if (!irisIsLoading()) {
-      <div class="demo-icon">🌸</div>
+      <div class="demo-icon" aria-hidden="true">🌸</div>
       <h3>{{ irisModelInfo()?.name }}</h3>
       <p>{{ irisModelInfo()?.description }}</p>
       <div class="demo-meta">
@@ -37,8 +37,14 @@
   </a>
 
   <!-- MNIST Demo (coming soon) -->
-  <a [routerLink]="['/mnist-digit']" class="demo-card disabled">
-    <div class="demo-icon">✍️</div>
+  <a
+    [routerLink]="['/mnist-digit']"
+    class="demo-card disabled"
+    role="listitem"
+    aria-disabled="true"
+    tabindex="-1"
+  >
+    <div class="demo-icon" aria-hidden="true">✍️</div>
     <h3>MNIST Digits</h3>
     <p>Handwritten digit recognition (coming soon)</p>
     <div class="demo-meta">

@@ -13,9 +13,9 @@
 | **Structure projet** | ✅ Bon | Organisation claire avec séparation pages/ui/wasm |
 | **Angular moderne** | ✅ Très bon | Zoneless + signaux, standalone components, control flow |
 | **Clean Architecture** | ⚠️ Moyen | Façade WASM bien faite, mais violations dans les composants |
-| **Accessibilité (a11y)** | ❌ Faible | Manques critiques sur les labels, ARIA, focus |
+| **Accessibilité (a11y)** | ✅ Bon | ARIA, roles, labels implémentés |
 | **TypeScript** | ✅ Bon | Typage strict activé, interfaces définies |
-| **Performance** | ✅ Bon | Mode zoneless avec signaux (console.log à supprimer) |
+| **Performance** | ✅ Bon | Mode zoneless avec signaux |
 | **Maintenabilité** | ✅ Bon | Structure claire, peu de duplication |
 
 ---
@@ -48,26 +48,9 @@
 
 ## ❌ Points à Corriger (PAR ROI)
 
-### 🔴 Priorité 1 - ROI Élevé (Impact immédiat, effort faible)
+### � Priorité 1 - ROI Moyen (Impact important, effort modéré)
 
-#### 1.1. ~~Supprimer les `console.log` en production~~ ✅ CORRIGÉ
-**Statut** : Tous les `console.log` ont été supprimés des fichiers suivants :
-- `iris-classifier.ts`
-- `xor-logic-gate.ts`
-- `neural-network-model-vizualizer.ts`
-- `iris-wasm.service.ts`
-- `xor-wasm.service.ts`
-
----
-
-#### 1.2. ~~Corriger le typo dans le nom de fichier~~ ✅ CORRIGÉ
-**Statut** : Fichier renommé `wor-wasm.service.ts` → `xor-wasm.service.ts`
-
----
-
-### 🟠 Priorité 2 - ROI Moyen (Impact important, effort modéré)
-
-#### 2.1. Éliminer la manipulation DOM directe (Anti-pattern Angular)
+#### 1.1. Éliminer la manipulation DOM directe (Anti-pattern Angular)
 **Fichier critique** : [neural-network-model-vizualizer.ts](src/app/ui/neural-network-model-vizualizer/neural-network-model-vizualizer.ts)
 
 **Problème** : Utilisation massive de `document.getElementById()`, `document.createElementNS()`, `document.createElement()`.
@@ -86,38 +69,28 @@ svg.appendChild(circle);
 
 ---
 
-#### 2.2. Améliorer l'accessibilité (WCAG AA)
-**Problèmes identifiés** :
+#### 1.2. ~~Améliorer l'accessibilité (WCAG AA)~~ ✅ CORRIGÉ
 
-| Fichier | Problème | Solution |
-|---------|----------|----------|
-| [iris-classifier.html](src/app/pages/iris-classifier/iris-classifier.html) | Boutons presets sans `aria-label` | Ajouter `aria-label` ou `aria-pressed` |
-| [xor-logic-gate.html](src/app/pages/xor-logic-gate/xor-logic-gate.html) | Boutons toggle sans `role` ni `aria-pressed` | Ajouter `role="switch"` et `[attr.aria-pressed]` |
-| [navigation-back.html](src/app/ui/navigation-back/navigation-back.html) | Lien avec texte ambigu "← Back to Demos" | Ajouter `aria-label="Retour à la page d'accueil des démos"` |
-| [loader.html](src/app/ui/loader/loader.html) | Spinner sans `role="status"` ni `aria-live` | Ajouter `role="status" aria-live="polite"` |
-| [model-info.html](src/app/ui/model-info/model-info.html) | Structure non sémantique | Utiliser `<dl>`, `<dt>`, `<dd>` pour les infos |
-| [page-title.html](src/app/ui/page-title/page-title.html) | `<h1>` contient un emoji | Wrapper emoji dans `<span aria-hidden="true">` |
+**Corrections appliquées sur 10 fichiers :**
 
----
-
-#### 2.3. ~~Corriger les styles inline dans les templates~~ ✅ CORRIGÉ
-**Statut** : Styles inline déplacés vers SCSS et code mort supprimé.
-
----
-
-#### 2.4. ~~Supprimer le code HTML mort/inutilisé~~ ✅ CORRIGÉ
-**Statut** : Les divs `#error` avec `display: none` ont été supprimées.
+| Fichier | Corrections |
+|---------|-------------|
+| `loader.html/ts` | `role="status"`, `aria-live="polite"`, spinner `aria-hidden` |
+| `page-title.html` | Emoji masqué avec `aria-hidden="true"` |
+| `navigation-back.html` | `aria-label` + flèche masquée |
+| `neural-network-model-vizualizer.html` | SVG `role="img"` + `aria-label`, emoji masqué |
+| `about.html` | `<br>` remplacé par margin CSS |
+| `xor-logic-gate.html` | `role="switch"`, `aria-checked`, `aria-live`, progressbars accessibles, emojis masqués |
+| `iris-classifier.html` | `aria-live`, progressbars accessibles, `role="list"`, emojis masqués |
+| `model-info.html` | Structure `<dl>/<dt>/<dd>`, emoji masqué |
+| `home.html` | Emojis masqués, lien disabled avec `aria-disabled` + `tabindex="-1"` |
+| `styles.scss` | Classe `.sr-only` ajoutée |
 
 ---
 
-### 🟡 Priorité 3 - ROI Modéré (Amélioration architecture)
+### 🟡 Priorité 2 - ROI Modéré (Amélioration architecture)
 
-#### 3.1. ~~Renommer les types pour plus de clarté~~ ✅ CORRIGÉ
-**Statut** : Types renommés en `IrisPrediction` et `XorPrediction`.
-
----
-
-#### 3.2. Extraire la logique métier des composants
+#### 2.1. Extraire la logique métier des composants
 **Problème** : Les composants `IrisClassifier` et `XorLogicGate` contiennent trop de logique.
 
 **Solution** : Créer des services dédiés :
@@ -126,7 +99,7 @@ svg.appendChild(circle);
 
 ---
 
-#### 3.3. Simplifier le composant `NeuralNetworkModelVizualizer`
+#### 2.2. Simplifier le composant `NeuralNetworkModelVizualizer`
 **Problème** : 448 lignes de code, responsabilité unique violée.
 
 **Solution** : 
@@ -136,7 +109,7 @@ svg.appendChild(circle);
 
 ---
 
-#### 3.4. Utiliser des composants UI réutilisables
+#### 2.3. Utiliser des composants UI réutilisables
 **Problème** : La classe `.card` est utilisée directement partout au lieu d'un composant.
 
 **Solution** : Le composant `Card` existe mais n'est pas utilisé. Migrer vers :
@@ -149,23 +122,23 @@ svg.appendChild(circle);
 
 ---
 
-### 🟢 Priorité 4 - ROI Faible (Nice to have)
+### 🟢 Priorité 3 - ROI Faible (Nice to have)
 
-#### 4.1. Compléter le composant `MnistDigit`
+#### 3.1. Compléter le composant `MnistDigit`
 **Fichier** : [mnist-digit.ts](src/app/pages/mnist-digit/mnist-digit.ts)
 
 **Statut** : Composant vide, placeholder uniquement.
 
 ---
 
-#### 4.2. Supprimer les composants non utilisés
+#### 3.2. Supprimer les composants non utilisés
 **Composants** :
 - `NetworkVisualization` - semble être un doublon de `NeuralNetworkModelVizualizer`
 - `Card` - créé mais non utilisé
 
 ---
 
-#### 4.3. Améliorer le nommage
+#### 3.3. Améliorer le nommage
 | Actuel | Suggestion |
 |--------|------------|
 | `_showTestSamplesResult` | `showTestSamplesResultSignal` |
@@ -175,14 +148,14 @@ svg.appendChild(circle);
 
 ---
 
-#### 4.4. Ajouter des tests unitaires
+#### 3.4. Ajouter des tests unitaires
 **Statut actuel** : Aucun test détecté.
 
 **Priorité** : Services WASM > Composants avec logique > Composants UI.
 
 ---
 
-#### 4.5. Renforcer le typage
+#### 3.5. Renforcer le typage
 **Fichiers** :
 - [neural-network-model-vizualizer.ts](src/app/ui/neural-network-model-vizualizer/neural-network-model-vizualizer.ts) ligne 131 : `layer: any` → typer correctement
 - [iris-wasm.service.ts](src/wasm/shared/iris-wasm.service.ts) ligne 64 : `as any[]` → créer un type `IrisTestResult`
@@ -191,18 +164,10 @@ svg.appendChild(circle);
 
 ## 📝 TODO List par ROI
 
-### 🔴 Haute Priorité (Faire maintenant)
-- [x] ~~Supprimer tous les `console.log`~~ ✅
-- [x] ~~Renommer `wor-wasm.service.ts` → `xor-wasm.service.ts`~~ ✅
-
 ### 🟠 Priorité Moyenne (Sprint suivant)
 - [ ] Refactorer `NeuralNetworkModelVizualizer` pour éliminer la manipulation DOM directe
-- [ ] Corriger les problèmes d'accessibilité (a11y)
-- [x] ~~Déplacer les styles inline vers SCSS~~ ✅
-- [x] ~~Supprimer le code HTML mort~~ ✅
 
-### 🟡 Priorité Modérée (Backlog)
-- [x] ~~Renommer les types `NetworkPrediction` → `IrisPrediction` / `XorPrediction`~~ ✅
+###  Priorité Modérée (Backlog)
 - [ ] Créer des services pour la logique métier des pages
 - [ ] Refactorer le composant de visualisation (448 lignes)
 - [ ] Utiliser le composant `Card` partout
@@ -248,13 +213,12 @@ src/
 
 ## 🎯 Conclusion
 
-Le projet est **bien adapté pour Angular moderne** avec une utilisation correcte du mode zoneless et des signaux. Cependant, des améliorations sont nécessaires sur :
+Le projet est **bien adapté pour Angular moderne** avec une utilisation correcte du mode zoneless et des signaux. L'accessibilité a été corrigée.
 
-1. **Accessibilité** : Nombreux manques WCAG
-2. **Architecture** : Manipulation DOM directe à éliminer
-3. **Qualité** : Code mort, console.log, styles inline
+**Reste à faire** :
+1. **Architecture** : Manipulation DOM directe à éliminer dans le visualiseur
 
-**Estimation effort total** : ~2-3 jours de travail pour atteindre un niveau de qualité production.
+**Estimation effort restant** : ~0.5-1 jour de travail.
 
 ---
 

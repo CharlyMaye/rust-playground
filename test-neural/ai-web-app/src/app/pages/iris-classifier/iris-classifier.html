@@ -4,7 +4,7 @@
   <div id="app">
     <!-- Interactive Classifier -->
     <div class="card">
-      <div class="card-title">🔬 Interactive Classifier</div>
+      <div class="card-title"><span aria-hidden="true">🔬</span> Interactive Classifier</div>
 
       <div class="input-grid">
         <div class="input-field">
@@ -25,43 +25,78 @@
         </div>
       </div>
 
-      <div class="presets">
-        <strong class="presets-label">Quick Presets:</strong>
-        <button class="preset-btn" (click)="loadPreset('setosa')">Setosa</button>
-        <button class="preset-btn" (click)="loadPreset('versicolor')">Versicolor</button>
-        <button class="preset-btn" (click)="loadPreset('virginica')">Virginica</button>
+      <div class="presets" role="group" aria-label="Préréglages rapides">
+        <strong class="presets-label" id="presetsLabel">Quick Presets:</strong>
+        <button class="preset-btn" (click)="loadPreset('setosa')" aria-describedby="presetsLabel">
+          Setosa
+        </button>
+        <button
+          class="preset-btn"
+          (click)="loadPreset('versicolor')"
+          aria-describedby="presetsLabel"
+        >
+          Versicolor
+        </button>
+        <button
+          class="preset-btn"
+          (click)="loadPreset('virginica')"
+          aria-describedby="presetsLabel"
+        >
+          Virginica
+        </button>
       </div>
     </div>
 
     @let _output = output();
     <!-- Prediction Result -->
-    <div id="result" class="card result-card">
+    <div id="result" class="card result-card" aria-live="polite" aria-atomic="true">
       @if (!!_output) {
         <div class="predicted-class" id="predictedClass">{{ predictionDisplay() }}</div>
         <div class="predicted-confidence" id="predictedConfidence">
           {{ confidenceDisplay() }}
         </div>
 
-        <div class="probabilities">
+        <div class="probabilities" role="group" aria-label="Probabilités par classe">
           <div class="prob-item">
-            <div class="prob-label">Setosa</div>
-            <div class="prob-bar-container">
+            <div class="prob-label" id="labelSetosa">Setosa</div>
+            <div
+              class="prob-bar-container"
+              role="progressbar"
+              [attr.aria-valuenow]="probability()[0]"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-labelledby="labelSetosa"
+            >
               <div class="prob-bar" id="probSetosa" [style.height.%]="probability()[0]">
                 <div class="prob-value" id="probSetosaValue">{{ probability()[0] }}%</div>
               </div>
             </div>
           </div>
           <div class="prob-item">
-            <div class="prob-label">Versicolor</div>
-            <div class="prob-bar-container">
+            <div class="prob-label" id="labelVersicolor">Versicolor</div>
+            <div
+              class="prob-bar-container"
+              role="progressbar"
+              [attr.aria-valuenow]="probability()[1]"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-labelledby="labelVersicolor"
+            >
               <div class="prob-bar" id="probVersicolor" [style.height.%]="probability()[1]">
                 <div class="prob-value" id="probVersicolorValue">{{ probability()[1] }}%</div>
               </div>
             </div>
           </div>
           <div class="prob-item">
-            <div class="prob-label">Virginica</div>
-            <div class="prob-bar-container">
+            <div class="prob-label" id="labelVirginica">Virginica</div>
+            <div
+              class="prob-bar-container"
+              role="progressbar"
+              [attr.aria-valuenow]="probability()[2]"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              aria-labelledby="labelVirginica"
+            >
               <div class="prob-bar" id="probVirginica" [style.height.%]="probability()[2]">
                 <div class="prob-value" id="probVirginicaValue">{{ probability()[2] }}%</div>
               </div>
@@ -79,13 +114,14 @@
 
     <!-- Test All Samples -->
     <div class="card">
-      <div class="card-title">🧪 Test Samples</div>
+      <div class="card-title"><span aria-hidden="true">🧪</span> Test Samples</div>
       <button class="predict-btn" (click)="testAllSamples()">Run All Test Samples</button>
       @if (!!showTestSamplesResult()) {
-        <div id="testResults" class="test-results">
+        <div id="testResults" class="test-results" role="list" aria-label="Résultats des tests">
           @for (result of irisTestAll(); track $index) {
             <div
               class="test-item"
+              role="listitem"
               [class.correct]="result.is_correct"
               [class.incorrect]="!result.is_correct"
             >
@@ -94,11 +130,11 @@
               }}</span>
               <span
                 class="test-prediction"
-                [style.color]="result.is_correct ? 'var(--success)' : 'var(--error)'"
+                [attr.aria-label]="result.is_correct ? 'Correct' : 'Incorrect'"
               >
-                {{
-                  `${result.is_correct ? '✓' : '✗'} ${result.predicted} (expected: ${result.expected})`
-                }}
+                <span aria-hidden="true">{{ result.is_correct ? '✓' : '✗' }}</span>
+                <span class="sr-only">{{ result.is_correct ? 'Correct:' : 'Incorrect:' }}</span>
+                {{ result.predicted }} (expected: {{ result.expected }})
               </span>
             </div>
           }

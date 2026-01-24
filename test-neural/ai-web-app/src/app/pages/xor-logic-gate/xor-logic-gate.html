@@ -4,33 +4,39 @@
   <div id="app">
     <!-- Interactive Predictor -->
     <div class="card">
-      <div class="card-title">⚡ Interactive Predictor</div>
+      <div class="card-title"><span aria-hidden="true">⚡</span> Interactive Predictor</div>
       <div class="predictor">
         <div class="input-group">
-          <div class="input-label">Input A</div>
+          <span id="labelA" class="input-label">Input A</span>
           <button
             id="inputA"
             class="toggle-btn"
             [class.active]="inputA() === 1"
             (click)="toggleInput('A')"
+            role="switch"
+            [attr.aria-checked]="inputA() === 1"
+            aria-labelledby="labelA"
           >
             {{ inputA() }}
           </button>
         </div>
-        <div class="operator">⊕</div>
+        <div class="operator" aria-hidden="true">⊕</div>
         <div class="input-group">
-          <div class="input-label">Input B</div>
+          <span id="labelB" class="input-label">Input B</span>
           <button
             id="inputB"
             class="toggle-btn"
             [class.active]="inputB() === 1"
             (click)="toggleInput('B')"
+            role="switch"
+            [attr.aria-checked]="inputB() === 1"
+            aria-labelledby="labelB"
           >
             {{ inputB() }}
           </button>
         </div>
-        <div class="operator">=</div>
-        <div class="result-box">
+        <div class="operator" aria-hidden="true">=</div>
+        <div class="result-box" aria-live="polite" aria-atomic="true">
           <div id="result" class="result-value">{{ predictionDisplay() }}</div>
           <div id="confidence" class="result-confidence">{{ confidenceDisplay() }}</div>
         </div>
@@ -42,15 +48,15 @@
 
     <!-- Truth Table -->
     <div class="card">
-      <div class="card-title">📊 XOR Truth Table</div>
+      <div class="card-title"><span aria-hidden="true">📊</span> XOR Truth Table</div>
       <table class="truth-table">
         <thead>
           <tr>
-            <th>A</th>
-            <th>B</th>
-            <th>Expected</th>
-            <th>Prediction</th>
-            <th>Confidence</th>
+            <th scope="col">A</th>
+            <th scope="col">B</th>
+            <th scope="col">Expected</th>
+            <th scope="col">Prediction</th>
+            <th scope="col">Confidence</th>
           </tr>
         </thead>
         <tbody id="truthTable">
@@ -66,9 +72,16 @@
                   </span>
                 </td>
                 <td>
-                  {{ (result.confidence | number: '1.2-2') + '%' }}
-                  <!--TODO - use html element to replace this-->
-                  <div class="confidence-bar">
+                  <span class="sr-only">{{ result.confidence | number: '1.2-2' }}%</span>
+                  <span aria-hidden="true">{{ (result.confidence | number: '1.2-2') + '%' }}</span>
+                  <div
+                    class="confidence-bar"
+                    role="progressbar"
+                    [attr.aria-valuenow]="result.confidence"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    [attr.aria-label]="'Confiance: ' + (result.confidence | number: '1.2-2') + '%'"
+                  >
                     <div class="confidence-fill" [style.width.%]="result.confidence"></div>
                   </div>
                 </td>
@@ -79,7 +92,6 @@
               <td colspan="5">No test results available.</td>
             </tr>
           }
-          <!-- Filled by JavaScript -->
         </tbody>
       </table>
     </div>

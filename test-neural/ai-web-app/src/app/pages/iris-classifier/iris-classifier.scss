@@ -190,6 +190,14 @@
   font-weight: 600;
 }
 
+.test-item.correct .test-prediction {
+  color: var(--success);
+}
+
+.test-item.incorrect .test-prediction {
+  color: var(--error);
+}
+
 .presets-label {
   color: var(--muted);
   font-size: 0.875rem;

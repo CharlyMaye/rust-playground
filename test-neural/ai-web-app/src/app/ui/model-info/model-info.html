@@ -1,24 +1,24 @@
 @let _modelInfo = modelInfo();
 
 <div class="card">
-  <div class="card-title">ℹ️ Model Information</div>
-  <div id="modelInfo" class="model-info">
+  <div class="card-title"><span aria-hidden="true">ℹ️</span> Model Information</div>
+  <dl id="modelInfo" class="model-info">
     <div class="info-item">
-      <div class="info-value" id="architecture">{{ _modelInfo?.architecture }}</div>
-      <div class="info-label">Architecture</div>
+      <dt class="info-label">Architecture</dt>
+      <dd class="info-value" id="architecture">{{ _modelInfo?.architecture }}</dd>
     </div>
     <div class="info-item">
-      <div class="info-value" id="accuracy">{{ _modelInfo?.accuracy | number: '1.1-1' }}%</div>
-      <div class="info-label">Accuracy</div>
+      <dt class="info-label">Accuracy</dt>
+      <dd class="info-value" id="accuracy">{{ _modelInfo?.accuracy | number: '1.1-1' }}%</dd>
     </div>
     <!--TODO-->
     <div class="info-item">
-      <div class="info-value">Tanh → Sigmoid</div>
-      <div class="info-label">Activations</div>
+      <dt class="info-label">Activations</dt>
+      <dd class="info-value">Tanh → Sigmoid</dd>
     </div>
     <div class="info-item">
-      <div class="info-value">WASM</div>
-      <div class="info-label">Runtime</div>
+      <dt class="info-label">Runtime</dt>
+      <dd class="info-value">WASM</dd>
     </div>
-  </div>
+  </dl>
 </div>
