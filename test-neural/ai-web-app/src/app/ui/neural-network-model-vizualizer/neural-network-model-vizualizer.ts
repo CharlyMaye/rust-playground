@@ -262,7 +262,10 @@ export class NeuralNetworkModelVizualizer {
       const isOutputLayer = layerIndex === activations.layers.length - 1;
       const isSoftmax = layer.function.toLowerCase() === 'softmax';
 
-      layer.activation.forEach((val: number, neuronIndex: number) => {
+      // Pour la couche de sortie, utiliser activations.output au lieu de layer.activation
+      const layerValues = isOutputLayer ? outputVal : layer.activation;
+
+      layerValues.forEach((val: number, neuronIndex: number) => {
         let color: string;
         let radius: string;
         let fontSize: string;
