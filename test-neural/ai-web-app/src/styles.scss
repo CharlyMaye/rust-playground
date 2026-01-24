@@ -32,7 +32,8 @@ body {
   line-height: 1.6;
 }
 app-root,
-app-main-layout {
+app-main-layout,
+app-page-layout {
   display: flex;
   flex-direction: column;
   align-items: center;

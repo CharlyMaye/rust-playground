@@ -1,18 +1,10 @@
-import { Component, signal, Signal } from '@angular/core';
-import { NavigationBack } from '../../ui/navigation-back/navigation-back';
-import { PageFooter } from '../../ui/page-footer/page-footer';
-import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
+import { Component } from '@angular/core';
 
 @Component({
   selector: 'app-mnist-digit',
-  imports: [PageTitle, NavigationBack, PageFooter],
+  imports: [],
   templateUrl: './mnist-digit.html',
   styleUrl: './mnist-digit.scss',
+  host: { class: 'container' },
 })
-export class MnistDigit {
-  public readonly pageTitleOptions: Signal<PageTitleOptions> = signal({
-    title: 'MNIST Digit Recognizer',
-    subtitle: 'Handwritten Digit Classification',
-    icon: '✍️',
-  });
-}
+export class MnistDigit {}

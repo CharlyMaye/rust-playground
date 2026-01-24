@@ -1,26 +1,18 @@
-import { Component, inject, signal, Signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { WasmFacade } from '@cma/wasm/shared/wasm';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
-import { NavigationBack } from '../../ui/navigation-back/navigation-back';
-import { PageFooter } from '../../ui/page-footer/page-footer';
-import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
 
 @Component({
   selector: 'app-iris-classifier',
-  imports: [PageTitle, Loader, NavigationBack, ModelInfoComponent, PageFooter],
+  imports: [Loader, ModelInfoComponent],
   templateUrl: './iris-classifier.html',
   styleUrl: './iris-classifier.scss',
+  host: { class: 'container' },
 })
 export class IrisClassifier {
   private readonly wasmService = inject(WasmFacade);
   public readonly irisIsLoading = this.wasmService.irisWasmResource.isLoading;
   public readonly irisModelInfo = this.wasmService.irisModelInfo;
   public readonly irisArchitecture = this.wasmService.irisArchitecture;
-
-  public readonly pageTitleOptions: Signal<PageTitleOptions> = signal({
-    title: 'Iris Classifier',
-    subtitle: 'Multi-class Neural Network Classification',
-    icon: '🌸',
-  });
 }

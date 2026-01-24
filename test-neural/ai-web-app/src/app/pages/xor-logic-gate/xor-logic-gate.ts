@@ -1,11 +1,8 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectorRef, Component, computed, inject, signal, Signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { WasmFacade } from '@cma/wasm/shared/wasm';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
-import { NavigationBack } from '../../ui/navigation-back/navigation-back';
-import { PageFooter } from '../../ui/page-footer/page-footer';
-import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
 
 import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
 
@@ -18,20 +15,12 @@ type NetworkPrediction = {
 
 @Component({
   selector: 'app-xor-logic-gate',
-  imports: [
-    DecimalPipe,
-    PageTitle,
-    Loader,
-    NavigationBack,
-    ModelInfoComponent,
-    PageFooter,
-    NeuralNetworkModelVizualizer,
-  ],
+  imports: [DecimalPipe, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
   templateUrl: './xor-logic-gate.html',
   styleUrl: './xor-logic-gate.scss',
+  host: { class: 'container' },
 })
 export class XorLogicGate {
-  private readonly changeDetector = inject(ChangeDetectorRef);
   private readonly wasmService = inject(WasmFacade);
   public readonly xorIsLoading = this.wasmService.xorWasmResource.isLoading;
   public readonly xorNetwork = this.wasmService.xorNetwork;
@@ -39,12 +28,6 @@ export class XorLogicGate {
   public readonly xorArchitecture = this.wasmService.xorArchitecture;
   public readonly xorWeights = this.wasmService.xorWeights;
   public readonly xorTestAll = this.wasmService.xorTestAll;
-
-  public readonly pageTitleOptions: Signal<PageTitleOptions> = signal({
-    title: 'Neural XOR',
-    subtitle: 'WebAssembly Neural Network Demo',
-    icon: '🧠',
-  });
 
   public readonly inputA = signal(0);
   public readonly inputB = signal(0);
