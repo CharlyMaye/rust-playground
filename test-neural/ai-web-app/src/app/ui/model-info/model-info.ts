@@ -6,8 +6,8 @@ import { ModelInfo } from '@cma/wasm/shared/model-info';
   selector: 'app-model-info',
   imports: [DecimalPipe],
   templateUrl: './model-info.html',
-  styleUrl: './model-info.scss'
+  styleUrl: './model-info.scss',
 })
 export class ModelInfoComponent {
-  public readonly modelInfo = input<ModelInfo | undefined>(undefined)
+  public readonly modelInfo = input<ModelInfo | undefined>(undefined);
 }

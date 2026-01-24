@@ -1,10 +1,10 @@
-import { Routes } from "@angular/router";
+import { Routes } from '@angular/router';
 
 export function getRoutes(): Routes {
-    return [
-        {
-            path: '',
-            loadComponent: () => import('./mnist-digit').then(m => m.MnistDigit)
-        }
-    ]
+  return [
+    {
+      path: '',
+      loadComponent: () => import('./mnist-digit').then((m) => m.MnistDigit),
+    },
+  ];
 }

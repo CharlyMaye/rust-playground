@@ -1,92 +1,99 @@
-<app-page-title [options]="pageTitleOptions()"/>
-<app-navigation-back/>
+<app-page-title [options]="pageTitleOptions()" />
+<app-navigation-back />
 <div class="container">
-    @if (xorIsLoading()) {
-        <app-loader id="loading" [message]="'Loading Neural Network...'"/>
-    } @else {
-        <div id="app">
-            <!-- Interactive Predictor -->
-            <div class="card">
-                <div class="card-title">⚡ Interactive Predictor</div>
-                <div class="predictor">
-                    <div class="input-group">
-                        <div class="input-label">Input A</div>
-                        <button id="inputA" class="toggle-btn" [class.active]="inputA() === 1"  (click)="toggleInput('A')">{{ inputA() }}</button>
-                    </div>
-                    <div class="operator">⊕</div>
-                    <div class="input-group">
-                        <div class="input-label">Input B</div>
-                        <button id="inputB" class="toggle-btn" [class.active]="inputB() === 1" (click)="toggleInput('B')">{{ inputB() }}</button>
-                    </div>
-                    <div class="operator">=</div>
-                    <div class="result-box">
-                        <div id="result" class="result-value">{{ predictionDisplay()}}</div>
-                        <div id="confidence" class="result-confidence">{{ confidenceDisplay() }}</div>
-                    </div>
-                </div>
-            </div>
-    
-            <!-- Network Visualization -->
-            <div class="card">
-                <div class="card-title">🔬 Network Visualization</div>
-                <svg id="networkViz" width="100%" height="300" viewBox="0 0 500 280"></svg>
-                <div id="activationDetails" style="margin-top: 1rem; font-size: 0.8rem; color: var(--muted);"></div>
-            </div>
-    
-            <!-- Truth Table -->
-            <div class="card">
-                <div class="card-title">📊 XOR Truth Table</div>
-                <table class="truth-table">
-                    <thead>
-                        <tr>
-                            <th>A</th>
-                            <th>B</th>
-                            <th>Expected</th>
-                            <th>Prediction</th>
-                            <th>Confidence</th>
-                        </tr>
-                    </thead>
-                    <tbody id="truthTable">
-                        @if(xorTestAll()) {
-                            @for (result of xorTestAll()!; track $index) {
-                                <tr [class.highlight]="result.a === inputA() && result.b === inputB()">
-                                    <td>{{ result.a }}</td>
-                                    <td>{{ result.b }}</td>
-                                    <td>{{ result.expected }}</td>
-                                    <td>
-                                        <span class="badge badge-success">
-                                            {{ result.prediction }}
-                                        </span>
-                                    </td>
-                                    <td>
-                                        {{ (result.confidence | number:'1.2-2') + '%' }}
-                                        <!--TODO - use html element to replace this-->
-                                        <div class="confidence-bar">
-                                            <div class="confidence-fill" [style.width.%]="result.confidence"></div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            }
-                        } @else {
-                            <tr>
-                                <td colspan="5">No test results available.</td>
-                            </tr>
-                        }
-                        <!-- Filled by JavaScript -->
-                    </tbody>
-                </table>
-            </div>
-    
-            <!-- Model Info -->
-            <app-model-info [modelInfo]="xorModelInfo()"/>
-
+  @if (xorIsLoading()) {
+    <app-loader id="loading" [message]="'Loading Neural Network...'" />
+  } @else {
+    <div id="app">
+      <!-- Interactive Predictor -->
+      <div class="card">
+        <div class="card-title">⚡ Interactive Predictor</div>
+        <div class="predictor">
+          <div class="input-group">
+            <div class="input-label">Input A</div>
+            <button
+              id="inputA"
+              class="toggle-btn"
+              [class.active]="inputA() === 1"
+              (click)="toggleInput('A')"
+            >
+              {{ inputA() }}
+            </button>
+          </div>
+          <div class="operator">⊕</div>
+          <div class="input-group">
+            <div class="input-label">Input B</div>
+            <button
+              id="inputB"
+              class="toggle-btn"
+              [class.active]="inputB() === 1"
+              (click)="toggleInput('B')"
+            >
+              {{ inputB() }}
+            </button>
+          </div>
+          <div class="operator">=</div>
+          <div class="result-box">
+            <div id="result" class="result-value">{{ predictionDisplay() }}</div>
+            <div id="confidence" class="result-confidence">{{ confidenceDisplay() }}</div>
+          </div>
         </div>
-        <div id="error" class="card error" style="display: none;">
-            <p>❌ Failed to load Neural Network</p>
-            <p id="errorMsg"></p>
-        </div>
+      </div>
 
-    }
+      <!-- Network Visualization -->
+      <app-neural-network-model-vizualizer [activations]="activations()" [weights]="xorWeights()" />
 
+      <!-- Truth Table -->
+      <div class="card">
+        <div class="card-title">📊 XOR Truth Table</div>
+        <table class="truth-table">
+          <thead>
+            <tr>
+              <th>A</th>
+              <th>B</th>
+              <th>Expected</th>
+              <th>Prediction</th>
+              <th>Confidence</th>
+            </tr>
+          </thead>
+          <tbody id="truthTable">
+            @if (xorTestAll()) {
+              @for (result of xorTestAll()!; track $index) {
+                <tr [class.highlight]="result.a === inputA() && result.b === inputB()">
+                  <td>{{ result.a }}</td>
+                  <td>{{ result.b }}</td>
+                  <td>{{ result.expected }}</td>
+                  <td>
+                    <span class="badge badge-success">
+                      {{ result.prediction }}
+                    </span>
+                  </td>
+                  <td>
+                    {{ (result.confidence | number: '1.2-2') + '%' }}
+                    <!--TODO - use html element to replace this-->
+                    <div class="confidence-bar">
+                      <div class="confidence-fill" [style.width.%]="result.confidence"></div>
+                    </div>
+                  </td>
+                </tr>
+              }
+            } @else {
+              <tr>
+                <td colspan="5">No test results available.</td>
+              </tr>
+            }
+            <!-- Filled by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Model Info -->
+      <app-model-info [modelInfo]="xorModelInfo()" />
+    </div>
+    <div id="error" class="card error" style="display: none">
+      <p>❌ Failed to load Neural Network</p>
+      <p id="errorMsg"></p>
+    </div>
+  }
 </div>
 <footer></footer>

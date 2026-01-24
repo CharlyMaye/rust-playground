@@ -6,9 +6,9 @@ import { Component, input } from '@angular/core';
   templateUrl: './loader.html',
   styleUrl: './loader.scss',
   host: {
-    'class': 'card loading'
-  }
+    class: 'card loading',
+  },
 })
 export class Loader {
-  public readonly message = input<string>("");
+  public readonly message = input<string>('');
 }

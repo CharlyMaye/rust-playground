@@ -6,6 +6,4 @@ import { Component } from '@angular/core';
   templateUrl: './network-visualization.html',
   styleUrl: './network-visualization.scss',
 })
-export class NetworkVisualization {
-
-}
+export class NetworkVisualization {}

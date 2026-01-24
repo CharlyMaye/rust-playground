@@ -7,6 +7,4 @@ import { RouterLink } from '@angular/router';
   templateUrl: './navigation-back.html',
   styleUrl: './navigation-back.scss',
 })
-export class NavigationBack {
-
-}
+export class NavigationBack {}

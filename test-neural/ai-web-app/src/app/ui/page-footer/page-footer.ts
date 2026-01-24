@@ -6,6 +6,4 @@ import { Component } from '@angular/core';
   templateUrl: './page-footer.html',
   styleUrl: './page-footer.scss',
 })
-export class PageFooter {
-
-}
+export class PageFooter {}

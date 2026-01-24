@@ -7,9 +7,7 @@ import { Card } from '../card/card';
   templateUrl: './about.html',
   styleUrl: './about.scss',
   host: {
-    class: 'card'
-  }
+    class: 'card',
+  },
 })
-export class About {
-
-}
+export class About {}

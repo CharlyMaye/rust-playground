@@ -1,14 +1,11 @@
-import { Component, effect, inject, signal, Signal } from '@angular/core';
-import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
-import { PageFooter } from '../../ui/page-footer/page-footer';
-import { About } from '../../ui/about/about';
+import { DecimalPipe } from '@angular/common';
+import { Component, inject, signal, Signal } from '@angular/core';
 import { RouterLinkWithHref } from '@angular/router';
 import { WasmFacade } from '@cma/wasm/shared/wasm';
+import { About } from '../../ui/about/about';
 import { Loader } from '../../ui/loader/loader';
-import { IrisClassifier } from '@cma/wasm/iris_wasm';
-import { XorNetwork } from '@cma/wasm/xor_wasm';
-import { DecimalPipe } from '@angular/common';
-
+import { PageFooter } from '../../ui/page-footer/page-footer';
+import { PageTitle, PageTitleOptions } from '../../ui/page-title/page-title';
 
 @Component({
   selector: 'app-home',
@@ -29,8 +26,7 @@ export class Home {
 
   public readonly xorModelInfo = this.wasmService.xorModelInfo;
   public readonly xorArchitecture = this.wasmService.xorArchitecture;
-  
+
   public readonly irisModelInfo = this.wasmService.irisModelInfo;
   public readonly irisArchitecture = this.wasmService.irisArchitecture;
-
 }
