@@ -26,7 +26,7 @@ export type NeuralNetworkLayers = {
   layers: NeuralNetworkLayer[];
 };
 
-export type Activation<TIn, TOut> = {
+export type Activation<TIn = number, TOut = number> = {
   inputs: TIn[];
   layers: {
     pre_activation: number[];
