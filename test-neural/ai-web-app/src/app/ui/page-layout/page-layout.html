@@ -1,0 +1,8 @@
+<app-page-title [options]="pageTitleOptions()" />
+@if (showBackButton()) {
+  <app-navigation-back />
+}
+<main>
+  <router-outlet />
+</main>
+<footer></footer>

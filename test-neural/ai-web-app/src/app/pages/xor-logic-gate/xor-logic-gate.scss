@@ -1,0 +1,117 @@
+/**
+ * XOR Logic Gate Demo Styles
+ * 
+ * Sections:
+ * - Predictor: Interactive toggle buttons and result display
+ * - Truth Table: Test results grid with confidence bars
+ */
+
+/* Predictor Section */
+.predictor {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.input-group {
+  text-align: center;
+}
+
+.input-label {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+
+.toggle-btn {
+  width: 80px;
+  height: 80px;
+  border-radius: 1rem;
+  border: 3px solid var(--accent);
+  background: transparent;
+  color: var(--text);
+  font-size: 2rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  transform: scale(1.05);
+}
+
+.toggle-btn.active {
+  background: var(--accent);
+  box-shadow: 0 0 20px var(--accent);
+}
+
+.operator {
+  font-size: 2rem;
+  color: var(--muted);
+}
+
+.result-box {
+  text-align: center;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+  border-radius: 1rem;
+  min-width: 120px;
+}
+
+.result-value {
+  font-size: 3rem;
+  font-weight: bold;
+  color: var(--success);
+}
+
+.result-confidence {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+/* Truth Table */
+.truth-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.truth-table th,
+.truth-table td {
+  padding: 0.75rem;
+  text-align: center;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.truth-table th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.truth-table tr:last-child td {
+  border-bottom: none;
+}
+
+.truth-table .highlight {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.confidence-bar {
+  width: 60px;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.3);
+  border-radius: 3px;
+  overflow: hidden;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 0.5rem;
+}
+
+.confidence-fill {
+  height: 100%;
+  background: var(--success);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
