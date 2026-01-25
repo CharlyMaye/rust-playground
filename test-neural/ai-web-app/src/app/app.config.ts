@@ -3,8 +3,7 @@ import {
   PreloadAllModules,
   provideRouter,
   withComponentInputBinding,
-  withHashLocation,
-  withPreloading,
+  withPreloading
 } from '@angular/router';
 
 import { routes } from './app.routes';
@@ -14,7 +13,6 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(
       routes,
-      withHashLocation(),
       withComponentInputBinding(),
       withPreloading(PreloadAllModules),
     ),
