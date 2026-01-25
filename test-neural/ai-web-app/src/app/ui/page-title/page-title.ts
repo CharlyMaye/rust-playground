@@ -17,10 +17,9 @@ export type PageTitleOptions = {
  * Used at the top of pages to provide context and branding.
  */
 @Component({
-  selector: 'app-page-title',
+  selector: 'header',
   imports: [],
   templateUrl: './page-title.html',
-  styleUrl: './page-title.scss',
 })
 export class PageTitle {
   /** Title configuration options */

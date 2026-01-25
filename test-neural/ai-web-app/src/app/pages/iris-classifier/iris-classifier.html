@@ -8,148 +8,138 @@
 @if (irisIsLoading()) {
   <app-loader id="loading" [message]="'Loading Neural Network...'" />
 } @else {
-  <div id="app">
-    <!-- Interactive Classifier -->
-    <div class="card">
-      <div class="card-title"><span aria-hidden="true">🔬</span> Interactive Classifier</div>
+  <!-- Interactive Classifier -->
+  <div class="card">
+    <div class="card-title"><span aria-hidden="true">🔬</span> Interactive Classifier</div>
 
-      <div class="input-grid">
-        <div class="input-field">
-          <label for="sepalLength">Sepal Length (cm)</label>
-          <input type="number" [formField]="irisForm.sepalLength" id="sepalLength" step="0.1" />
-        </div>
-        <div class="input-field">
-          <label for="sepalWidth">Sepal Width (cm)</label>
-          <input type="number" [formField]="irisForm.sepalWidth" id="sepalWidth" step="0.1" />
-        </div>
-        <div class="input-field">
-          <label for="petalLength">Petal Length (cm)</label>
-          <input type="number" [formField]="irisForm.petalLength" id="petalLength" step="0.1" />
-        </div>
-        <div class="input-field">
-          <label for="petalWidth">Petal Width (cm)</label>
-          <input type="number" [formField]="irisForm.petalWidth" id="petalWidth" step="0.1" />
-        </div>
+    <div class="input-grid">
+      <div class="input-field">
+        <label for="sepalLength">Sepal Length (cm)</label>
+        <input type="number" [formField]="irisForm.sepalLength" id="sepalLength" step="0.1" />
       </div>
-
-      <!-- Preset buttons for quick input -->
-      <div class="presets" role="group" aria-label="Quick presets">
-        <strong class="presets-label" id="presetsLabel">Quick Presets:</strong>
-        <button class="preset-btn" (click)="loadPreset('setosa')" aria-describedby="presetsLabel">
-          Setosa
-        </button>
-        <button
-          class="preset-btn"
-          (click)="loadPreset('versicolor')"
-          aria-describedby="presetsLabel"
-        >
-          Versicolor
-        </button>
-        <button
-          class="preset-btn"
-          (click)="loadPreset('virginica')"
-          aria-describedby="presetsLabel"
-        >
-          Virginica
-        </button>
+      <div class="input-field">
+        <label for="sepalWidth">Sepal Width (cm)</label>
+        <input type="number" [formField]="irisForm.sepalWidth" id="sepalWidth" step="0.1" />
+      </div>
+      <div class="input-field">
+        <label for="petalLength">Petal Length (cm)</label>
+        <input type="number" [formField]="irisForm.petalLength" id="petalLength" step="0.1" />
+      </div>
+      <div class="input-field">
+        <label for="petalWidth">Petal Width (cm)</label>
+        <input type="number" [formField]="irisForm.petalWidth" id="petalWidth" step="0.1" />
       </div>
     </div>
 
-    @let _output = output();
-    <!-- Prediction Result -->
-    <div id="result" class="card result-card" aria-live="polite" aria-atomic="true">
-      @if (!!_output) {
-        <div class="predicted-class" id="predictedClass">{{ predictionDisplay() }}</div>
-        <div class="predicted-confidence" id="predictedConfidence">
-          {{ confidenceDisplay() }}
-        </div>
-
-        <!-- Class probability bars -->
-        <div class="probabilities" role="group" aria-label="Class probabilities">
-          <div class="prob-item">
-            <div class="prob-label" id="labelSetosa">Setosa</div>
-            <div
-              class="prob-bar-container"
-              role="progressbar"
-              [attr.aria-valuenow]="probability()[0]"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-labelledby="labelSetosa"
-            >
-              <div class="prob-bar" id="probSetosa" [style.height.%]="probability()[0]">
-                <div class="prob-value" id="probSetosaValue">{{ probability()[0] }}%</div>
-              </div>
-            </div>
-          </div>
-          <div class="prob-item">
-            <div class="prob-label" id="labelVersicolor">Versicolor</div>
-            <div
-              class="prob-bar-container"
-              role="progressbar"
-              [attr.aria-valuenow]="probability()[1]"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-labelledby="labelVersicolor"
-            >
-              <div class="prob-bar" id="probVersicolor" [style.height.%]="probability()[1]">
-                <div class="prob-value" id="probVersicolorValue">{{ probability()[1] }}%</div>
-              </div>
-            </div>
-          </div>
-          <div class="prob-item">
-            <div class="prob-label" id="labelVirginica">Virginica</div>
-            <div
-              class="prob-bar-container"
-              role="progressbar"
-              [attr.aria-valuenow]="probability()[2]"
-              aria-valuemin="0"
-              aria-valuemax="100"
-              aria-labelledby="labelVirginica"
-            >
-              <div class="prob-bar" id="probVirginica" [style.height.%]="probability()[2]">
-                <div class="prob-value" id="probVirginicaValue">{{ probability()[2] }}%</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      }
+    <!-- Preset buttons for quick input -->
+    <div class="presets" role="group" aria-label="Quick presets">
+      <strong class="presets-label" id="presetsLabel">Quick Presets:</strong>
+      <button class="preset-btn" (click)="loadPreset('setosa')" aria-describedby="presetsLabel">
+        Setosa
+      </button>
+      <button class="preset-btn" (click)="loadPreset('versicolor')" aria-describedby="presetsLabel">
+        Versicolor
+      </button>
+      <button class="preset-btn" (click)="loadPreset('virginica')" aria-describedby="presetsLabel">
+        Virginica
+      </button>
     </div>
+  </div>
 
-    <!-- Network Visualization -->
-    <app-neural-network-model-vizualizer [activations]="activations()" [weights]="irisWeights()" />
+  @let _output = output();
+  <!-- Prediction Result -->
+  <div id="result" class="card result-card" aria-live="polite" aria-atomic="true">
+    @if (!!_output) {
+      <div class="predicted-class" id="predictedClass">{{ predictionDisplay() }}</div>
+      <div class="predicted-confidence" id="predictedConfidence">
+        {{ confidenceDisplay() }}
+      </div>
 
-    <!-- Model Info -->
-    <app-model-info [modelInfo]="irisModelInfo()" />
-
-    <!-- Test All Samples -->
-    <div class="card">
-      <div class="card-title"><span aria-hidden="true">🧪</span> Test Samples</div>
-      <button class="predict-btn" (click)="testAllSamples()">Run All Test Samples</button>
-      @if (!!showTestSamplesResult()) {
-        <!-- Test results list -->
-        <div id="testResults" class="test-results" role="list" aria-label="Test results">
-          @for (result of irisTestAll(); track $index) {
-            <div
-              class="test-item"
-              role="listitem"
-              [class.correct]="result.is_correct"
-              [class.incorrect]="!result.is_correct"
-            >
-              <span class="test-inputs">{{
-                `[${result.sepal_length.toFixed(1)}, ${result.sepal_width.toFixed(1)}, ${result.petal_length.toFixed(1)}, ${result.petal_width.toFixed(1)}]`
-              }}</span>
-              <span
-                class="test-prediction"
-                [attr.aria-label]="result.is_correct ? 'Correct' : 'Incorrect'"
-              >
-                <span aria-hidden="true">{{ result.is_correct ? '✓' : '✗' }}</span>
-                <span class="sr-only">{{ result.is_correct ? 'Correct:' : 'Incorrect:' }}</span>
-                {{ result.predicted }} (expected: {{ result.expected }})
-              </span>
+      <!-- Class probability bars -->
+      <div class="probabilities" role="group" aria-label="Class probabilities">
+        <div class="prob-item">
+          <div class="prob-label" id="labelSetosa">Setosa</div>
+          <div
+            class="prob-bar-container"
+            role="progressbar"
+            [attr.aria-valuenow]="probability()[0]"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-labelledby="labelSetosa"
+          >
+            <div class="prob-bar" id="probSetosa" [style.height.%]="probability()[0]">
+              <div class="prob-value" id="probSetosaValue">{{ probability()[0] }}%</div>
             </div>
-          }
+          </div>
         </div>
-      }
-    </div>
+        <div class="prob-item">
+          <div class="prob-label" id="labelVersicolor">Versicolor</div>
+          <div
+            class="prob-bar-container"
+            role="progressbar"
+            [attr.aria-valuenow]="probability()[1]"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-labelledby="labelVersicolor"
+          >
+            <div class="prob-bar" id="probVersicolor" [style.height.%]="probability()[1]">
+              <div class="prob-value" id="probVersicolorValue">{{ probability()[1] }}%</div>
+            </div>
+          </div>
+        </div>
+        <div class="prob-item">
+          <div class="prob-label" id="labelVirginica">Virginica</div>
+          <div
+            class="prob-bar-container"
+            role="progressbar"
+            [attr.aria-valuenow]="probability()[2]"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-labelledby="labelVirginica"
+          >
+            <div class="prob-bar" id="probVirginica" [style.height.%]="probability()[2]">
+              <div class="prob-value" id="probVirginicaValue">{{ probability()[2] }}%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Network Visualization -->
+  <app-neural-network-model-vizualizer [activations]="activations()" [weights]="irisWeights()" />
+
+  <!-- Model Info -->
+  <app-model-info [modelInfo]="irisModelInfo()" />
+
+  <!-- Test All Samples -->
+  <div class="card">
+    <div class="card-title"><span aria-hidden="true">🧪</span> Test Samples</div>
+    <button class="predict-btn" (click)="testAllSamples()">Run All Test Samples</button>
+    @if (!!showTestSamplesResult()) {
+      <!-- Test results list -->
+      <div id="testResults" class="test-results" role="list" aria-label="Test results">
+        @for (result of irisTestAll(); track $index) {
+          <div
+            class="test-item"
+            role="listitem"
+            [class.correct]="result.is_correct"
+            [class.incorrect]="!result.is_correct"
+          >
+            <span class="test-inputs">{{
+              `[${result.sepal_length.toFixed(1)}, ${result.sepal_width.toFixed(1)}, ${result.petal_length.toFixed(1)}, ${result.petal_width.toFixed(1)}]`
+            }}</span>
+            <span
+              class="test-prediction"
+              [attr.aria-label]="result.is_correct ? 'Correct' : 'Incorrect'"
+            >
+              <span aria-hidden="true">{{ result.is_correct ? '✓' : '✗' }}</span>
+              <span class="sr-only">{{ result.is_correct ? 'Correct:' : 'Incorrect:' }}</span>
+              {{ result.predicted }} (expected: {{ result.expected }})
+            </span>
+          </div>
+        }
+      </div>
+    }
   </div>
 }

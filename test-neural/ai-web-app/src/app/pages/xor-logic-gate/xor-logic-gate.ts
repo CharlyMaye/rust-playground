@@ -14,7 +14,7 @@ import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizu
   imports: [DecimalPipe, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
   templateUrl: './xor-logic-gate.html',
   styleUrl: './xor-logic-gate.scss',
-  host: { class: 'container' },
+  host: { class: 'page container' },
 })
 export class XorLogicGate {
   private readonly wasmService = inject(WasmFacade);

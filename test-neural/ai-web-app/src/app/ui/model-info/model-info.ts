@@ -11,6 +11,7 @@ import { ModelInfo } from '@cma/wasm/shared';
   imports: [DecimalPipe],
   templateUrl: './model-info.html',
   styleUrl: './model-info.scss',
+  host: { class: 'card' },
 })
 export class ModelInfoComponent {
   /** Model metadata to display */
