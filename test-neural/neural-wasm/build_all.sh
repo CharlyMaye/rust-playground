@@ -34,10 +34,10 @@ for model in "${MODELS[@]}"; do
             echo ""
             echo "✅ $model built successfully"
             
-            # Copy to www
-            echo "📋 Copying $model to www/pkg/${model}_wasm/..."
-            mkdir -p "../../www/pkg/${model}_wasm"
-            cp -r pkg/* "../../www/pkg/${model}_wasm/"
+            # Copy to Angular app pkg (preserve historical www untouched)
+            echo "📋 Copying $model to ai-web-app/pkg/${model}_wasm/..."
+            mkdir -p "../../ai-web-app/pkg/${model}_wasm"
+            cp -r pkg/* "../../ai-web-app/pkg/${model}_wasm/"
             
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
         else
