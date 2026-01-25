@@ -1,11 +1,15 @@
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import {
   computed,
+  inject,
   Injectable,
+  PLATFORM_ID,
   resource,
   ResourceLoaderParams,
   ResourceRef,
   Signal,
   signal,
+  WritableSignal,
 } from '@angular/core';
 import init, {
   InitOutput as InitXorOutput,
@@ -21,7 +25,24 @@ import { ModelInfo, NeuralNetworkLayers, XORTestResult } from './model-info';
   providedIn: 'root',
 })
 export class XorWasmService {
-  protected readonly _wasPath = signal('/wasm/xor_wasm/neural_wasm_xor_bg.wasm');
+  private readonly _document = inject(DOCUMENT);
+  private readonly _platformId = inject(PLATFORM_ID);
+
+  protected readonly _wasPath: WritableSignal<string> = signal('');
+
+  constructor() {
+    const base = this.computeWasmBase();
+    this._wasPath.set(`${base}wasm/xor_wasm/neural_wasm_xor_bg.wasm`);
+  }
+
+  private computeWasmBase(): string {
+    if (!isPlatformBrowser(this._platformId)) {
+      return '/';
+    }
+    const b = this._document.querySelector('base')?.getAttribute('href') ?? '/';
+    if (b === './') return './';
+    return b.endsWith('/') ? b : b + '/';
+  }
 
   /** Resource managing WASM module loading state */
   public readonly wasmResource: ResourceRef<InitXorOutput | undefined> = resource({
