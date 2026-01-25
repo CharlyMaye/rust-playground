@@ -9,6 +9,6 @@ import { Component } from '@angular/core';
   imports: [],
   templateUrl: './mnist-digit.html',
   styleUrl: './mnist-digit.scss',
-  host: { class: 'container' },
+  host: { class: 'page container' },
 })
 export class MnistDigit {}

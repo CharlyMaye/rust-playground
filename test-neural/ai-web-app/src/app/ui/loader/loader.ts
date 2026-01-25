@@ -8,7 +8,6 @@ import { Component, input } from '@angular/core';
   selector: 'app-loader',
   imports: [],
   templateUrl: './loader.html',
-  styleUrl: './loader.scss',
   host: {
     class: 'card loading',
     role: 'status',

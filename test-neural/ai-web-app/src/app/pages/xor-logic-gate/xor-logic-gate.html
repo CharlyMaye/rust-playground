@@ -7,102 +7,100 @@
 @if (xorIsLoading()) {
   <app-loader id="loading" [message]="'Loading Neural Network...'" />
 } @else {
-  <div id="app">
-    <!-- Interactive Predictor -->
-    <div class="card">
-      <div class="card-title"><span aria-hidden="true">⚡</span> Interactive Predictor</div>
-      <div class="predictor">
-        <div class="input-group">
-          <span id="labelA" class="input-label">Input A</span>
-          <button
-            id="inputA"
-            class="toggle-btn"
-            [class.active]="inputA() === 1"
-            (click)="toggleInput('A')"
-            role="switch"
-            [attr.aria-checked]="inputA() === 1"
-            aria-labelledby="labelA"
-          >
-            {{ inputA() }}
-          </button>
-        </div>
-        <div class="operator" aria-hidden="true">⊕</div>
-        <div class="input-group">
-          <span id="labelB" class="input-label">Input B</span>
-          <button
-            id="inputB"
-            class="toggle-btn"
-            [class.active]="inputB() === 1"
-            (click)="toggleInput('B')"
-            role="switch"
-            [attr.aria-checked]="inputB() === 1"
-            aria-labelledby="labelB"
-          >
-            {{ inputB() }}
-          </button>
-        </div>
-        <div class="operator" aria-hidden="true">=</div>
-        <div class="result-box" aria-live="polite" aria-atomic="true">
-          <div id="result" class="result-value">{{ predictionDisplay() }}</div>
-          <div id="confidence" class="result-confidence">{{ confidenceDisplay() }}</div>
-        </div>
+  <!-- Interactive Predictor -->
+  <div class="card">
+    <div class="card-title"><span aria-hidden="true">⚡</span> Interactive Predictor</div>
+    <div class="predictor">
+      <div class="toggle-buttons-group">
+        <span id="labelA" class="input-label">Input A</span>
+        <button
+          id="inputA"
+          class="toggle-btn"
+          [class.active]="inputA() === 1"
+          (click)="toggleInput('A')"
+          role="switch"
+          [attr.aria-checked]="inputA() === 1"
+          aria-labelledby="labelA"
+        >
+          {{ inputA() }}
+        </button>
+      </div>
+      <div class="operator" aria-hidden="true">⊕</div>
+      <div class="toggle-buttons-group">
+        <span id="labelB" class="input-label">Input B</span>
+        <button
+          id="inputB"
+          class="toggle-btn"
+          [class.active]="inputB() === 1"
+          (click)="toggleInput('B')"
+          role="switch"
+          [attr.aria-checked]="inputB() === 1"
+          aria-labelledby="labelB"
+        >
+          {{ inputB() }}
+        </button>
+      </div>
+      <div class="operator" aria-hidden="true">=</div>
+      <div class="result-box" aria-live="polite" aria-atomic="true">
+        <div id="result" class="result-value">{{ predictionDisplay() }}</div>
+        <div id="confidence" class="result-confidence">{{ confidenceDisplay() }}</div>
       </div>
     </div>
+  </div>
 
-    <!-- Network Visualization -->
-    <app-neural-network-model-vizualizer [activations]="activations()" [weights]="xorWeights()" />
+  <!-- Network Visualization -->
+  <app-neural-network-model-vizualizer [activations]="activations()" [weights]="xorWeights()" />
 
-    <!-- Truth Table -->
-    <div class="card">
-      <div class="card-title"><span aria-hidden="true">📊</span> XOR Truth Table</div>
-      <table class="truth-table">
-        <thead>
-          <tr>
-            <th scope="col">A</th>
-            <th scope="col">B</th>
-            <th scope="col">Expected</th>
-            <th scope="col">Prediction</th>
-            <th scope="col">Confidence</th>
-          </tr>
-        </thead>
-        <tbody id="truthTable">
-          @if (xorTestAll()) {
-            @for (result of xorTestAll()!; track $index) {
-              <tr [class.highlight]="result.a === inputA() && result.b === inputB()">
-                <td>{{ result.a }}</td>
-                <td>{{ result.b }}</td>
-                <td>{{ result.expected }}</td>
-                <td>
-                  <span class="badge badge-success">
-                    {{ result.prediction }}
-                  </span>
-                </td>
-                <td>
-                  <span class="sr-only">{{ result.confidence | number: '1.2-2' }}%</span>
-                  <span aria-hidden="true">{{ (result.confidence | number: '1.2-2') + '%' }}</span>
-                  <div
-                    class="confidence-bar"
-                    role="progressbar"
-                    [attr.aria-valuenow]="result.confidence"
-                    aria-valuemin="0"
-                    aria-valuemax="100"
-                    [attr.aria-label]="'Confidence: ' + (result.confidence | number: '1.2-2') + '%'"
-                  >
-                    <div class="confidence-fill" [style.width.%]="result.confidence"></div>
-                  </div>
-                </td>
-              </tr>
-            }
-          } @else {
-            <tr>
-              <td colspan="5">No test results available.</td>
+  <!-- Truth Table -->
+  <div class="card">
+    <div class="card-title"><span aria-hidden="true">📊</span> XOR Truth Table</div>
+    <table class="truth-table">
+      <thead>
+        <tr>
+          <th scope="col">A</th>
+          <th scope="col">B</th>
+          <th scope="col">Expected</th>
+          <th scope="col">Prediction</th>
+          <th scope="col">Confidence</th>
+        </tr>
+      </thead>
+      <tbody id="truthTable">
+        @if (xorTestAll()) {
+          @for (result of xorTestAll()!; track $index) {
+            <tr [class.highlight]="result.a === inputA() && result.b === inputB()">
+              <td>{{ result.a }}</td>
+              <td>{{ result.b }}</td>
+              <td>{{ result.expected }}</td>
+              <td>
+                <span class="badge badge-success">
+                  {{ result.prediction }}
+                </span>
+              </td>
+              <td>
+                <span class="sr-only">{{ result.confidence | number: '1.2-2' }}%</span>
+                <span aria-hidden="true">{{ (result.confidence | number: '1.2-2') + '%' }}</span>
+                <div
+                  class="confidence-bar"
+                  role="progressbar"
+                  [attr.aria-valuenow]="result.confidence"
+                  aria-valuemin="0"
+                  aria-valuemax="100"
+                  [attr.aria-label]="'Confidence: ' + (result.confidence | number: '1.2-2') + '%'"
+                >
+                  <div class="confidence-fill" [style.width.%]="result.confidence"></div>
+                </div>
+              </td>
             </tr>
           }
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Model Info -->
-    <app-model-info [modelInfo]="xorModelInfo()" />
+        } @else {
+          <tr>
+            <td colspan="5">No test results available.</td>
+          </tr>
+        }
+      </tbody>
+    </table>
   </div>
+
+  <!-- Model Info -->
+  <app-model-info [modelInfo]="xorModelInfo()" />
 }
