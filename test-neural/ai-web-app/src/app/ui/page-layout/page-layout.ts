@@ -12,7 +12,6 @@ import { PageTitle, PageTitleOptions } from '../page-title/page-title';
   selector: 'app-page-layout',
   imports: [RouterOutlet, PageTitle, NavigationBack, PageFooter],
   templateUrl: './page-layout.html',
-  styleUrl: './page-layout.scss',
 })
 export class PageLayout {
   /** Configuration options for the page title */

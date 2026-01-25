@@ -14,7 +14,7 @@ import { Loader } from '../../ui/loader/loader';
   imports: [DecimalPipe, About, Loader, RouterLinkWithHref],
   templateUrl: './home.html',
   styleUrl: './home.scss',
-  host: { class: 'container' },
+  host: { class: 'page container' },
 })
 export class Home {
   private readonly wasmService = inject(WasmFacade);

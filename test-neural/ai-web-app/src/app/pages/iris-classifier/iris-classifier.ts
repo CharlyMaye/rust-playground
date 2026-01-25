@@ -25,7 +25,7 @@ interface IrisFormState {
   imports: [FormField, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
   templateUrl: './iris-classifier.html',
   styleUrl: './iris-classifier.scss',
-  host: { class: 'container' },
+  host: { class: 'page container' },
 })
 export class IrisClassifier {
   private readonly wasmService = inject(WasmFacade);

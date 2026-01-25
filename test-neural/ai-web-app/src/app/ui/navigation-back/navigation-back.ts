@@ -6,9 +6,8 @@ import { RouterLink } from '@angular/router';
  * Provides a link to return to the home page.
  */
 @Component({
-  selector: 'app-navigation-back',
+  selector: 'nav',
   imports: [RouterLink],
   templateUrl: './navigation-back.html',
-  styleUrl: './navigation-back.scss',
 })
 export class NavigationBack {}

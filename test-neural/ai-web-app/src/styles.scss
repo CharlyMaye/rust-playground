@@ -112,11 +112,14 @@ app-page-layout {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 2em;
+}
+router-outlet {
+  display: none;
 }
 
 h1 {
   font-size: 2.5rem;
-  margin-bottom: 0.5rem;
   background: linear-gradient(135deg, var(--accent), #8b5cf6);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -126,19 +129,16 @@ h1 {
 
 h2 {
   font-size: 1.75rem;
-  margin-bottom: 1rem;
   color: var(--text);
 }
 
 h3 {
   font-size: 1.25rem;
-  margin-bottom: 0.75rem;
   color: var(--text);
 }
 
 .subtitle {
   color: var(--muted);
-  margin-bottom: 2rem;
   text-align: center;
   font-size: 1.1rem;
 }
@@ -155,10 +155,10 @@ h3 {
 .card {
   display: flex;
   flex-direction: column;
+  width: 100%;
   background: var(--card);
   border-radius: 1rem;
   padding: 1.5rem;
-  margin-bottom: 1.5rem;
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3);
   transition:
     transform 0.2s,
@@ -302,14 +302,22 @@ h3 {
 /* ============================================
    Navigation
    ============================================ */
-
+nav {
+  flex: 1;
+  width: 100%;
+  gap: 2em;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
 .nav-back {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   color: var(--muted);
   text-decoration: none;
-  margin-bottom: 1.5rem;
   transition: color 0.2s;
   font-size: 0.95rem;
 }
@@ -317,16 +325,52 @@ h3 {
 .nav-back:hover {
   color: var(--accent);
 }
-
+/* ============================================
+   Header
+   ============================================ */
+header {
+  color: var(--muted);
+  font-size: 0.875rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
+}
+/* ============================================
+   Main
+   ============================================ */
+main {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2em;
+}
+/* ============================================
+   Page
+   ============================================ */
+.page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2em;
+  width: 100%;
+}
 /* ============================================
    Footer
    ============================================ */
 
 footer {
-  margin-top: 3rem;
+  margin-top: 2em;
   color: var(--muted);
   font-size: 0.875rem;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  flex: 1;
 }
 
 footer a {
