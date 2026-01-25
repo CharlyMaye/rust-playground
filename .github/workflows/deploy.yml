@@ -66,6 +66,16 @@ jobs:
         working-directory: test-neural/ai-web-app
         run: npm ci
 
+      - name: Debug WASM pkg contents
+        working-directory: test-neural/ai-web-app
+        run: |
+          echo ">>> Listing package folder: pkg"
+          ls -la pkg || true
+          echo "\n>>> Listing copied folder: public/wasm/pkg"
+          ls -la public/wasm/pkg || true
+          echo "\n>>> Show package.json"
+          cat package.json || true
+
       - name: Build Angular app
         working-directory: test-neural/ai-web-app
         run: npm run build
