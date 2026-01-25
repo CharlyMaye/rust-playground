@@ -1,0 +1,15 @@
+{
+  "name": "neural-wasm-xor",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "neural_wasm_xor_bg.wasm",
+    "neural_wasm_xor.js",
+    "neural_wasm_xor.d.ts"
+  ],
+  "main": "neural_wasm_xor.js",
+  "types": "neural_wasm_xor.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
