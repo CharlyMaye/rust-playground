@@ -13,72 +13,71 @@
   justify-content: center;
   gap: 1rem;
   flex-wrap: wrap;
-}
 
-.toggle-buttons-group {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  > .input-label {
-    position: absolute;
-    top: 0;
-    left: 50%;
-    transform: translateY(-100%) translateX(-50%);
-    font-size: 0.875rem;
-    color: var(--muted);
-    width: 100%;
+  > .toggle-buttons-group {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    > .input-label {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateY(-100%) translateX(-50%);
+      font-size: 0.875rem;
+      color: var(--muted);
+      width: 100%;
+    }
+    > .toggle-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 1rem;
+      border: 3px solid var(--accent);
+      background: transparent;
+      color: var(--text);
+      font-size: 2rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    > .toggle-btn:hover {
+      transform: scale(1.05);
+    }
+
+    > .toggle-btn.active {
+      background: var(--accent);
+      box-shadow: 0 0 20px var(--accent);
+    }
   }
-  > .toggle-btn {
-    width: 80px;
-    height: 80px;
-    border-radius: 1rem;
-    border: 3px solid var(--accent);
-    background: transparent;
-    color: var(--text);
+
+  > .operator {
     font-size: 2rem;
-    font-weight: bold;
-    cursor: pointer;
-    transition: all 0.2s;
+    color: var(--muted);
   }
 
-  > .toggle-btn:hover {
-    transform: scale(1.05);
+  > .result-box {
+    text-align: center;
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
+    border-radius: 1rem;
+    min-width: 120px;
+    > .result-value {
+      font-size: 3rem;
+      font-weight: bold;
+      color: var(--success);
+    }
+
+    > .result-confidence {
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
   }
-
-  > .toggle-btn.active {
-    background: var(--accent);
-    box-shadow: 0 0 20px var(--accent);
-  }
-}
-
-.operator {
-  font-size: 2rem;
-  color: var(--muted);
-}
-
-.result-box {
-  text-align: center;
-  padding: 1rem;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(139, 92, 246, 0.2));
-  border-radius: 1rem;
-  min-width: 120px;
-}
-
-.result-value {
-  font-size: 3rem;
-  font-weight: bold;
-  color: var(--success);
-}
-
-.result-confidence {
-  font-size: 0.875rem;
-  color: var(--muted);
 }
 
 /* Truth Table */
 .truth-table {
-  width: 100%;
+  max-width: 100%;
   border-collapse: collapse;
 }
 
@@ -87,6 +86,9 @@
   padding: 0.75rem;
   text-align: center;
   border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
 }
 
 .truth-table th {
