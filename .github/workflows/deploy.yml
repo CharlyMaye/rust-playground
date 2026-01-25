@@ -66,31 +66,9 @@ jobs:
         working-directory: test-neural/ai-web-app
         run: npm ci
 
-      - name: Debug WASM pkg contents
+      - name: Build Angular app
         working-directory: test-neural/ai-web-app
-        run: |
-          echo ">>> Listing package folder: pkg"
-          ls -la pkg || true
-          echo "\n>>> Listing copied folder: public/wasm/pkg"
-          ls -la public/wasm/pkg || true
-          echo "\n>>> Show package.json"
-          cat package.json || true
-
-      - name: Show TypeScript resolved config
-        working-directory: test-neural/ai-web-app
-        run: |
-          echo ">>> tsc --showConfig"
-          npx tsc -p tsconfig.app.json --showConfig
-
-      - name: TypeScript typecheck
-        working-directory: test-neural/ai-web-app
-        run: |
-          echo ">>> tsc noEmit check"
-          npx tsc -p tsconfig.app.json --noEmit || true
-
-      - name: Build Angular app (verbose)
-        working-directory: test-neural/ai-web-app
-        run: npm run build -- --verbose
+        run: npm run build
 
       - name: Prepare deployment
         run: |
