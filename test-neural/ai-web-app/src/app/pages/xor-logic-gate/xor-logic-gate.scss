@@ -11,40 +11,45 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1.5rem;
+  gap: 1rem;
   flex-wrap: wrap;
 }
 
-.input-group {
+.toggle-buttons-group {
   text-align: center;
-}
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  > .input-label {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateY(-100%) translateX(-50%);
+    font-size: 0.875rem;
+    color: var(--muted);
+    width: 100%;
+  }
+  > .toggle-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 1rem;
+    border: 3px solid var(--accent);
+    background: transparent;
+    color: var(--text);
+    font-size: 2rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
 
-.input-label {
-  font-size: 0.875rem;
-  color: var(--muted);
-  margin-bottom: 0.5rem;
-}
+  > .toggle-btn:hover {
+    transform: scale(1.05);
+  }
 
-.toggle-btn {
-  width: 80px;
-  height: 80px;
-  border-radius: 1rem;
-  border: 3px solid var(--accent);
-  background: transparent;
-  color: var(--text);
-  font-size: 2rem;
-  font-weight: bold;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.toggle-btn:hover {
-  transform: scale(1.05);
-}
-
-.toggle-btn.active {
-  background: var(--accent);
-  box-shadow: 0 0 20px var(--accent);
+  > .toggle-btn.active {
+    background: var(--accent);
+    box-shadow: 0 0 20px var(--accent);
+  }
 }
 
 .operator {
