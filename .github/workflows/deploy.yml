@@ -57,10 +57,23 @@ jobs:
         working-directory: test-neural/neural-wasm
         run: chmod +x build_all.sh && ./build_all.sh
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install frontend dependencies (ai-web-app)
+        working-directory: test-neural/ai-web-app
+        run: npm ci
+
+      - name: Build Angular app
+        working-directory: test-neural/ai-web-app
+        run: npm run build
+
       - name: Prepare deployment
         run: |
           mkdir -p _site
-          cp -r test-neural/www/* _site/
+          cp -r test-neural/ai-web-app/dist/ai-web-app/browser/* _site/
       
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

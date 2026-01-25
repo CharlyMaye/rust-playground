@@ -14,9 +14,12 @@
     "importHelpers": true,
     "target": "ES2022",
     "module": "preserve",
+    "baseUrl": ".",
+    "allowJs": true,
     "paths": {
       "@cma/wasm/*": [
-        "./src/wasm/*"
+        "./src/wasm/*",
+        "./pkg/*"
       ]
     }
   },
