@@ -66,9 +66,9 @@ jobs:
         working-directory: test-neural/ai-web-app
         run: npm ci
 
-      - name: Build Angular app
+      - name: Build Angular app (relative assets)
         working-directory: test-neural/ai-web-app
-        run: npm run build
+        run: npm run build -- --base-href ./ --deploy-url ./
 
       - name: Prepare deployment
         run: |
