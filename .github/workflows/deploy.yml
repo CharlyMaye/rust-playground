@@ -76,9 +76,21 @@ jobs:
           echo "\n>>> Show package.json"
           cat package.json || true
 
-      - name: Build Angular app
+      - name: Show TypeScript resolved config
         working-directory: test-neural/ai-web-app
-        run: npm run build
+        run: |
+          echo ">>> tsc --showConfig"
+          npx tsc -p tsconfig.app.json --showConfig
+
+      - name: TypeScript typecheck
+        working-directory: test-neural/ai-web-app
+        run: |
+          echo ">>> tsc noEmit check"
+          npx tsc -p tsconfig.app.json --noEmit || true
+
+      - name: Build Angular app (verbose)
+        working-directory: test-neural/ai-web-app
+        run: npm run build -- --verbose
 
       - name: Prepare deployment
         run: |
