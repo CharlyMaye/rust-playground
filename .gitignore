@@ -1,1 +1,2 @@
 target
+test-neural/neural-wasm/mnist/data/mnist.csv
