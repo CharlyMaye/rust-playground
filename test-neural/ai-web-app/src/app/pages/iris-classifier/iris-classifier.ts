@@ -138,7 +138,6 @@ export class IrisClassifier {
     if (!output) {
       return 'N/A';
     }
-    // TODO - homogénéiser l'échelle de confiance : on a soit 0-1, soit un pourcentage
     return output.confidence.toFixed(1) + '% confidence';
   });
 

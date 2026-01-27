@@ -67,8 +67,13 @@ impl IrisClassifier {
     }
 
     /// Normalize input features using stored statistics
-    fn normalize_input(&self, sepal_length: f64, sepal_width: f64, 
-                       petal_length: f64, petal_width: f64) -> [f64; 4] {
+    fn normalize_input(
+        &self,
+        sepal_length: f64,
+        sepal_width: f64,
+        petal_length: f64,
+        petal_width: f64,
+    ) -> [f64; 4] {
         if let Some(ref norm) = self.normalization {
             let raw = [sepal_length, sepal_width, petal_length, petal_width];
             let normalized = norm.normalize(&raw);
@@ -93,8 +98,8 @@ impl IrisClassifier {
         let input = array![normalized[0], normalized[1], normalized[2], normalized[3]];
         let output = self.network.predict(&input);
 
-        // Apply softmax for probabilities
-        let probs = softmax(&output.to_vec());
+        // Network already uses Softmax output activation - output IS probabilities
+        let probs = output.to_vec();
 
         let (max_idx, _) = probs
             .iter()
@@ -124,8 +129,8 @@ impl IrisClassifier {
         let normalized = self.normalize_input(sepal_length, sepal_width, petal_length, petal_width);
         let input = array![normalized[0], normalized[1], normalized[2], normalized[3]];
         let output = self.network.predict(&input);
-        let probs = softmax(&output.to_vec());
-        serde_json::to_string(&probs).unwrap()
+        // Network already uses Softmax output activation - output IS probabilities
+        serde_json::to_string(&output.to_vec()).unwrap()
     }
 
     /// Test all samples from the dataset
@@ -137,7 +142,8 @@ impl IrisClassifier {
         for (inputs, expected_idx) in test_data {
             let input = array![inputs[0], inputs[1], inputs[2], inputs[3]];
             let output = self.network.predict(&input);
-            let probs = softmax(&output.to_vec());
+            // Network already uses Softmax output activation - output IS probabilities
+            let probs = output.to_vec();
 
             let (predicted_idx, _) = probs
                 .iter()
