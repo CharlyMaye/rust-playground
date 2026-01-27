@@ -3,6 +3,7 @@ members = [
     "cma-neural-network",
     "neural-wasm/shared",
     "neural-wasm/xor",
+    "neural-wasm/mnist",
     "neural-wasm/iris",
 ]
 resolver = "2"
