@@ -2,7 +2,7 @@
 set -e
 
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║          Neural WASM Build Script                            ║"
+echo "║          MNIST Neural WASM Build Script                      ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 
 MODEL_PATH="src/mnist_model.json"

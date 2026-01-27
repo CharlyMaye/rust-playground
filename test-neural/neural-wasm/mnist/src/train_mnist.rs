@@ -10,7 +10,9 @@ use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
 use csv::ReaderBuilder;
 use ndarray::Array1;
-use neural_wasm_shared::{calculate_multiclass_accuracy, save_model_with_metadata};
+use neural_wasm_shared::{
+    NormalizationStats, calculate_multiclass_accuracy, save_model_with_normalization,
+};
 use std::error::Error;
 use std::path::Path;
 
@@ -39,6 +41,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     let inputs: Vec<Array1<f64>> = mnist_data.iter().map(|(i, _)| i.clone()).collect();
     let targets: Vec<Array1<f64>> = mnist_data.iter().map(|(_, t)| t.clone()).collect();
 
+    // Normalize inputs (z-score normalization per feature)
+    let (inputs, norm_stats) = normalize_features_with_stats(&inputs);
+    println!("   ✅ Features normalized (z-score)");
+    println!(
+        "   📊 Stats: {} features normalized",
+        norm_stats.means.len()
+    );
+
     let mut dataset = Dataset::new(inputs, targets);
 
     // CRITICAL: Shuffle before split! The CSV is sorted by class (setosa, versicolor, virginica)
@@ -61,7 +71,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .hidden_layer(64, Activation::ReLU)
         .output_activation(Activation::Softmax)
         .loss(LossFunction::CategoricalCrossEntropy)
-        .optimizer(OptimizerType::adam(0.01))
+        .optimizer(OptimizerType::adam(0.001)) // Réduit de 0.01 à 0.001
         .build();
 
     println!("   Architecture: 784 → [128, 64] → 10");
@@ -79,7 +89,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .train_data(&train)
         .validation_data(&val)
         .epochs(epochs)
-        .batch_size(32)
+        .batch_size(64)
         .callback(Box::new(
             EarlyStopping::new(100, 0.00001).mode(DeltaMode::Relative),
         ))
@@ -126,7 +136,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // ═══════════════════════════════════════════════════════════════════════
     println!("\n💾 Saving model with metadata...\n");
 
-    match save_model_with_metadata(network, acc, total, model_path) {
+    match save_model_with_normalization(network, acc, total, Some(norm_stats), model_path) {
         Ok(_) => {
             println!("   ✅ Model saved to {}", model_path);
             println!("   📊 Accuracy: {:.2}%", acc * 100.0);
@@ -181,4 +191,57 @@ fn load_mnist_from_csv(path: &str) -> Result<Vec<(Array1<f64>, Array1<f64>)>, Bo
     }
 
     Ok(data)
+}
+
+/// Normalize features using z-score normalization (mean=0, std=1)
+/// Returns normalized data AND the normalization statistics for inference
+fn normalize_features_with_stats(inputs: &[Array1<f64>]) -> (Vec<Array1<f64>>, NormalizationStats) {
+    if inputs.is_empty() {
+        return (vec![], NormalizationStats::new(vec![], vec![]));
+    }
+
+    let n_features = inputs[0].len();
+    let n_samples = inputs.len() as f64;
+
+    // Calculate mean for each feature
+    let mut means = vec![0.0; n_features];
+    for input in inputs {
+        for (i, &val) in input.iter().enumerate() {
+            means[i] += val;
+        }
+    }
+    for mean in &mut means {
+        *mean /= n_samples;
+    }
+
+    // Calculate standard deviation for each feature
+    let mut stds = vec![0.0; n_features];
+    for input in inputs {
+        for (i, &val) in input.iter().enumerate() {
+            stds[i] += (val - means[i]).powi(2);
+        }
+    }
+    for std in &mut stds {
+        *std = (*std / n_samples).sqrt();
+        // Prevent division by zero
+        if *std < 1e-8 {
+            *std = 1.0;
+        }
+    }
+
+    // Normalize each input
+    let normalized = inputs
+        .iter()
+        .map(|input| {
+            Array1::from_vec(
+                input
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &val)| (val - means[i]) / stds[i])
+                    .collect(),
+            )
+        })
+        .collect();
+
+    (normalized, NormalizationStats::new(means, stds))
 }
