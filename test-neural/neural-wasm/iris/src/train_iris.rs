@@ -10,7 +10,7 @@ use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
 use csv::ReaderBuilder;
 use ndarray::{array, Array1};
-use neural_wasm_shared::{calculate_multiclass_accuracy, save_model_with_metadata};
+use neural_wasm_shared::{calculate_multiclass_accuracy, save_model_with_normalization, NormalizationStats};
 use std::error::Error;
 use std::path::Path;
 
@@ -40,8 +40,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let targets: Vec<Array1<f64>> = iris_data.iter().map(|(_, t)| t.clone()).collect();
 
     // Normalize inputs (z-score normalization per feature)
-    let inputs = normalize_features(&inputs);
+    let (inputs, norm_stats) = normalize_features_with_stats(&inputs);
     println!("   ✅ Features normalized (z-score)");
+    println!("   📊 Stats: means={:?}", norm_stats.means);
+    println!("   📊 Stats: stds={:?}", norm_stats.stds);
 
     let mut dataset = Dataset::new(inputs, targets);
 
@@ -130,7 +132,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     // ═══════════════════════════════════════════════════════════════════════
     println!("\n💾 Saving model with metadata...\n");
 
-    match save_model_with_metadata(network, acc, total, model_path) {
+    match save_model_with_normalization(network, acc, total, Some(norm_stats), model_path) {
         Ok(_) => {
             println!("   ✅ Model saved to {}", model_path);
             println!("   📊 Accuracy: {:.2}%", acc * 100.0);
@@ -182,10 +184,10 @@ fn load_iris_from_csv(path: &str) -> Result<Vec<(Array1<f64>, Array1<f64>)>, Box
 }
 
 /// Normalize features using z-score normalization (mean=0, std=1)
-/// This is critical for neural network training, especially with Tanh activation
-fn normalize_features(inputs: &[Array1<f64>]) -> Vec<Array1<f64>> {
+/// Returns normalized data AND the normalization statistics for inference
+fn normalize_features_with_stats(inputs: &[Array1<f64>]) -> (Vec<Array1<f64>>, NormalizationStats) {
     if inputs.is_empty() {
-        return vec![];
+        return (vec![], NormalizationStats::new(vec![], vec![]));
     }
 
     let n_features = inputs[0].len();
@@ -218,7 +220,7 @@ fn normalize_features(inputs: &[Array1<f64>]) -> Vec<Array1<f64>> {
     }
 
     // Normalize each input
-    inputs
+    let normalized = inputs
         .iter()
         .map(|input| {
             Array1::from_vec(
@@ -229,5 +231,7 @@ fn normalize_features(inputs: &[Array1<f64>]) -> Vec<Array1<f64>> {
                     .collect(),
             )
         })
-        .collect()
+        .collect();
+    
+    (normalized, NormalizationStats::new(means, stds))
 }

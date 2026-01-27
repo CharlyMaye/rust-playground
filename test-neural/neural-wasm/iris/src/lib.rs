@@ -1,8 +1,10 @@
-use wasm_bindgen::prelude::*;
 use cma_neural_network::network::Network;
 use ndarray::array;
+use neural_wasm_shared::{
+    softmax, LayerInfo, ModelInfo, ModelWithMetadata, NormalizationStats, WeightsInfo,
+};
 use serde::Serialize;
-use neural_wasm_shared::{ModelInfo, WeightsInfo, LayerInfo, softmax, ModelWithMetadata};
+use wasm_bindgen::prelude::*;
 
 const MODEL_JSON: &str = include_str!("iris_model.json");
 
@@ -35,6 +37,7 @@ pub struct IrisClassifier {
     accuracy: f64,
     test_samples: usize,
     trained_at: String,
+    normalization: Option<NormalizationStats>,
 }
 
 #[wasm_bindgen]
@@ -46,53 +49,80 @@ impl IrisClassifier {
 
         let model: ModelWithMetadata = serde_json::from_str(MODEL_JSON)
             .map_err(|e| JsValue::from_str(&format!("Failed to load model: {}", e)))?;
-        
+
         let classes = vec![
             "Setosa".to_string(),
             "Versicolor".to_string(),
             "Virginica".to_string(),
         ];
-        
-        Ok(IrisClassifier { 
+
+        Ok(IrisClassifier {
             network: model.network,
             classes,
             accuracy: model.metadata.accuracy,
             test_samples: model.metadata.test_samples,
             trained_at: model.metadata.trained_at,
+            normalization: model.metadata.normalization,
         })
+    }
+
+    /// Normalize input features using stored statistics
+    fn normalize_input(&self, sepal_length: f64, sepal_width: f64, 
+                       petal_length: f64, petal_width: f64) -> [f64; 4] {
+        if let Some(ref norm) = self.normalization {
+            let raw = [sepal_length, sepal_width, petal_length, petal_width];
+            let normalized = norm.normalize(&raw);
+            [normalized[0], normalized[1], normalized[2], normalized[3]]
+        } else {
+            // No normalization stats - use raw values (backward compatibility)
+            [sepal_length, sepal_width, petal_length, petal_width]
+        }
     }
 
     /// Predict iris species from measurements
     /// Parameters: sepal_length, sepal_width, petal_length, petal_width (in cm)
     #[wasm_bindgen]
-    pub fn predict(&self, sepal_length: f64, sepal_width: f64, 
-                   petal_length: f64, petal_width: f64) -> String {
-        let input = array![sepal_length, sepal_width, petal_length, petal_width];
+    pub fn predict(
+        &self,
+        sepal_length: f64,
+        sepal_width: f64,
+        petal_length: f64,
+        petal_width: f64,
+    ) -> String {
+        let normalized = self.normalize_input(sepal_length, sepal_width, petal_length, petal_width);
+        let input = array![normalized[0], normalized[1], normalized[2], normalized[3]];
         let output = self.network.predict(&input);
-        
+
         // Apply softmax for probabilities
         let probs = softmax(&output.to_vec());
-        
-        let (max_idx, _) = probs.iter()
+
+        let (max_idx, _) = probs
+            .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .unwrap();
-        
+
         let result = IrisPrediction {
             class: self.classes[max_idx].clone(),
             class_idx: max_idx,
             probabilities: probs.clone(),
             confidence: probs[max_idx] * 100.0,
         };
-        
+
         serde_json::to_string(&result).unwrap()
     }
 
     /// Get class probabilities for a prediction
     #[wasm_bindgen]
-    pub fn get_probabilities(&self, sepal_length: f64, sepal_width: f64, 
-                             petal_length: f64, petal_width: f64) -> String {
-        let input = array![sepal_length, sepal_width, petal_length, petal_width];
+    pub fn get_probabilities(
+        &self,
+        sepal_length: f64,
+        sepal_width: f64,
+        petal_length: f64,
+        petal_width: f64,
+    ) -> String {
+        let normalized = self.normalize_input(sepal_length, sepal_width, petal_length, petal_width);
+        let input = array![normalized[0], normalized[1], normalized[2], normalized[3]];
         let output = self.network.predict(&input);
         let probs = softmax(&output.to_vec());
         serde_json::to_string(&probs).unwrap()
@@ -103,17 +133,18 @@ impl IrisClassifier {
     pub fn test_all(&self) -> String {
         let test_data = get_iris_test_samples();
         let mut results = Vec::new();
-        
+
         for (inputs, expected_idx) in test_data {
             let input = array![inputs[0], inputs[1], inputs[2], inputs[3]];
             let output = self.network.predict(&input);
             let probs = softmax(&output.to_vec());
-            
-            let (predicted_idx, _) = probs.iter()
+
+            let (predicted_idx, _) = probs
+                .iter()
                 .enumerate()
                 .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
                 .unwrap();
-            
+
             results.push(IrisTestResult {
                 sepal_length: inputs[0],
                 sepal_width: inputs[1],
@@ -127,7 +158,7 @@ impl IrisClassifier {
                 is_correct: predicted_idx == expected_idx,
             });
         }
-        
+
         serde_json::to_string(&results).unwrap()
     }
 
@@ -148,13 +179,12 @@ impl IrisClassifier {
     #[wasm_bindgen]
     pub fn get_weights(&self) -> String {
         let layers_info = self.network.get_layers_info();
-        let layers: Vec<LayerInfo> = layers_info.iter()
+        let layers: Vec<LayerInfo> = layers_info
+            .iter()
             .map(|(weights, biases, activation_name)| {
-                let weights_2d: Vec<Vec<f64>> = weights.rows()
-                    .into_iter()
-                    .map(|row| row.to_vec())
-                    .collect();
-                
+                let weights_2d: Vec<Vec<f64>> =
+                    weights.rows().into_iter().map(|row| row.to_vec()).collect();
+
                 LayerInfo {
                     weights: weights_2d,
                     biases: biases.to_vec(),
@@ -163,11 +193,9 @@ impl IrisClassifier {
                 }
             })
             .collect();
-        
-        let weights_info = WeightsInfo {
-            layers,
-        };
-        
+
+        let weights_info = WeightsInfo { layers };
+
         serde_json::to_string(&weights_info).unwrap()
     }
 
@@ -178,41 +206,48 @@ impl IrisClassifier {
 
     /// Get layer-by-layer activations for visualization
     #[wasm_bindgen]
-    pub fn get_activations(&self, sepal_length: f64, sepal_width: f64,
-                          petal_length: f64, petal_width: f64) -> String {
+    pub fn get_activations(
+        &self,
+        sepal_length: f64,
+        sepal_width: f64,
+        petal_length: f64,
+        petal_width: f64,
+    ) -> String {
         let input = array![sepal_length, sepal_width, petal_length, petal_width];
         let activations = self.network.get_all_activations(&input);
-        
+
         let output = self.network.predict(&input);
         let probs = softmax(&output.to_vec());
-        
+
         #[derive(Serialize)]
         struct LayerActivation {
             pre_activation: Vec<f64>,
             activation: Vec<f64>,
             function: String,
         }
-        
+
         #[derive(Serialize)]
         struct ActivationsResponse {
             inputs: [f64; 4],
             layers: Vec<LayerActivation>,
             output: Vec<f64>,
         }
-        
+
         let response = ActivationsResponse {
             inputs: [sepal_length, sepal_width, petal_length, petal_width],
-            layers: activations.iter().map(|(pre, post, activation_name)| {
-                LayerActivation {
+            layers: activations
+                .iter()
+                .map(|(pre, post, activation_name)| LayerActivation {
                     pre_activation: pre.iter().cloned().collect(),
                     activation: post.iter().cloned().collect(),
                     function: activation_name.to_string(),
-                }
-            }).collect(),
+                })
+                .collect(),
             output: probs,
         };
-        
-        serde_json::to_string(&response).unwrap_or_else(|_| r#"{"inputs":[0,0,0,0],"layers":[],"output":[]}"#.to_string())
+
+        serde_json::to_string(&response)
+            .unwrap_or_else(|_| r#"{"inputs":[0,0,0,0],"layers":[],"output":[]}"#.to_string())
     }
 }
 
@@ -224,13 +259,11 @@ fn get_iris_test_samples() -> Vec<([f64; 4], usize)> {
         ([4.9, 3.0, 1.4, 0.2], 0),
         ([5.0, 3.6, 1.4, 0.2], 0),
         ([4.6, 3.1, 1.5, 0.2], 0),
-        
         // Versicolor samples (class 1)
         ([7.0, 3.2, 4.7, 1.4], 1),
         ([6.4, 3.2, 4.5, 1.5], 1),
         ([6.9, 3.1, 4.9, 1.5], 1),
         ([5.5, 2.3, 4.0, 1.3], 1),
-        
         // Virginica samples (class 2)
         ([6.3, 3.3, 6.0, 2.5], 2),
         ([5.8, 2.7, 5.1, 1.9], 2),
