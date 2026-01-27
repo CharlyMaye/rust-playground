@@ -1,7 +1,29 @@
-use serde::{Serialize, Deserialize};
+use chrono;
 use cma_neural_network::network::Network;
 use ndarray;
-use chrono;
+use serde::{Deserialize, Serialize};
+
+/// Normalization statistics for input features
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct NormalizationStats {
+    pub means: Vec<f64>,
+    pub stds: Vec<f64>,
+}
+
+impl NormalizationStats {
+    pub fn new(means: Vec<f64>, stds: Vec<f64>) -> Self {
+        Self { means, stds }
+    }
+
+    /// Normalize a single input using these statistics
+    pub fn normalize(&self, input: &[f64]) -> Vec<f64> {
+        input
+            .iter()
+            .enumerate()
+            .map(|(i, &val)| (val - self.means[i]) / self.stds[i])
+            .collect()
+    }
+}
 
 /// Model metadata saved during training
 #[derive(Serialize, Deserialize)]
@@ -9,6 +31,8 @@ pub struct ModelMetadata {
     pub accuracy: f64,
     pub test_samples: usize,
     pub trained_at: String,
+    #[serde(default)]
+    pub normalization: Option<NormalizationStats>,
 }
 
 /// Model wrapper with metadata
@@ -78,26 +102,28 @@ pub fn calculate_multiclass_accuracy(
 ) -> (usize, usize) {
     let mut correct = 0;
     let total = inputs.len();
-    
+
     for i in 0..total {
         let output = network.predict(&inputs[i]);
-        let predicted_class = output.iter()
+        let predicted_class = output
+            .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
             .unwrap();
-        
-        let expected_class = targets[i].iter()
+
+        let expected_class = targets[i]
+            .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
             .unwrap();
-        
+
         if predicted_class == expected_class {
             correct += 1;
         }
     }
-    
+
     (correct, total)
 }
 
@@ -108,12 +134,24 @@ pub fn save_model_with_metadata(
     test_samples: usize,
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    save_model_with_normalization(network, accuracy, test_samples, None, path)
+}
+
+/// Save model with metadata and normalization statistics to JSON file
+pub fn save_model_with_normalization(
+    network: Network,
+    accuracy: f64,
+    test_samples: usize,
+    normalization: Option<NormalizationStats>,
+    path: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let model_with_metadata = ModelWithMetadata {
         network,
         metadata: ModelMetadata {
             accuracy,
             test_samples,
             trained_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            normalization,
         },
     };
 

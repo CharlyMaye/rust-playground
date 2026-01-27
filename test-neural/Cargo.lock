@@ -450,7 +450,9 @@ version = "0.1.0"
 dependencies = [
  "cma-neural-network",
  "ndarray",
+ "neural-wasm-shared",
  "rand",
+ "serde_json",
 ]
 
 [[package]]
