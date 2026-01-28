@@ -2,6 +2,7 @@ use crate::network::{Network, Activation, LossFunction, WeightInit};
 use crate::optimizer::OptimizerType;
 use crate::dataset::Dataset;
 use crate::callbacks::{Callback, LearningRateScheduler};
+use crate::compute::{ComputeDevice, ComputeDeviceError};
 
 /// Builder for constructing neural networks using a fluent interface.
 ///
@@ -197,6 +198,8 @@ pub struct TrainingBuilder<'a> {
     batch_size: usize,
     callbacks: Vec<Box<dyn Callback>>,
     scheduler: Option<LearningRateScheduler>,
+    /// Compute device for training (CPU or GPU)
+    device: ComputeDevice,
 }
 
 impl<'a> TrainingBuilder<'a> {
@@ -205,6 +208,7 @@ impl<'a> TrainingBuilder<'a> {
     /// Defaults:
     /// - epochs: 100
     /// - batch_size: 32
+    /// - device: CPU
     pub fn new(network: &'a mut Network) -> Self {
         Self {
             network,
@@ -214,7 +218,51 @@ impl<'a> TrainingBuilder<'a> {
             batch_size: 32,
             callbacks: Vec::new(),
             scheduler: None,
+            device: ComputeDevice::Cpu,
         }
+    }
+
+    /// Configures the compute device for training.
+    /// 
+    /// # Example
+    /// ```rust,ignore
+    /// use cma_neural_network::compute::ComputeDevice;
+    /// 
+    /// network.trainer()
+    ///     .device(ComputeDevice::Cpu)
+    ///     .train_data(&dataset)
+    ///     .fit();
+    /// ```
+    pub fn device(mut self, device: ComputeDevice) -> Self {
+        self.device = device;
+        self
+    }
+    
+    /// Configures training to use CPU (default).
+    /// 
+    /// This is the default device and is always available.
+    pub fn cpu(mut self) -> Self {
+        self.device = ComputeDevice::Cpu;
+        self
+    }
+    
+    /// Configures training to use GPU.
+    /// 
+    /// **Note**: GPU support is planned but not yet implemented.
+    /// Calling `fit()` with GPU device will return an error.
+    /// 
+    /// # Example
+    /// ```rust,ignore
+    /// // This will fail until GPU support is implemented
+    /// let result = network.trainer()
+    ///     .gpu()
+    ///     .train_data(&dataset)
+    ///     .try_fit();
+    /// assert!(result.is_err());
+    /// ```
+    pub fn gpu(mut self) -> Self {
+        self.device = ComputeDevice::Gpu;
+        self
     }
 
     /// Configures the training data.
@@ -253,23 +301,41 @@ impl<'a> TrainingBuilder<'a> {
         self
     }
 
-    /// Starts training.
+    /// Starts training, returning an error if the device is not available.
+    ///
+    /// Use this method when using GPU to handle the case where GPU is not available.
+    ///
+    /// # Errors
+    /// Returns `ComputeDeviceError::GpuNotAvailable` if GPU device is selected but not available.
     ///
     /// # Panics
     /// Panics if train_data has not been configured.
-    pub fn fit(mut self) -> Vec<(f64, Option<f64>)> {
-        let train_dataset = self.train_data.expect("train_data must be set before calling fit()");
+    pub fn try_fit(mut self) -> Result<Vec<(f64, Option<f64>)>, ComputeDeviceError> {
+        // Validate device is available
+        self.device.validate()?;
+        
+        let train_dataset = self.train_data.expect("train_data must be set before calling try_fit()");
 
         // Unified fit() call with optional scheduler
         let scheduler_ref = self.scheduler.as_mut();
-        self.network.fit(
+        Ok(self.network.fit(
             train_dataset,
             self.val_data,
             self.epochs,
             self.batch_size,
             scheduler_ref,
             &mut self.callbacks,
-        )
+        ))
+    }
+
+    /// Starts training.
+    ///
+    /// # Panics
+    /// - Panics if train_data has not been configured.
+    /// - Panics if GPU device is selected (GPU not yet available).
+    ///   Use `try_fit()` to handle GPU errors gracefully.
+    pub fn fit(self) -> Vec<(f64, Option<f64>)> {
+        self.try_fit().expect("Compute device not available. Use try_fit() to handle errors gracefully.")
     }
 }
 

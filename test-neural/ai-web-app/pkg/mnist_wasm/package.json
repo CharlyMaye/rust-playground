@@ -1,0 +1,15 @@
+{
+  "name": "neural-wasm-mnist",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "neural_wasm_mnist_bg.wasm",
+    "neural_wasm_mnist.js",
+    "neural_wasm_mnist.d.ts"
+  ],
+  "main": "neural_wasm_mnist.js",
+  "types": "neural_wasm_mnist.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

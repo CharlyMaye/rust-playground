@@ -1,11 +1,11 @@
-use ndarray::{Array1, Array2, Axis};
-use rand::rng;
+use crate::callbacks::Callback;
+use crate::optimizer::{OptimizerState1D, OptimizerState2D, OptimizerType};
+use ndarray::{Array1, Array2};
 use rand::Rng;
 use rand::SeedableRng;
+use rand::rng;
 use rand::rngs::StdRng;
-use serde::{Serialize, Deserialize};
-use crate::optimizer::{OptimizerType, OptimizerState1D, OptimizerState2D};
-use crate::callbacks::Callback;
+use serde::{Deserialize, Serialize};
 
 /// Regularization type to prevent overfitting.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
@@ -25,27 +25,23 @@ impl RegularizationType {
     pub fn l1(lambda: f64) -> Self {
         RegularizationType::L1 { lambda }
     }
-    
+
     /// Creates L2 regularization with the specified lambda (typical: 0.0001 - 0.01).
     pub fn l2(lambda: f64) -> Self {
         RegularizationType::L2 { lambda }
     }
-    
+
     /// Creates Elastic Net regularization.
     pub fn elastic_net(l1_ratio: f64, lambda: f64) -> Self {
         RegularizationType::ElasticNet { l1_ratio, lambda }
     }
-    
+
     /// Computes the regularization penalty on weights.
     pub fn penalty(&self, weights: &Array2<f64>) -> f64 {
         match self {
             RegularizationType::None => 0.0,
-            RegularizationType::L1 { lambda } => {
-                lambda * weights.mapv(|w| w.abs()).sum()
-            }
-            RegularizationType::L2 { lambda } => {
-                0.5 * lambda * weights.mapv(|w| w * w).sum()
-            }
+            RegularizationType::L1 { lambda } => lambda * weights.mapv(|w| w.abs()).sum(),
+            RegularizationType::L2 { lambda } => 0.5 * lambda * weights.mapv(|w| w * w).sum(),
             RegularizationType::ElasticNet { l1_ratio, lambda } => {
                 let l1_part = l1_ratio * weights.mapv(|w| w.abs()).sum();
                 let l2_part = 0.5 * (1.0 - l1_ratio) * weights.mapv(|w| w * w).sum();
@@ -53,27 +49,24 @@ impl RegularizationType {
             }
         }
     }
-    
+
     /// Computes the regularization gradient to add to weight gradients.
     /// Returns None if no regularization (to avoid allocation).
     pub fn gradient_opt(&self, weights: &Array2<f64>) -> Option<Array2<f64>> {
         match self {
             RegularizationType::None => None,
-            RegularizationType::L1 { lambda } => {
-                Some(weights.mapv(|w| lambda * w.signum()))
-            }
-            RegularizationType::L2 { lambda } => {
-                Some(weights.mapv(|w| lambda * w))
-            }
+            RegularizationType::L1 { lambda } => Some(weights.mapv(|w| lambda * w.signum())),
+            RegularizationType::L2 { lambda } => Some(weights.mapv(|w| lambda * w)),
             RegularizationType::ElasticNet { l1_ratio, lambda } => {
                 Some(weights.mapv(|w| lambda * (l1_ratio * w.signum() + (1.0 - l1_ratio) * w)))
             }
         }
     }
-    
+
     /// Computes the regularization gradient to add to weight gradients.
     pub fn gradient(&self, weights: &Array2<f64>) -> Array2<f64> {
-        self.gradient_opt(weights).unwrap_or_else(|| Array2::zeros(weights.dim()))
+        self.gradient_opt(weights)
+            .unwrap_or_else(|| Array2::zeros(weights.dim()))
     }
 }
 
@@ -87,7 +80,10 @@ pub struct DropoutConfig {
 impl DropoutConfig {
     /// Creates a dropout configuration with the specified rate.
     pub fn new(rate: f64) -> Self {
-        assert!((0.0..1.0).contains(&rate), "Dropout rate must be in [0.0, 1.0)");
+        assert!(
+            (0.0..1.0).contains(&rate),
+            "Dropout rate must be in [0.0, 1.0)"
+        );
         DropoutConfig { rate }
     }
 }
@@ -119,7 +115,7 @@ impl WeightInit {
         match self {
             WeightInit::Uniform => {
                 Array2::from_shape_fn((rows, cols), |_| rng.random_range(-1.0..1.0))
-            },
+            }
             WeightInit::Xavier => {
                 // Xavier: std = sqrt(2 / (input_size + output_size))
                 let std = (2.0 / (rows + cols) as f64).sqrt();
@@ -130,7 +126,7 @@ impl WeightInit {
                     let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
                     z * std
                 })
-            },
+            }
             WeightInit::He => {
                 // He: std = sqrt(2 / input_size)
                 let std = (2.0 / cols as f64).sqrt();
@@ -141,7 +137,7 @@ impl WeightInit {
                     let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
                     z * std
                 })
-            },
+            }
             WeightInit::LeCun => {
                 // LeCun: std = sqrt(1 / input_size)
                 let std = (1.0 / cols as f64).sqrt();
@@ -152,28 +148,28 @@ impl WeightInit {
                     let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
                     z * std
                 })
-            },
+            }
         }
     }
 
     /// Get recommended initialization method for an activation function.
     pub fn for_activation(activation: Activation) -> Self {
         match activation {
-            Activation::Sigmoid | Activation::Tanh | Activation::Softsign 
-            | Activation::HardSigmoid | Activation::HardTanh | Activation::Softmax => {
-                WeightInit::Xavier
-            },
-            Activation::ReLU | Activation::LeakyReLU | Activation::ELU 
-            | Activation::GELU | Activation::Swish | Activation::Mish 
-            | Activation::Softplus => {
-                WeightInit::He
-            },
-            Activation::SELU => {
-                WeightInit::LeCun
-            },
-            Activation::Linear => {
-                WeightInit::Xavier
-            },
+            Activation::Sigmoid
+            | Activation::Tanh
+            | Activation::Softsign
+            | Activation::HardSigmoid
+            | Activation::HardTanh
+            | Activation::Softmax => WeightInit::Xavier,
+            Activation::ReLU
+            | Activation::LeakyReLU
+            | Activation::ELU
+            | Activation::GELU
+            | Activation::Swish
+            | Activation::Mish
+            | Activation::Softplus => WeightInit::He,
+            Activation::SELU => WeightInit::LeCun,
+            Activation::Linear => WeightInit::Xavier,
         }
     }
 }
@@ -220,10 +216,10 @@ impl LossFunction {
             LossFunction::MSE => {
                 let diff = predictions - targets;
                 (&diff * &diff).sum() / predictions.len() as f64
-            },
+            }
             LossFunction::MAE => {
                 (predictions - targets).mapv(|x| x.abs()).sum() / predictions.len() as f64
-            },
+            }
             LossFunction::BinaryCrossEntropy => {
                 let epsilon = 1e-15;
                 let mut sum = 0.0;
@@ -232,7 +228,7 @@ impl LossFunction {
                     sum += -(t * p_clamped.ln() + (1.0 - t) * (1.0 - p_clamped).ln());
                 }
                 sum / predictions.len() as f64
-            },
+            }
             LossFunction::CategoricalCrossEntropy => {
                 let epsilon = 1e-15;
                 let mut sum = 0.0;
@@ -241,7 +237,7 @@ impl LossFunction {
                     sum += -t * p_clamped.ln();
                 }
                 sum
-            },
+            }
             LossFunction::Huber => {
                 let delta = 1.0;
                 let diff = predictions - targets;
@@ -255,7 +251,7 @@ impl LossFunction {
                     }
                 }
                 sum / predictions.len() as f64
-            },
+            }
         }
     }
 
@@ -267,11 +263,19 @@ impl LossFunction {
                 // d/dx[(y - x)^2] = -2(y - x) = 2(x - y)
                 // Simplified for gradient descent: (x - y)
                 predictions - targets
-            },
+            }
             LossFunction::MAE => {
                 // d/dx[|y - x|] = sign(x - y)
-                (predictions - targets).mapv(|x| if x > 0.0 { 1.0 } else if x < 0.0 { -1.0 } else { 0.0 })
-            },
+                (predictions - targets).mapv(|x| {
+                    if x > 0.0 {
+                        1.0
+                    } else if x < 0.0 {
+                        -1.0
+                    } else {
+                        0.0
+                    }
+                })
+            }
             LossFunction::BinaryCrossEntropy => {
                 // d/dx[-y*ln(x) - (1-y)*ln(1-x)] = -y/x + (1-y)/(1-x) = (x - y) / (x(1-x))
                 // Simplified when used with sigmoid: (x - y)
@@ -282,7 +286,7 @@ impl LossFunction {
                     result[i] = (p_clamped - t) / (p_clamped * (1.0 - p_clamped));
                 }
                 result
-            },
+            }
             LossFunction::CategoricalCrossEntropy => {
                 // d/dx[-y*ln(x)] = -y/x
                 // Simplified when used with softmax: (x - y)
@@ -293,7 +297,7 @@ impl LossFunction {
                     result[i] = -t / p_clamped;
                 }
                 result
-            },
+            }
             LossFunction::Huber => {
                 let delta = 1.0;
                 let diff = predictions - targets;
@@ -304,7 +308,7 @@ impl LossFunction {
                         delta * d.signum()
                     }
                 })
-            },
+            }
         }
     }
 }
@@ -330,7 +334,7 @@ impl Activation {
             Activation::Linear => "Linear",
         }
     }
-    
+
     /// Apply the activation function to an array.
     pub fn apply(&self, x: &Array1<f64>) -> Array1<f64> {
         match self {
@@ -343,11 +347,12 @@ impl Activation {
                 let lambda = 1.0507;
                 let alpha = 1.6733;
                 x.mapv(|x| lambda * if x > 0.0 { x } else { alpha * (x.exp() - 1.0) })
-            },
+            }
             Activation::Swish => x.mapv(|x| x / (1.0 + (-x).exp())),
             Activation::GELU => x.mapv(|x| {
-                0.5 * x * (1.0 + ((2.0 / std::f64::consts::PI).sqrt() 
-                    * (x + 0.044715 * x.powi(3))).tanh())
+                0.5 * x
+                    * (1.0
+                        + ((2.0 / std::f64::consts::PI).sqrt() * (x + 0.044715 * x.powi(3))).tanh())
             }),
             Activation::Mish => x.mapv(|x| x * ((1.0 + x.exp()).ln()).tanh()),
             Activation::Softplus => x.mapv(|x| (1.0 + x.exp()).ln()),
@@ -360,7 +365,7 @@ impl Activation {
                 let exp_x = x.mapv(|v| (v - max).exp());
                 let sum = exp_x.sum();
                 exp_x / sum
-            },
+            }
             Activation::Linear => x.clone(),
         }
     }
@@ -393,7 +398,7 @@ impl Activation {
             }
         }
     }
-    
+
     /// Compute the derivative of the activation function from PRE-activation values (z).
     /// This is mathematically correct for all activation functions.
     pub fn derivative_from_preactivation(&self, z: &Array1<f64>) -> Array1<f64> {
@@ -401,19 +406,25 @@ impl Activation {
             Activation::Sigmoid => {
                 let sig = z.mapv(|x| 1.0 / (1.0 + (-x).exp()));
                 &sig * &(1.0 - &sig)
-            },
+            }
             Activation::Tanh => z.mapv(|x| 1.0 - x.tanh().powi(2)),
             Activation::ReLU => z.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }),
             Activation::LeakyReLU => z.mapv(|x| if x > 0.0 { 1.0 } else { 0.01 }),
             Activation::ELU => {
                 let alpha = 1.0;
                 z.mapv(|x| if x > 0.0 { 1.0 } else { alpha * x.exp() })
-            },
+            }
             Activation::SELU => {
                 let lambda = 1.0507;
                 let alpha = 1.6733;
-                z.mapv(|x| if x > 0.0 { lambda } else { lambda * alpha * x.exp() })
-            },
+                z.mapv(|x| {
+                    if x > 0.0 {
+                        lambda
+                    } else {
+                        lambda * alpha * x.exp()
+                    }
+                })
+            }
             Activation::Swish => {
                 // Swish(z) = z * sigmoid(z)
                 // Swish'(z) = sigmoid(z) + z * sigmoid(z) * (1 - sigmoid(z))
@@ -422,7 +433,7 @@ impl Activation {
                     let sig = 1.0 / (1.0 + (-x).exp());
                     sig * (1.0 + x * (1.0 - sig))
                 })
-            },
+            }
             Activation::GELU => {
                 // GELU(z) ≈ 0.5 * z * (1 + tanh(sqrt(2/π) * (z + 0.044715 * z³)))
                 // Derivative: more complex, using the standard approximation
@@ -434,42 +445,42 @@ impl Activation {
                     let d_inner = sqrt_2_over_pi * (1.0 + 3.0 * 0.044715 * x.powi(2));
                     0.5 * (1.0 + tanh_inner) + 0.5 * x * sech2 * d_inner
                 })
-            },
+            }
             Activation::Mish => {
                 // Mish(z) = z * tanh(softplus(z)) = z * tanh(ln(1 + e^z))
                 // Mish'(z) = tanh(sp) + z * sech²(sp) * sigmoid(z)
                 // where sp = softplus(z) = ln(1 + e^z)
                 z.mapv(|x| {
-                    let sp = (1.0 + x.exp()).ln();  // softplus
+                    let sp = (1.0 + x.exp()).ln(); // softplus
                     let tanh_sp = sp.tanh();
                     let sech2_sp = 1.0 - tanh_sp.powi(2);
                     let sigmoid = 1.0 / (1.0 + (-x).exp());
                     tanh_sp + x * sech2_sp * sigmoid
                 })
-            },
+            }
             Activation::Softplus => {
                 // Softplus(z) = ln(1 + e^z)
                 // Softplus'(z) = sigmoid(z)
                 z.mapv(|x| 1.0 / (1.0 + (-x).exp()))
-            },
+            }
             Activation::Softsign => {
                 // Softsign(z) = z / (1 + |z|)
                 // Softsign'(z) = 1 / (1 + |z|)²
                 z.mapv(|x| 1.0 / (1.0 + x.abs()).powi(2))
-            },
+            }
             Activation::HardSigmoid => {
                 // HardSigmoid(z) = clamp(0.2*z + 0.5, 0, 1)
                 z.mapv(|x| {
                     let val = 0.2 * x + 0.5;
                     if val > 0.0 && val < 1.0 { 0.2 } else { 0.0 }
                 })
-            },
+            }
             Activation::HardTanh => z.mapv(|x| if x > -1.0 && x < 1.0 { 1.0 } else { 0.0 }),
             Activation::Softmax => {
                 // For Softmax, the full Jacobian is complex.
                 // When used with CCE loss, the combined gradient simplifies.
                 // This is handled specially in train() and train_batch().
-                // 
+                //
                 // SAFETY: This code path should NEVER be reached in correct usage.
                 // Softmax must be paired with CategoricalCrossEntropy, which bypasses
                 // this derivative entirely (using the simplified target - output).
@@ -478,17 +489,22 @@ impl Activation {
                      Use Softmax + CategoricalCrossEntropy which simplifies to (output - target). \
                      If you see this error, check your loss function configuration."
                 )
-            },
+            }
             Activation::Linear => Array1::ones(z.len()),
         }
     }
-    
+
     /// Returns true if this activation requires pre-activation (z) for correct derivative.
     pub fn needs_preactivation(&self) -> bool {
-        matches!(self, 
-            Activation::ELU | Activation::SELU | Activation::Swish | 
-            Activation::GELU | Activation::Mish | Activation::Softplus | 
-            Activation::Softsign
+        matches!(
+            self,
+            Activation::ELU
+                | Activation::SELU
+                | Activation::Swish
+                | Activation::GELU
+                | Activation::Mish
+                | Activation::Softplus
+                | Activation::Softsign
         )
     }
 }
@@ -563,7 +579,7 @@ pub struct Network {
     pub(crate) rng_seed: Option<u64>,
     /// Cached RNG for performance (recreated if seed changes)
     #[serde(skip)]
-    rng: Option<StdRng>,
+    pub(crate) rng: Option<StdRng>,
 }
 
 impl Network {
@@ -612,38 +628,40 @@ impl Network {
         let mut prev_size = input_size;
         for (i, &size) in hidden_sizes.iter().enumerate() {
             let weights = hidden_inits[i].initialize_weights(size, prev_size, &mut rng);
-            let biases = Array1::zeros(size);  // Biases initialized to 0
-            
+            let biases = Array1::zeros(size); // Biases initialized to 0
+
             layers.push(Layer {
                 weights,
                 biases,
                 activation: hidden_activations[i],
-                dropout: None,  // Pas de dropout par défaut
+                dropout: None, // Pas de dropout par défaut
             });
-            
+
             prev_size = size;
         }
 
         // Create output layer
         let weights = output_init.initialize_weights(output_size, prev_size, &mut rng);
         let biases = Array1::zeros(output_size);
-        
+
         layers.push(Layer {
             weights,
             biases,
             activation: output_activation,
-            dropout: None,  // Pas de dropout sur la couche de sortie
+            dropout: None, // Pas de dropout sur la couche de sortie
         });
 
         // Initialize optimizer states for all layers
-        let optimizer_states_weights: Vec<OptimizerState2D> = layers.iter()
+        let optimizer_states_weights: Vec<OptimizerState2D> = layers
+            .iter()
             .map(|layer| {
                 let shape = layer.weights.dim();
                 OptimizerState2D::new(shape, &optimizer)
             })
             .collect();
-        
-        let optimizer_states_biases: Vec<OptimizerState1D> = layers.iter()
+
+        let optimizer_states_biases: Vec<OptimizerState1D> = layers
+            .iter()
             .map(|layer| {
                 let size = layer.biases.len();
                 OptimizerState1D::new(size, &optimizer)
@@ -663,44 +681,44 @@ impl Network {
             rng: None,
         }
     }
-    
+
     /// Sets a seed for reproducible training.
-    /// 
+    ///
     /// When a seed is set, dropout masks will be deterministic,
     /// making training reproducible across runs.
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// use cma_neural_network::builder::NetworkBuilder;
     /// use cma_neural_network::network::Activation;
-    /// 
+    ///
     /// let mut network = NetworkBuilder::new(2, 1)
     ///     .hidden_layer(8, Activation::ReLU)
     ///     .build();
-    /// 
+    ///
     /// network.set_seed(42);  // Reproducible training
     /// ```
     pub fn set_seed(&mut self, seed: u64) {
         self.rng_seed = Some(seed);
         self.rng = Some(StdRng::seed_from_u64(seed));
     }
-    
+
     /// Clears the seed, using system entropy for randomness.
     pub fn clear_seed(&mut self) {
         self.rng_seed = None;
         self.rng = None;
     }
-    
+
     /// Returns the current seed if set.
     pub fn seed(&self) -> Option<u64> {
         self.rng_seed
     }
-    
+
     /// Switches to training mode (enables dropout).
     pub fn train_mode(&mut self) {
         self.training_mode = true;
     }
-    
+
     /// Switches to evaluation/inference mode (disables dropout).
     pub fn eval_mode(&mut self) {
         self.training_mode = false;
@@ -716,6 +734,7 @@ impl Network {
     /// # Returns
     /// Vector of all layer activations (including input and final output).
     /// Index 0 is the input, last index is the final output.
+    #[allow(dead_code)]
     fn forward(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
         if self.training_mode {
             self.forward_full(input, &mut rng()).activations
@@ -723,53 +742,61 @@ impl Network {
             self.forward_eval(input)
         }
     }
-    
+
     /// Forward pass for evaluation (no dropout, no RNG needed).
     /// Always runs in "eval mode" regardless of training_mode flag.
     fn forward_eval(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
         let mut activations = vec![input.clone()];
-        
+
         for layer in &self.layers {
             let z = layer.weights.dot(activations.last().unwrap()) + &layer.biases;
             let a = layer.activation.apply(&z);
             // No dropout applied in eval mode
             activations.push(a);
         }
-        
+
         activations
     }
-    
+
     /// Forward pass using the stored RNG (for reproducibility) or system entropy.
+    #[allow(dead_code)]
     fn forward_with_stored_rng(&mut self, input: &Array1<f64>) -> ForwardResult {
         // Take ownership of stored RNG temporarily to avoid borrow issues
         if let Some(mut stored_rng) = self.rng.take() {
             let result = self.forward_full_internal(input, &mut stored_rng);
-            self.rng = Some(stored_rng);  // Put it back
+            self.rng = Some(stored_rng); // Put it back
             result
         } else {
             self.forward_full_internal(input, &mut rng())
         }
     }
-    
+
     /// Forward pass returning full result with pre-activations and dropout masks.
+    #[allow(dead_code)]
     fn forward_full(&self, input: &Array1<f64>, rng: &mut impl Rng) -> ForwardResult {
         self.forward_full_internal(input, rng)
     }
-    
+
     /// Internal forward pass implementation.
-    fn forward_full_internal(&self, input: &Array1<f64>, rng: &mut impl Rng) -> ForwardResult {
+    ///
+    /// This is exposed to the trainer module for backpropagation.
+    pub(crate) fn forward_full_internal(
+        &self,
+        input: &Array1<f64>,
+        rng: &mut impl Rng,
+    ) -> ForwardResult {
         let mut activations = vec![input.clone()];
         let mut pre_activations = Vec::with_capacity(self.layers.len());
         let mut dropout_masks = Vec::with_capacity(self.layers.len());
-        
+
         // Forward pass through all layers
         for layer in &self.layers {
             let z = layer.weights.dot(activations.last().unwrap()) + &layer.biases;
             let mut a = layer.activation.apply(&z);
-            
+
             // Store pre-activation
             pre_activations.push(z);
-            
+
             // Apply dropout if in training mode
             let mask = if self.training_mode
                 && let Some(dropout_config) = layer.dropout
@@ -778,7 +805,7 @@ impl Network {
                 // Create dropout mask with inverted scaling
                 let mask: Array1<f64> = Array1::from_shape_fn(a.len(), |_| {
                     if rng.random::<f64>() < keep_prob {
-                        1.0 / keep_prob  // Inverted dropout (scaling during training)
+                        1.0 / keep_prob // Inverted dropout (scaling during training)
                     } else {
                         0.0
                     }
@@ -789,10 +816,10 @@ impl Network {
                 None
             };
             dropout_masks.push(mask);
-            
+
             activations.push(a);
         }
-        
+
         ForwardResult {
             pre_activations,
             activations,
@@ -818,236 +845,45 @@ impl Network {
     /// 3. Backpropagate error through all hidden layers (with dropout mask)
     /// 4. Update all weights and biases using the optimizer
     pub fn train(&mut self, input: &Array1<f64>, target: &Array1<f64>) {
-        // Forward pass with full information (using stored RNG for reproducibility)
-        let forward_result = self.forward_with_stored_rng(input);
-        let activations = &forward_result.activations;
-        let pre_activations = &forward_result.pre_activations;
-        let dropout_masks = &forward_result.dropout_masks;
-        let final_output = activations.last().unwrap();
-        
-        // Compute output layer delta
-        let output_layer_idx = self.layers.len() - 1;
-        let output_activation = self.layers[output_layer_idx].activation;
-        
-        let output_delta = match (&output_activation, &self.loss_function) {
-            // Sigmoid + Binary Cross-Entropy: derivative simplifies to (target - output)
-            (Activation::Sigmoid, LossFunction::BinaryCrossEntropy) => {
-                target - final_output
-            },
-            // Softmax + Categorical Cross-Entropy: derivative simplifies to (target - output)
-            (Activation::Softmax, LossFunction::CategoricalCrossEntropy) => {
-                target - final_output
-            },
-            // MSE: derivative is (prediction - target), negate for gradient descent
-            (_, LossFunction::MSE) => {
-                target - final_output
-            },
-            // General case: use loss gradient and activation derivative (from pre-activation)
-            _ => {
-                let loss_gradient = self.loss_function.derivative(final_output, target);
-                let activation_derivative = output_activation.derivative_from_preactivation(
-                    &pre_activations[output_layer_idx]
-                );
-                -&loss_gradient * &activation_derivative
-            }
-        };
-        
-        // Backpropagate through all layers
-        let mut deltas = vec![output_delta];
-        
-        // Go backwards through hidden layers
-        for i in (0..self.layers.len() - 1).rev() {
-            let current_delta = deltas.last().unwrap();
-            let mut errors = self.layers[i + 1].weights.t().dot(current_delta);
-            
-            // Apply dropout mask to gradient (if dropout was applied during forward)
-            if let Some(ref mask) = dropout_masks[i] {
-                errors = &errors * mask;
-            }
-            
-            // Use pre-activation for derivative calculation (mathematically correct)
-            let activation_derivative = self.layers[i].activation
-                .derivative_from_preactivation(&pre_activations[i]);
-            let delta = &errors * &activation_derivative;
-            deltas.push(delta);
-        }
-        
-        // Reverse deltas to match layer order
-        deltas.reverse();
-        
-        // Update weights and biases for all layers using optimizer
-        for (i, delta) in deltas.iter().enumerate() {
-            let prev_activation = &activations[i];
-            
-            // Compute gradients (negative because delta already has correct sign)
-            let mut weights_gradient = -delta.view().insert_axis(Axis(1))
-                .dot(&prev_activation.view().insert_axis(Axis(0)));
-            let biases_gradient = -delta;
-            
-            // Add regularization gradient (only if needed)
-            if let Some(reg_grad) = self.regularization.gradient_opt(&self.layers[i].weights) {
-                weights_gradient += &reg_grad;
-            }
-            
-            // Update using optimizer
-            self.optimizer_states_weights[i].step(
-                &mut self.layers[i].weights,
-                &weights_gradient,
-                &self.optimizer,
-            );
-            
-            self.optimizer_states_biases[i].step(
-                &mut self.layers[i].biases,
-                &biases_gradient,
-                &self.optimizer,
-            );
-        }
+        // Delegate to the Trainer (CPU by default)
+        let mut trainer = crate::trainer::Trainer::cpu(self);
+        trainer.train_single(input, target);
     }
 
     /// Train the network on a batch of examples (mini-batch training).
-    /// 
+    ///
     /// This method is more efficient than calling `train()` multiple times because:
     /// - Gradients are accumulated over the entire batch
     /// - Optimizer updates are applied once per batch instead of once per example
     /// - Provides more stable gradient estimates (reduced variance)
     /// - Better utilization of vectorized operations
-    /// 
+    ///
     /// # Arguments
     /// - `inputs`: Vector of input arrays (batch of inputs)
     /// - `targets`: Vector of target arrays (batch of targets)
-    /// 
+    ///
     /// # Panics
     /// Panics if inputs.len() != targets.len() or if batch is empty
-    /// 
+    ///
     /// # Example
     /// ```rust
     /// use cma_neural_network::builder::NetworkBuilder;
     /// use cma_neural_network::network::Activation;
     /// use ndarray::array;
-    /// 
+    ///
     /// let mut network = NetworkBuilder::new(2, 1)
     ///     .hidden_layer(5, Activation::Tanh)
     ///     .build();
-    /// 
+    ///
     /// let inputs = vec![array![0.0, 0.0], array![0.0, 1.0], array![1.0, 0.0]];
     /// let targets = vec![array![0.0], array![1.0], array![1.0]];
-    /// 
+    ///
     /// network.train_batch(&inputs, &targets);
     /// ```
     pub fn train_batch(&mut self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) {
-        assert_eq!(inputs.len(), targets.len(), "Number of inputs must match number of targets");
-        assert!(!inputs.is_empty(), "Batch cannot be empty");
-        
-        let batch_size = inputs.len() as f64;
-        
-        // Initialize accumulated gradients
-        let mut accumulated_weights_gradients: Vec<Array2<f64>> = self.layers
-            .iter()
-            .map(|layer| Array2::zeros(layer.weights.dim()))
-            .collect();
-            
-        let mut accumulated_biases_gradients: Vec<Array1<f64>> = self.layers
-            .iter()
-            .map(|layer| Array1::zeros(layer.biases.dim()))
-            .collect();
-        
-        // Accumulate gradients for each example in the batch
-        for (input, target) in inputs.iter().zip(targets.iter()) {
-            // Forward pass with full information (using stored RNG for reproducibility)
-            let forward_result = self.forward_with_stored_rng(input);
-            let activations = &forward_result.activations;
-            let pre_activations = &forward_result.pre_activations;
-            let dropout_masks = &forward_result.dropout_masks;
-            let final_output = activations.last().unwrap();
-            
-            // Compute output layer delta
-            let output_layer_idx = self.layers.len() - 1;
-            let output_activation = self.layers[output_layer_idx].activation;
-            
-            let output_delta = match (&output_activation, &self.loss_function) {
-                // Sigmoid + Binary Cross-Entropy: derivative simplifies
-                (Activation::Sigmoid, LossFunction::BinaryCrossEntropy) => {
-                    target - final_output
-                },
-                // Softmax + Categorical Cross-Entropy: derivative simplifies
-                (Activation::Softmax, LossFunction::CategoricalCrossEntropy) => {
-                    target - final_output
-                },
-                // MSE: derivative is (prediction - target), negate for gradient descent
-                (_, LossFunction::MSE) => {
-                    target - final_output
-                },
-                // General case: use loss gradient and activation derivative (from pre-activation)
-                _ => {
-                    let loss_gradient = self.loss_function.derivative(final_output, target);
-                    let activation_derivative = output_activation.derivative_from_preactivation(
-                        &pre_activations[output_layer_idx]
-                    );
-                    -&loss_gradient * &activation_derivative
-                }
-            };
-            
-            // Backpropagate through all layers
-            let mut deltas = vec![output_delta];
-            
-            // Go backwards through hidden layers
-            for i in (0..self.layers.len() - 1).rev() {
-                let current_delta = deltas.last().unwrap();
-                let mut errors = self.layers[i + 1].weights.t().dot(current_delta);
-                
-                // Apply dropout mask to gradient (if dropout was applied during forward)
-                if let Some(ref mask) = dropout_masks[i] {
-                    errors = &errors * mask;
-                }
-                
-                // Use pre-activation for derivative calculation (mathematically correct)
-                let activation_derivative = self.layers[i].activation
-                    .derivative_from_preactivation(&pre_activations[i]);
-                let delta = &errors * &activation_derivative;
-                deltas.push(delta);
-            }
-            
-            // Reverse deltas to match layer order
-            deltas.reverse();
-            
-            // Accumulate gradients (no update yet)
-            for (i, delta) in deltas.iter().enumerate() {
-                let prev_activation = &activations[i];
-                
-                // Compute gradients (negative because delta already has correct sign)
-                let weights_gradient = -delta.view().insert_axis(Axis(1))
-                    .dot(&prev_activation.view().insert_axis(Axis(0)));
-                let biases_gradient = -delta;
-                
-                accumulated_weights_gradients[i] = &accumulated_weights_gradients[i] + &weights_gradient;
-                accumulated_biases_gradients[i] = &accumulated_biases_gradients[i] + &biases_gradient;
-            }
-        }
-        
-        // Average gradients and apply optimizer update
-        for i in 0..self.layers.len() {
-            // Average the gradients (in-place division)
-            let mut avg_weights_gradient = &accumulated_weights_gradients[i] / batch_size;
-            let avg_biases_gradient = &accumulated_biases_gradients[i] / batch_size;
-            
-            // Add regularization gradient (only to weights, not biases, only if needed)
-            if let Some(reg_grad) = self.regularization.gradient_opt(&self.layers[i].weights) {
-                avg_weights_gradient += &reg_grad;
-            }
-            
-            // Update using optimizer
-            self.optimizer_states_weights[i].step(
-                &mut self.layers[i].weights,
-                &avg_weights_gradient,
-                &self.optimizer,
-            );
-            
-            self.optimizer_states_biases[i].step(
-                &mut self.layers[i].biases,
-                &avg_biases_gradient,
-                &self.optimizer,
-            );
-        }
+        // Delegate to the Trainer (CPU by default)
+        let mut trainer = crate::trainer::Trainer::cpu(self);
+        trainer.train_batch(inputs, targets);
     }
 
     /// Evaluates the network on given input-target pairs without updating weights.
@@ -1062,21 +898,23 @@ impl Network {
     /// Average loss value
     pub fn evaluate(&self, inputs: &Vec<Array1<f64>>, targets: &Vec<Array1<f64>>) -> f64 {
         let mut total_loss = 0.0;
-        
+
         for (input, target) in inputs.iter().zip(targets.iter()) {
             // Always use eval mode for evaluation (no dropout)
             let activations = self.forward_eval(input);
             let prediction = activations.last().unwrap();
             total_loss += self.loss_function.compute(prediction, target);
         }
-        
+
         let base_loss = total_loss / inputs.len() as f64;
-        
+
         // Add regularization penalty
-        let reg_penalty: f64 = self.layers.iter()
+        let reg_penalty: f64 = self
+            .layers
+            .iter()
             .map(|layer| self.regularization.penalty(&layer.weights))
             .sum();
-        
+
         base_loss + reg_penalty / inputs.len() as f64
     }
 
@@ -1095,9 +933,9 @@ impl Network {
         let activations = self.forward_eval(input);
         activations.last().unwrap().clone()
     }
-    
+
     /// Trains the network with support for callbacks and optional learning rate scheduler.
-    /// 
+    ///
     /// **Internal method**: Use `network.trainer().fit()` instead.
     pub(crate) fn fit(
         &mut self,
@@ -1119,15 +957,15 @@ impl Network {
             };
             sched.on_train_begin(self);
         }
-        
+
         // Appel on_train_begin
         for callback in callbacks.iter_mut() {
             callback.on_train_begin(self);
         }
-        
+
         let mut history = Vec::new();
         let mut train_data = train_dataset.clone();
-        
+
         for epoch in 0..epochs {
             // Appel on_epoch_begin
             if let Some(sched) = scheduler.as_mut() {
@@ -1136,26 +974,26 @@ impl Network {
             for callback in callbacks.iter_mut() {
                 callback.on_epoch_begin(epoch, self);
             }
-            
+
             // Shuffle et entraînement
             train_data.shuffle();
-            
+
             for (batch_inputs, batch_targets) in train_data.batches(batch_size) {
                 self.train_batch(&batch_inputs, &batch_targets);
             }
-            
+
             // Calcul des losses
             let train_loss = self.evaluate(train_dataset.inputs(), train_dataset.targets());
             let val_loss = val_dataset.map(|val| self.evaluate(val.inputs(), val.targets()));
-            
+
             history.push((train_loss, val_loss));
-            
+
             // Appel scheduler on_epoch_end et update
             if let Some(sched) = scheduler.as_mut() {
                 sched.on_epoch_end(epoch, self, train_loss, val_loss);
                 sched.update_optimizer_lr(&mut self.optimizer);
             }
-            
+
             // Appel on_epoch_end
             let mut should_continue = true;
             for callback in callbacks.iter_mut() {
@@ -1164,12 +1002,12 @@ impl Network {
                     break;
                 }
             }
-            
+
             if !should_continue {
                 break;
             }
         }
-        
+
         // Appel on_train_end
         if let Some(sched) = scheduler.as_mut() {
             sched.on_train_end(self);
@@ -1177,69 +1015,78 @@ impl Network {
         for callback in callbacks.iter_mut() {
             callback.on_train_end(self);
         }
-        
+
         history
     }
-    
+
     // ═══════════════════════════════════════════════════════════════════════
     // Public API for introspection (useful for visualization)
     // ═══════════════════════════════════════════════════════════════════════
-    
+
     /// Returns a string representation of the network architecture.
     /// Example: "2 → [8, 4] → 1"
     pub fn architecture_string(&self) -> String {
-        let hidden_sizes: Vec<String> = self.layers.iter()
+        let hidden_sizes: Vec<String> = self
+            .layers
+            .iter()
             .take(self.layers.len().saturating_sub(1))
             .map(|l| l.weights.nrows().to_string())
             .collect();
-        
-        let output_size = self.layers.last()
-            .map(|l| l.weights.nrows())
-            .unwrap_or(0);
-        
+
+        let output_size = self.layers.last().map(|l| l.weights.nrows()).unwrap_or(0);
+
         if hidden_sizes.is_empty() {
             format!("{} → {}", self.input_size, output_size)
         } else {
-            format!("{} → [{}] → {}", self.input_size, hidden_sizes.join(", "), output_size)
+            format!(
+                "{} → [{}] → {}",
+                self.input_size,
+                hidden_sizes.join(", "),
+                output_size
+            )
         }
     }
-    
+
     /// Returns the number of layers (hidden + output).
     pub fn num_layers(&self) -> usize {
         self.layers.len()
     }
-    
+
     /// Returns the input size of the network.
     pub fn input_size(&self) -> usize {
         self.input_size
     }
-    
+
     /// Returns the output size of the network.
     pub fn output_size(&self) -> usize {
         self.layers.last().map(|l| l.weights.nrows()).unwrap_or(0)
     }
-    
+
     /// Returns information about each layer for visualization.
     /// Each tuple contains: (weights, biases, activation_name)
     pub fn get_layers_info(&self) -> Vec<(&Array2<f64>, &Array1<f64>, &str)> {
-        self.layers.iter()
+        self.layers
+            .iter()
             .map(|l| (&l.weights, &l.biases, l.activation.name()))
             .collect()
     }
-    
+
     /// Performs a forward pass and returns all intermediate activations.
     /// Returns: Vec of (pre_activation, post_activation, activation_name) for each layer.
-    pub fn get_all_activations(&self, input: &Array1<f64>) -> Vec<(Array1<f64>, Array1<f64>, String)> {
+    pub fn get_all_activations(
+        &self,
+        input: &Array1<f64>,
+    ) -> Vec<(Array1<f64>, Array1<f64>, String)> {
         let mut current = input.clone();
         let mut results = Vec::new();
-        
+
         for layer in &self.layers {
             let pre = layer.weights.dot(&current) + &layer.biases;
             let post = layer.activation.apply(&pre);
             results.push((pre, post.clone(), layer.activation.name().to_string()));
             current = post;
         }
-        
+
         results
     }
 }

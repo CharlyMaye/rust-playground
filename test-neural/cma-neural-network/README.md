@@ -46,6 +46,10 @@ A lightweight, educational neural network library written in pure Rust. Designed
   - [Confusion Matrix](#confusion-matrix)
 - [Serialization](#serialization)
   - [JSON and Binary Formats](#json-and-binary-formats)
+- [Compute Device](#compute-device)
+  - [Available Devices](#available-devices)
+  - [Device Selection in Training](#device-selection-in-training)
+  - [Error Handling](#error-handling)
 - [Reproducibility](#reproducibility)
   - [Setting a Seed](#setting-a-seed)
 - [References](#references)
@@ -1076,6 +1080,136 @@ println!("JSON: {} bytes, Binary: {} bytes", json_size, bin_size);
 **When to use which:**
 - **JSON**: Debugging, human inspection, version control diffs
 - **Binary**: Production, storage efficiency, faster I/O
+
+---
+
+## Compute Device
+
+**What is a compute device?** It determines *where* the training computations are executed. This abstraction separates the network architecture (the "what") from the execution backend (the "how"), following best practices from frameworks like PyTorch and TensorFlow.
+
+### Available Devices
+
+| Device | Status | Description |
+|--------|--------|-------------|
+| `ComputeDevice::Cpu` | ✅ Available | Standard CPU execution (default) |
+| `ComputeDevice::Gpu` | 🚧 Planned | GPU acceleration (not yet implemented) |
+
+```rust
+use cma_neural_network::compute::ComputeDevice;
+
+// Check device availability
+assert!(ComputeDevice::Cpu.is_available());   // true
+assert!(!ComputeDevice::Gpu.is_available());  // false (not yet implemented)
+
+// Validate before use
+ComputeDevice::Cpu.validate()?;  // Ok(())
+ComputeDevice::Gpu.validate()?;  // Err(ComputeDeviceError::GpuNotAvailable)
+```
+
+### Device Selection in Training
+
+You can specify the compute device when using the `TrainingBuilder`:
+
+```rust
+use cma_neural_network::builder::NetworkTrainer;
+use cma_neural_network::compute::ComputeDevice;
+
+// Method 1: Explicit device selection
+let history = network.trainer()
+    .device(ComputeDevice::Cpu)
+    .train_data(&dataset)
+    .epochs(100)
+    .batch_size(32)
+    .fit();
+
+// Method 2: Shorthand methods
+let history = network.trainer()
+    .cpu()  // Same as .device(ComputeDevice::Cpu)
+    .train_data(&dataset)
+    .fit();
+
+// GPU (when available)
+let history = network.trainer()
+    .gpu()  // Will error until GPU support is implemented
+    .train_data(&dataset)
+    .try_fit();  // Use try_fit() to handle errors gracefully
+```
+
+**Note:** CPU is the default device. If you don't specify a device, CPU will be used.
+
+### Error Handling
+
+When using GPU (or any device that might not be available), use `try_fit()` instead of `fit()` to handle errors gracefully:
+
+```rust
+use cma_neural_network::compute::ComputeDeviceError;
+
+// Safe: returns Result
+let result = network.trainer()
+    .gpu()
+    .train_data(&dataset)
+    .try_fit();
+
+match result {
+    Ok(history) => println!("Training completed: {} epochs", history.len()),
+    Err(ComputeDeviceError::GpuNotAvailable) => {
+        println!("GPU not available, falling back to CPU");
+        // Retry with CPU
+        network.trainer()
+            .cpu()
+            .train_data(&dataset)
+            .fit();
+    }
+}
+
+// Or using fit() which will panic if device unavailable
+// Only use this when you're sure the device is available
+network.trainer()
+    .cpu()  // CPU is always available
+    .train_data(&dataset)
+    .fit();  // Safe to use fit() here
+```
+
+### Architecture Overview
+
+The compute device abstraction follows a clean separation of concerns:
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│    Network      │     │    Trainer      │     │  ComputeDevice  │
+│  (architecture) │────▶│   (training)    │────▶│   (execution)   │
+│                 │     │                 │     │                 │
+│ - layers        │     │ - backprop     │     │ - CPU           │
+│ - activations   │     │ - gradients    │     │ - GPU (planned) │
+│ - forward pass  │     │ - optimizer    │     │                 │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
+
+**Benefits of this architecture:**
+- ✅ Network code stays clean (no `#[cfg(feature = "gpu")]` everywhere)
+- ✅ Easy to add new backends (e.g., multi-threaded CPU with Rayon)
+- ✅ API remains stable as new devices are added
+- ✅ Runtime device selection (no recompilation needed)
+
+### WebAssembly Compatibility
+
+This library is designed to run in WebAssembly (WASM) for browser-based neural network training. The compute device abstraction is WASM-compatible:
+
+- **CPU**: Fully supported in WASM
+- **GPU**: WebGPU support is planned for future versions
+
+```rust
+// Works in both native Rust and WebAssembly
+let network = NetworkBuilder::new(2, 1)
+    .hidden_layer(8, Activation::Tanh)
+    .build();
+
+// CPU training works everywhere
+network.trainer()
+    .cpu()
+    .train_data(&dataset)
+    .fit();
+```
 
 ---
 

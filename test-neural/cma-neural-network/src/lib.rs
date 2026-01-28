@@ -59,19 +59,29 @@
 //!     .fit();
 //! ```
 
-pub mod network;
-pub mod optimizer;
-pub mod dataset;
+pub mod builder;
 pub mod callbacks;
+pub mod compute;
+pub mod dataset;
 pub mod io;
 pub mod metrics;
-pub mod builder;
+pub mod network;
+pub mod optimizer;
+
+// Internal modules (not exposed in public API)
+pub(crate) mod trainer;
 
 // Re-exports for convenience
-pub use network::{Network, Activation, LossFunction, WeightInit, RegularizationType, DropoutConfig};
-pub use optimizer::OptimizerType;
-pub use dataset::Dataset;
 pub use builder::{NetworkBuilder, NetworkTrainer, TrainingBuilder};
-pub use callbacks::{Callback, EarlyStopping, DeltaMode, LearningRateScheduler, LRSchedule, ModelCheckpoint, ProgressBar};
-pub use metrics::{accuracy, binary_metrics, BinaryMetrics};
-pub use io::{save_json, load_json, save_binary, load_binary, IoError};
+pub use callbacks::{
+    Callback, DeltaMode, EarlyStopping, LRSchedule, LearningRateScheduler, ModelCheckpoint,
+    ProgressBar,
+};
+pub use compute::{ComputeDevice, ComputeDeviceError};
+pub use dataset::Dataset;
+pub use io::{IoError, load_binary, load_json, save_binary, save_json};
+pub use metrics::{BinaryMetrics, accuracy, binary_metrics};
+pub use network::{
+    Activation, DropoutConfig, LossFunction, Network, RegularizationType, WeightInit,
+};
+pub use optimizer::OptimizerType;
