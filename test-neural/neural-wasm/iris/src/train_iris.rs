@@ -10,19 +10,18 @@ use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
 use csv::ReaderBuilder;
 use ndarray::{array, Array1};
-use neural_wasm_shared::{calculate_multiclass_accuracy, save_model_with_normalization, NormalizationStats};
+use neural_wasm_shared::{calculate_multiclass_accuracy, save_model_binary, NormalizationStats};
 use std::error::Error;
-use std::path::Path;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║         Iris Classification Neural Network Training          ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
-    let model_path = "src/iris_model.json";
+    let model_path = "src/iris_model.bin";
 
     // Check if model already exists
-    if Path::new(model_path).exists() {
+    if std::path::Path::new(model_path).exists() {
         println!("⚠️  Model already exists at {}", model_path);
         println!("   Delete it manually if you want to retrain.\n");
         return Ok(());
@@ -130,9 +129,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     // ═══════════════════════════════════════════════════════════════════════
     // 5. SAVE MODEL WITH METADATA
     // ═══════════════════════════════════════════════════════════════════════
-    println!("\n💾 Saving model with metadata...\n");
+    println!("\n💾 Saving model...\n");
 
-    match save_model_with_normalization(network, acc, total, Some(norm_stats), model_path) {
+    match save_model_binary(network, acc, total, Some(norm_stats), model_path) {
         Ok(_) => {
             println!("   ✅ Model saved to {}", model_path);
             println!("   📊 Accuracy: {:.2}%", acc * 100.0);
@@ -232,6 +231,6 @@ fn normalize_features_with_stats(inputs: &[Array1<f64>]) -> (Vec<Array1<f64>>, N
             )
         })
         .collect();
-    
+
     (normalized, NormalizationStats::new(means, stds))
 }

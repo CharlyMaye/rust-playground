@@ -3,14 +3,14 @@
 //! This module exposes a pre-trained XOR neural network via WebAssembly.
 //! Uses cma_neural_network for all neural network operations.
 
-use wasm_bindgen::prelude::*;
 use cma_neural_network::network::Network;
 use ndarray::array;
+use neural_wasm_shared::{load_model_from_bytes, ModelInfo};
 use serde::Serialize;
-use neural_wasm_shared::{ModelInfo, ModelWithMetadata};
+use wasm_bindgen::prelude::*;
 
-// Embed the pre-trained model at compile time
-const MODEL_JSON: &str = include_str!("xor_model.json");
+// Embed the pre-trained model at compile time (binary format for smaller size)
+const MODEL_BIN: &[u8] = include_bytes!("xor_model.bin");
 
 // ===== JSON Response Structures =====
 
@@ -67,9 +67,9 @@ impl XorNetwork {
     /// Create a new XOR network by loading the embedded model
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<XorNetwork, JsValue> {
-        let model: ModelWithMetadata = serde_json::from_str(MODEL_JSON)
+        let model = load_model_from_bytes(MODEL_BIN)
             .map_err(|e| JsValue::from_str(&format!("Failed to load model: {}", e)))?;
-        
+
         Ok(XorNetwork {
             network: model.network,
             accuracy: model.metadata.accuracy,
@@ -87,14 +87,14 @@ impl XorNetwork {
         let raw = output[0];
         let prediction = if raw > 0.5 { 1 } else { 0 };
         let confidence = (raw - 0.5).abs() * 2.0;
-        
+
         let result = serde_json::json!({
             "prediction": prediction,
             "raw": raw,
             "confidence": confidence,
             "probabilities": [1.0 - raw, raw]
         });
-        
+
         serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
     }
 
@@ -118,7 +118,11 @@ impl XorNetwork {
     fn predict_binary(&self, x1: f64, x2: f64) -> u8 {
         let input = array![x1, x2];
         let output = self.network.predict(&input);
-        if output[0] > 0.5 { 1 } else { 0 }
+        if output[0] > 0.5 {
+            1
+        } else {
+            0
+        }
     }
 
     fn predict_raw(&self, x1: f64, x2: f64) -> f64 {
@@ -149,7 +153,7 @@ impl XorNetwork {
                 }
             })
             .collect();
-        
+
         serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string())
     }
 
@@ -172,17 +176,20 @@ impl XorNetwork {
     pub fn get_weights(&self) -> String {
         let layers = self.network.get_layers_info();
         let response = WeightsResponse {
-            layers: layers.iter().map(|(weights, biases, activation_name)| {
-                let shape = weights.shape();
-                LayerWeights {
-                    weights: weights.iter().cloned().collect(),
-                    biases: biases.iter().cloned().collect(),
-                    activation: activation_name.to_string(),
-                    shape: [shape[0], shape[1]],
-                }
-            }).collect(),
+            layers: layers
+                .iter()
+                .map(|(weights, biases, activation_name)| {
+                    let shape = weights.shape();
+                    LayerWeights {
+                        weights: weights.iter().cloned().collect(),
+                        biases: biases.iter().cloned().collect(),
+                        activation: activation_name.to_string(),
+                        shape: [shape[0], shape[1]],
+                    }
+                })
+                .collect(),
         };
-        
+
         serde_json::to_string(&response).unwrap_or_else(|_| r#"{"layers":[]}"#.to_string())
     }
 
@@ -191,22 +198,27 @@ impl XorNetwork {
     pub fn get_activations(&self, x1: f64, x2: f64) -> String {
         let input = array![x1, x2];
         let activations = self.network.get_all_activations(&input);
-        
-        let output = activations.last().map(|(_, post, _)| post[0]).unwrap_or(0.0);
-        
+
+        let output = activations
+            .last()
+            .map(|(_, post, _)| post[0])
+            .unwrap_or(0.0);
+
         let response = ActivationsResponse {
             inputs: [x1, x2],
-            layers: activations.iter().map(|(pre, post, activation_name)| {
-                LayerActivation {
+            layers: activations
+                .iter()
+                .map(|(pre, post, activation_name)| LayerActivation {
                     pre_activation: pre.iter().cloned().collect(),
                     activation: post.iter().cloned().collect(),
                     function: activation_name.to_string(),
-                }
-            }).collect(),
+                })
+                .collect(),
             output,
         };
-        
-        serde_json::to_string(&response).unwrap_or_else(|_| r#"{"inputs":[0,0],"layers":[],"output":0}"#.to_string())
+
+        serde_json::to_string(&response)
+            .unwrap_or_else(|_| r#"{"inputs":[0,0],"layers":[],"output":0}"#.to_string())
     }
 }
 

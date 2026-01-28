@@ -160,6 +160,38 @@ pub fn save_model_with_normalization(
     Ok(())
 }
 
+/// Save model with metadata to binary file (compact format for WASM)
+pub fn save_model_binary(
+    network: Network,
+    accuracy: f64,
+    test_samples: usize,
+    normalization: Option<NormalizationStats>,
+    path: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let model_with_metadata = ModelWithMetadata {
+        network,
+        metadata: ModelMetadata {
+            accuracy,
+            test_samples,
+            trained_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            normalization,
+        },
+    };
+
+    let model_bin = bincode::serialize(&model_with_metadata)?;
+    std::fs::write(path, &model_bin)?;
+
+    Ok(())
+}
+
+/// Load model from binary bytes (for WASM with include_bytes!)
+pub fn load_model_from_bytes(
+    bytes: &[u8],
+) -> Result<ModelWithMetadata, Box<dyn std::error::Error>> {
+    let model: ModelWithMetadata = bincode::deserialize(bytes)?;
+    Ok(model)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

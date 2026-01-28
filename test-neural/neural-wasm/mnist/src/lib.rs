@@ -5,12 +5,12 @@
 
 use cma_neural_network::network::Network;
 use ndarray::array;
-use neural_wasm_shared::{ModelInfo, ModelWithMetadata};
+use neural_wasm_shared::{load_model_from_bytes, ModelInfo};
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
-// Embed the pre-trained model at compile time
-const MODEL_JSON: &str = include_str!("mnist_model.json");
+// Embed the pre-trained model at compile time (binary format for smaller size)
+const MODEL_BIN: &[u8] = include_bytes!("mnist_model.bin");
 
 // ===== JSON Response Structures =====
 
@@ -67,7 +67,7 @@ impl MnistNetwork {
     /// Create a new MNIST network by loading the embedded model
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<MnistNetwork, JsValue> {
-        let model: ModelWithMetadata = serde_json::from_str(MODEL_JSON)
+        let model = load_model_from_bytes(MODEL_BIN)
             .map_err(|e| JsValue::from_str(&format!("Failed to load model: {}", e)))?;
 
         Ok(MnistNetwork {
@@ -118,7 +118,11 @@ impl MnistNetwork {
     fn predict_binary(&self, x1: f64, x2: f64) -> u8 {
         let input = array![x1, x2];
         let output = self.network.predict(&input);
-        if output[0] > 0.5 { 1 } else { 0 }
+        if output[0] > 0.5 {
+            1
+        } else {
+            0
+        }
     }
 
     fn predict_raw(&self, x1: f64, x2: f64) -> f64 {

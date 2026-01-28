@@ -1,12 +1,13 @@
 use cma_neural_network::network::Network;
 use ndarray::array;
 use neural_wasm_shared::{
-    softmax, LayerInfo, ModelInfo, ModelWithMetadata, NormalizationStats, WeightsInfo,
+    load_model_from_bytes, softmax, LayerInfo, ModelInfo, NormalizationStats, WeightsInfo,
 };
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
-const MODEL_JSON: &str = include_str!("iris_model.json");
+// Embed the pre-trained model at compile time (binary format for smaller size)
+const MODEL_BIN: &[u8] = include_bytes!("iris_model.bin");
 
 #[derive(Serialize)]
 pub struct IrisPrediction {
@@ -47,7 +48,7 @@ impl IrisClassifier {
         #[cfg(feature = "console_error_panic_hook")]
         console_error_panic_hook::set_once();
 
-        let model: ModelWithMetadata = serde_json::from_str(MODEL_JSON)
+        let model = load_model_from_bytes(MODEL_BIN)
             .map_err(|e| JsValue::from_str(&format!("Failed to load model: {}", e)))?;
 
         let classes = vec![
