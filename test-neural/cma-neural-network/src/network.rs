@@ -939,13 +939,14 @@ impl Network {
     /// **Internal method**: Use `network.trainer().fit()` instead.
     pub(crate) fn fit(
         &mut self,
-        train_dataset: &crate::dataset::Dataset,
+        train_dataset: &mut crate::dataset::Dataset,
         val_dataset: Option<&crate::dataset::Dataset>,
         epochs: usize,
         batch_size: usize,
         device: crate::compute::ComputeDevice,
         mut scheduler: Option<&mut crate::callbacks::LearningRateScheduler>,
         callbacks: &mut Vec<Box<dyn crate::callbacks::Callback>>,
+        eval_every: usize,
     ) -> Vec<(f64, Option<f64>)> {
         // Initialise le scheduler s'il existe
         if let Some(sched) = scheduler.as_mut() {
@@ -965,7 +966,6 @@ impl Network {
         }
 
         let mut history = Vec::new();
-        let mut train_data = train_dataset.clone();
 
         // Create trainer ONCE for all epochs (performance!)
         let mut trainer = crate::trainer::Trainer::new(self, device)
@@ -980,19 +980,28 @@ impl Network {
                 callback.on_epoch_begin(epoch, trainer.network_mut());
             }
 
-            // Shuffle et entraînement
-            train_data.shuffle();
+            // Shuffle dataset in-place (no clone!)
+            train_dataset.shuffle();
 
-            for (batch_inputs, batch_targets) in train_data.batches(batch_size) {
-                trainer.train_batch(&batch_inputs, &batch_targets);
+            // Train on batches using iterator (no allocations!)
+            for (batch_inputs, batch_targets) in train_dataset.batches(batch_size) {
+                trainer.train_batch(batch_inputs, batch_targets);
             }
 
-            // Calcul des losses
-            let train_loss = trainer
-                .network()
-                .evaluate(train_dataset.inputs(), train_dataset.targets());
-            let val_loss =
-                val_dataset.map(|val| trainer.network().evaluate(val.inputs(), val.targets()));
+            // Evaluate losses only every eval_every epochs (or last epoch)
+            let should_evaluate = (epoch + 1) % eval_every == 0 || epoch + 1 == epochs;
+
+            let (train_loss, val_loss) = if should_evaluate {
+                let train_loss = trainer
+                    .network()
+                    .evaluate(train_dataset.inputs(), train_dataset.targets());
+                let val_loss =
+                    val_dataset.map(|val| trainer.network().evaluate(val.inputs(), val.targets()));
+                (train_loss, val_loss)
+            } else {
+                // Skip evaluation, use dummy values
+                (0.0, None)
+            };
 
             history.push((train_loss, val_loss));
 

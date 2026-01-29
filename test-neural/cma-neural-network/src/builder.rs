@@ -196,7 +196,7 @@ impl NetworkBuilder {
 /// ```
 pub struct TrainingBuilder<'a> {
     network: &'a mut Network,
-    train_data: Option<&'a Dataset>,
+    train_data: Option<&'a mut Dataset>,
     val_data: Option<&'a Dataset>,
     epochs: usize,
     batch_size: usize,
@@ -204,6 +204,8 @@ pub struct TrainingBuilder<'a> {
     scheduler: Option<LearningRateScheduler>,
     /// Compute device for training (CPU or GPU)
     device: ComputeDevice,
+    /// Evaluate every N epochs (1 = every epoch, 5 = every 5 epochs, etc.)
+    eval_every: usize,
 }
 
 impl<'a> TrainingBuilder<'a> {
@@ -213,6 +215,7 @@ impl<'a> TrainingBuilder<'a> {
     /// - epochs: 100
     /// - batch_size: 32
     /// - device: CPU
+    /// - eval_every: 1 (evaluate every epoch)
     pub fn new(network: &'a mut Network) -> Self {
         Self {
             network,
@@ -223,6 +226,7 @@ impl<'a> TrainingBuilder<'a> {
             callbacks: Vec::new(),
             scheduler: None,
             device: ComputeDevice::Cpu,
+            eval_every: 1,
         }
     }
 
@@ -293,7 +297,7 @@ impl<'a> TrainingBuilder<'a> {
     }
 
     /// Configures the training data.
-    pub fn train_data(mut self, dataset: &'a Dataset) -> Self {
+    pub fn train_data(mut self, dataset: &'a mut Dataset) -> Self {
         self.train_data = Some(dataset);
         self
     }
@@ -313,6 +317,29 @@ impl<'a> TrainingBuilder<'a> {
     /// Configures the batch size.
     pub fn batch_size(mut self, size: usize) -> Self {
         self.batch_size = size;
+        self
+    }
+
+    /// Configures evaluation frequency.
+    ///
+    /// By default, the network is evaluated on train/validation sets every epoch.
+    /// For large datasets, this can be expensive. Use this to evaluate every N epochs.
+    ///
+    /// # Arguments
+    /// - `n`: Evaluate every N epochs (1 = every epoch, 5 = every 5 epochs, etc.)
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Evaluate only every 5 epochs (20% of the monitoring overhead)
+    /// network.trainer()
+    ///     .train_data(&dataset)
+    ///     .epochs(100)
+    ///     .eval_every(5)  // Evaluate at epochs 5, 10, 15, ..., 100
+    ///     .fit();
+    /// ```
+    pub fn eval_every(mut self, n: usize) -> Self {
+        assert!(n > 0, "eval_every must be at least 1");
+        self.eval_every = n;
         self
     }
 
@@ -355,6 +382,7 @@ impl<'a> TrainingBuilder<'a> {
             self.device,
             scheduler_ref,
             &mut self.callbacks,
+            self.eval_every,
         ))
     }
 

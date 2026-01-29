@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     dataset.shuffle();
     println!("   ✅ Dataset shuffled");
 
-    let (train, val) = dataset.split(0.7);
+    let (mut train, val) = dataset.split(0.7);
 
     println!("   Training samples: {} (70%)", train.len());
     println!("   Test samples: {} (30%)\n", val.len());
@@ -68,28 +68,28 @@ fn main() -> Result<(), Box<dyn Error>> {
         .hidden_layer(64, Activation::ReLU)
         .output_activation(Activation::Softmax)
         .loss(LossFunction::CategoricalCrossEntropy)
-        .optimizer(OptimizerType::adam(0.001)) // Réduit de 0.01 à 0.001
+        .optimizer(OptimizerType::adam(0.005)) // Réduit de 0.01 à 0.001
         .build();
 
     println!("   Architecture: 784 → [128, 64] → 10");
     println!("   Activation: ReLU → ReLU → Softmax");
-    println!("   Optimizer: Adam (lr=0.01)\n");
+    println!("   Optimizer: Adam (lr=0.05)\n");
 
     // ═══════════════════════════════════════════════════════════════════════
     // 3. TRAIN
     // ═══════════════════════════════════════════════════════════════════════
     println!("🏋️  Training...\n");
 
-    let epochs = 2_000;
+    let epochs = 100;
     let history = network
         .trainer()
-        .cpu()
-        .train_data(&train)
+        // .parallel()
+        .train_data(&mut train)
         .validation_data(&val)
         .epochs(epochs)
         .batch_size(1536) // 12 cors => 128samples/core if parallel
         .callback(Box::new(
-            EarlyStopping::new(100, 0.00001).mode(DeltaMode::Relative),
+            EarlyStopping::new(100, 0.01).mode(DeltaMode::Relative),
         ))
         .callback(Box::new(ProgressBar::new(epochs)))
         .fit();

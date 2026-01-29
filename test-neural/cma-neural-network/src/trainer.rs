@@ -35,9 +35,15 @@ pub(crate) struct BatchGradients {
 ///
 /// This struct is created temporarily during training and released after.
 /// It doesn't own the network, just borrows it mutably.
+///
+/// Pre-allocates gradient buffers to avoid repeated allocations during training.
 pub(crate) struct Trainer<'a> {
     network: &'a mut Network,
     device: ComputeDevice,
+    /// Pre-allocated gradient buffers for weights (reused across batches)
+    accumulated_weights: Vec<Array2<f64>>,
+    /// Pre-allocated gradient buffers for biases (reused across batches)
+    accumulated_biases: Vec<Array1<f64>>,
 }
 
 impl<'a> Trainer<'a> {
@@ -58,14 +64,48 @@ impl<'a> Trainer<'a> {
         device: ComputeDevice,
     ) -> Result<Self, ComputeDeviceError> {
         device.validate()?;
-        Ok(Self { network, device })
+
+        // Pre-allocate gradient buffers based on network architecture
+        let accumulated_weights: Vec<Array2<f64>> = network
+            .layers
+            .iter()
+            .map(|layer| Array2::zeros(layer.weights.dim()))
+            .collect();
+
+        let accumulated_biases: Vec<Array1<f64>> = network
+            .layers
+            .iter()
+            .map(|layer| Array1::zeros(layer.biases.dim()))
+            .collect();
+
+        Ok(Self {
+            network,
+            device,
+            accumulated_weights,
+            accumulated_biases,
+        })
     }
 
     /// Creates a new trainer with CPU device (infallible).
     pub fn cpu(network: &'a mut Network) -> Self {
+        // Pre-allocate gradient buffers based on network architecture
+        let accumulated_weights: Vec<Array2<f64>> = network
+            .layers
+            .iter()
+            .map(|layer| Array2::zeros(layer.weights.dim()))
+            .collect();
+
+        let accumulated_biases: Vec<Array1<f64>> = network
+            .layers
+            .iter()
+            .map(|layer| Array1::zeros(layer.biases.dim()))
+            .collect();
+
         Self {
             network,
             device: ComputeDevice::Cpu,
+            accumulated_weights,
+            accumulated_biases,
         }
     }
 
@@ -128,20 +168,13 @@ impl<'a> Trainer<'a> {
     fn train_batch_cpu(&mut self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) {
         let batch_size = inputs.len() as f64;
 
-        // Initialize accumulated gradients
-        let mut accumulated_weights: Vec<Array2<f64>> = self
-            .network
-            .layers
-            .iter()
-            .map(|layer| Array2::zeros(layer.weights.dim()))
-            .collect();
-
-        let mut accumulated_biases: Vec<Array1<f64>> = self
-            .network
-            .layers
-            .iter()
-            .map(|layer| Array1::zeros(layer.biases.dim()))
-            .collect();
+        // Reset accumulated gradients to zero (reuse pre-allocated buffers)
+        for grad in self.accumulated_weights.iter_mut() {
+            grad.fill(0.0);
+        }
+        for grad in self.accumulated_biases.iter_mut() {
+            grad.fill(0.0);
+        }
 
         // Accumulate gradients for each example
         for (input, target) in inputs.iter().zip(targets.iter()) {
@@ -160,7 +193,7 @@ impl<'a> Trainer<'a> {
                 dropout_masks,
             );
 
-            // Accumulate gradients
+            // Accumulate gradients (using pre-allocated buffers)
             for (i, delta) in deltas.iter().enumerate() {
                 let prev_activation = &activations[i];
 
@@ -170,13 +203,13 @@ impl<'a> Trainer<'a> {
                     .dot(&prev_activation.view().insert_axis(Axis(0)));
                 let biases_gradient = -delta;
 
-                accumulated_weights[i] = &accumulated_weights[i] + &weights_gradient;
-                accumulated_biases[i] = &accumulated_biases[i] + &biases_gradient;
+                self.accumulated_weights[i] = &self.accumulated_weights[i] + &weights_gradient;
+                self.accumulated_biases[i] = &self.accumulated_biases[i] + &biases_gradient;
             }
         }
 
         // Average and apply gradients
-        self.apply_gradients_batch(&accumulated_weights, &accumulated_biases, batch_size);
+        self.apply_gradients_batch(batch_size);
     }
 
     /// Parallel CPU implementation of batch training using Rayon.
@@ -205,21 +238,24 @@ impl<'a> Trainer<'a> {
             .map(|(input, target)| self.compute_sample_gradients(input, target))
             .collect();
 
-        // Reduce: sum all gradients
-        let mut accumulated_weights: Vec<Array2<f64>> =
-            weight_dims.iter().map(|&dim| Array2::zeros(dim)).collect();
-        let mut accumulated_biases: Vec<Array1<f64>> =
-            bias_dims.iter().map(|&size| Array1::zeros(size)).collect();
+        // Reset accumulated gradients to zero (reuse pre-allocated buffers)
+        for grad in self.accumulated_weights.iter_mut() {
+            grad.fill(0.0);
+        }
+        for grad in self.accumulated_biases.iter_mut() {
+            grad.fill(0.0);
+        }
 
+        // Reduce: sum all gradients into pre-allocated buffers
         for (sample_weights, sample_biases) in gradients {
             for i in 0..num_layers {
-                accumulated_weights[i] = &accumulated_weights[i] + &sample_weights[i];
-                accumulated_biases[i] = &accumulated_biases[i] + &sample_biases[i];
+                self.accumulated_weights[i] = &self.accumulated_weights[i] + &sample_weights[i];
+                self.accumulated_biases[i] = &self.accumulated_biases[i] + &sample_biases[i];
             }
         }
 
         // Average and apply gradients
-        self.apply_gradients_batch(&accumulated_weights, &accumulated_biases, batch_size);
+        self.apply_gradients_batch(batch_size);
     }
 
     /// Computes gradients for a single sample (thread-safe, no mutation).
@@ -373,16 +409,11 @@ impl<'a> Trainer<'a> {
     }
 
     /// Applies averaged gradients from a batch.
-    fn apply_gradients_batch(
-        &mut self,
-        accumulated_weights: &[Array2<f64>],
-        accumulated_biases: &[Array1<f64>],
-        batch_size: f64,
-    ) {
+    fn apply_gradients_batch(&mut self, batch_size: f64) {
         for i in 0..self.network.layers.len() {
-            // Average the gradients
-            let mut avg_weights_gradient = &accumulated_weights[i] / batch_size;
-            let avg_biases_gradient = &accumulated_biases[i] / batch_size;
+            // Average the gradients (modify in place)
+            self.accumulated_weights[i].mapv_inplace(|g| g / batch_size);
+            self.accumulated_biases[i].mapv_inplace(|g| g / batch_size);
 
             // Add regularization gradient if needed
             if let Some(reg_grad) = self
@@ -390,19 +421,19 @@ impl<'a> Trainer<'a> {
                 .regularization
                 .gradient_opt(&self.network.layers[i].weights)
             {
-                avg_weights_gradient += &reg_grad;
+                self.accumulated_weights[i] = &self.accumulated_weights[i] + &reg_grad;
             }
 
             // Update via optimizer
             self.network.optimizer_states_weights[i].step(
                 &mut self.network.layers[i].weights,
-                &avg_weights_gradient,
+                &self.accumulated_weights[i],
                 &self.network.optimizer,
             );
 
             self.network.optimizer_states_biases[i].step(
                 &mut self.network.layers[i].biases,
-                &avg_biases_gradient,
+                &self.accumulated_biases[i],
                 &self.network.optimizer,
             );
         }

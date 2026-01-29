@@ -20,7 +20,7 @@
 //! ```
 
 use ndarray::Array1;
-use rand::{rng, Rng};
+use rand::{Rng, rng};
 
 /// A dataset containing input-target pairs for neural network training.
 ///
@@ -63,27 +63,27 @@ impl Dataset {
         );
         Dataset { inputs, targets }
     }
-    
+
     /// Returns the number of examples in the dataset.
     pub fn len(&self) -> usize {
         self.inputs.len()
     }
-    
+
     /// Returns true if the dataset is empty.
     pub fn is_empty(&self) -> bool {
         self.inputs.is_empty()
     }
-    
+
     /// Returns a reference to the input vectors.
     pub fn inputs(&self) -> &Vec<Array1<f64>> {
         &self.inputs
     }
-    
+
     /// Returns a reference to the target vectors.
     pub fn targets(&self) -> &Vec<Array1<f64>> {
         &self.targets
     }
-    
+
     /// Shuffles the dataset randomly in-place.
     ///
     /// This is important to prevent the network from learning the order of examples.
@@ -105,7 +105,7 @@ impl Dataset {
     pub fn shuffle(&mut self) {
         let mut rng = rng();
         let n = self.len();
-        
+
         // Fisher-Yates shuffle in-place (O(n), pas de clone!)
         for i in (1..n).rev() {
             let j = rng.random_range(0..=i);
@@ -113,7 +113,37 @@ impl Dataset {
             self.targets.swap(i, j);
         }
     }
-    
+
+    /// Shuffles the dataset using provided indices.
+    ///
+    /// This allows external control of the shuffle order (useful for reproducibility).
+    ///
+    /// # Panics
+    /// Panics if indices.len() != self.len()
+    pub fn shuffle_with_indices(&mut self, indices: &[usize]) {
+        assert_eq!(
+            indices.len(),
+            self.len(),
+            "Indices length must match dataset length"
+        );
+
+        // Create temporary storage
+        let mut temp_inputs: Vec<Array1<f64>> = indices
+            .iter()
+            .map(|&idx| self.inputs[idx].clone())
+            .collect();
+        let mut temp_targets: Vec<Array1<f64>> = indices
+            .iter()
+            .map(|&idx| self.targets[idx].clone())
+            .collect();
+
+        // Swap back
+        self.inputs.clear();
+        self.targets.clear();
+        self.inputs.append(&mut temp_inputs);
+        self.targets.append(&mut temp_targets);
+    }
+
     /// Splits the dataset into training and test sets.
     ///
     /// # Arguments
@@ -138,19 +168,22 @@ impl Dataset {
     /// assert_eq!(test.len(), 1);
     /// ```
     pub fn split(self, train_ratio: f64) -> (Dataset, Dataset) {
-        assert!(train_ratio > 0.0 && train_ratio < 1.0, "train_ratio must be between 0 and 1");
-        
+        assert!(
+            train_ratio > 0.0 && train_ratio < 1.0,
+            "train_ratio must be between 0 and 1"
+        );
+
         let split_idx = (self.len() as f64 * train_ratio) as usize;
-        
+
         let (train_inputs, test_inputs) = self.inputs.split_at(split_idx);
         let (train_targets, test_targets) = self.targets.split_at(split_idx);
-        
+
         let train = Dataset::new(train_inputs.to_vec(), train_targets.to_vec());
         let test = Dataset::new(test_inputs.to_vec(), test_targets.to_vec());
-        
+
         (train, test)
     }
-    
+
     /// Splits the dataset into training, validation, and test sets.
     ///
     /// # Arguments
@@ -180,26 +213,26 @@ impl Dataset {
             train_ratio + val_ratio < 1.0,
             "train_ratio + val_ratio must be less than 1.0"
         );
-        
+
         let train_idx = (self.len() as f64 * train_ratio) as usize;
         let val_idx = train_idx + (self.len() as f64 * val_ratio) as usize;
-        
+
         let train_inputs = self.inputs[..train_idx].to_vec();
         let train_targets = self.targets[..train_idx].to_vec();
-        
+
         let val_inputs = self.inputs[train_idx..val_idx].to_vec();
         let val_targets = self.targets[train_idx..val_idx].to_vec();
-        
+
         let test_inputs = self.inputs[val_idx..].to_vec();
         let test_targets = self.targets[val_idx..].to_vec();
-        
+
         (
             Dataset::new(train_inputs, train_targets),
             Dataset::new(val_inputs, val_targets),
             Dataset::new(test_inputs, test_targets),
         )
     }
-    
+
     /// Creates an iterator over mini-batches of the dataset.
     ///
     /// # Arguments
@@ -238,20 +271,20 @@ pub struct DatasetBatchIterator<'a> {
 }
 
 impl<'a> Iterator for DatasetBatchIterator<'a> {
-    type Item = (Vec<Array1<f64>>, Vec<Array1<f64>>);
-    
+    type Item = (&'a [Array1<f64>], &'a [Array1<f64>]);
+
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_idx >= self.dataset.len() {
             return None;
         }
-        
+
         let end_idx = (self.current_idx + self.batch_size).min(self.dataset.len());
-        
-        let batch_inputs = self.dataset.inputs[self.current_idx..end_idx].to_vec();
-        let batch_targets = self.dataset.targets[self.current_idx..end_idx].to_vec();
-        
+
+        let batch_inputs = &self.dataset.inputs[self.current_idx..end_idx];
+        let batch_targets = &self.dataset.targets[self.current_idx..end_idx];
+
         self.current_idx = end_idx;
-        
+
         Some((batch_inputs, batch_targets))
     }
 }
@@ -266,7 +299,7 @@ mod tests {
         let inputs = vec![array![0.0, 0.0], array![0.0, 1.0]];
         let targets = vec![array![0.0], array![1.0]];
         let dataset = Dataset::new(inputs, targets);
-        
+
         assert_eq!(dataset.len(), 2);
         assert!(!dataset.is_empty());
     }
@@ -274,15 +307,23 @@ mod tests {
     #[test]
     fn test_dataset_split() {
         let inputs = vec![
-            array![0.0], array![1.0], array![2.0], array![3.0], array![4.0],
+            array![0.0],
+            array![1.0],
+            array![2.0],
+            array![3.0],
+            array![4.0],
         ];
         let targets = vec![
-            array![0.0], array![1.0], array![2.0], array![3.0], array![4.0],
+            array![0.0],
+            array![1.0],
+            array![2.0],
+            array![3.0],
+            array![4.0],
         ];
         let dataset = Dataset::new(inputs, targets);
-        
+
         let (train, test) = dataset.split(0.8);
-        
+
         assert_eq!(train.len(), 4);
         assert_eq!(test.len(), 1);
     }
@@ -292,9 +333,9 @@ mod tests {
         let inputs: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
         let targets: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
         let dataset = Dataset::new(inputs, targets);
-        
+
         let (train, val, test) = dataset.split_three(0.7, 0.15);
-        
+
         assert_eq!(train.len(), 7);
         assert_eq!(val.len(), 1);
         assert_eq!(test.len(), 2);
@@ -305,14 +346,14 @@ mod tests {
         let inputs: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
         let targets: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
         let dataset = Dataset::new(inputs, targets);
-        
+
         let batches: Vec<_> = dataset.batches(3).collect();
-        
-        assert_eq!(batches.len(), 4);  // 10 éléments avec batch_size=3 → 4 batches
+
+        assert_eq!(batches.len(), 4); // 10 éléments avec batch_size=3 → 4 batches
         assert_eq!(batches[0].0.len(), 3);
         assert_eq!(batches[1].0.len(), 3);
         assert_eq!(batches[2].0.len(), 3);
-        assert_eq!(batches[3].0.len(), 1);  // Dernier batch plus petit
+        assert_eq!(batches[3].0.len(), 1); // Dernier batch plus petit
     }
 
     #[test]
@@ -320,17 +361,19 @@ mod tests {
         let inputs: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
         let targets: Vec<_> = (0..10).map(|i| array![i as f64]).collect();
         let mut dataset = Dataset::new(inputs.clone(), targets);
-        
+
         dataset.shuffle();
-        
+
         // Vérifier que le dataset a toujours la même taille
         assert_eq!(dataset.len(), 10);
-        
+
         // Vérifier que les données sont différentes de l'ordre original (très probable)
-        let all_same = dataset.inputs().iter()
+        let all_same = dataset
+            .inputs()
+            .iter()
             .zip(inputs.iter())
             .all(|(a, b)| a[0] == b[0]);
-        
+
         // Il y a une très faible probabilité que shuffle ne change rien
         // mais avec 10 éléments, c'est presque impossible
         assert!(!all_same || dataset.len() <= 1);

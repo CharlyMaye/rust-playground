@@ -47,7 +47,7 @@ fn main() {
     }
 
     let dataset = Dataset::new(inputs, targets);
-    let (train, val) = dataset.split(0.7);
+    let (mut train, val) = dataset.split(0.7);
 
     println!("   Training samples: {} (70%)", train.len());
     println!("   Test samples: {} (30%)\n", val.len());
@@ -76,7 +76,7 @@ fn main() {
     let epochs = 5_000;
     let history = network
         .trainer()
-        .train_data(&train)
+        .train_data(&mut train)
         .validation_data(&val)
         .epochs(epochs)
         .batch_size(32)
