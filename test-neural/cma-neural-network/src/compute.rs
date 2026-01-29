@@ -1,7 +1,7 @@
 //! Compute device abstraction for training execution.
 //!
 //! This module provides a device-agnostic way to execute neural network training.
-//! Currently supports CPU execution, with GPU support planned for the future.
+//! Currently supports CPU execution (single-threaded and parallel), with GPU support planned.
 //!
 //! # Architecture
 //!
@@ -13,9 +13,15 @@
 //! ```rust,ignore
 //! use cma_neural_network::compute::ComputeDevice;
 //!
-//! // Default: CPU execution
+//! // Default: CPU single-threaded execution
 //! network.trainer()
 //!     .device(ComputeDevice::Cpu)
+//!     .train_data(&dataset)
+//!     .fit();
+//!
+//! // Parallel CPU execution (requires "parallel" feature)
+//! network.trainer()
+//!     .device(ComputeDevice::CpuParallel)
 //!     .train_data(&dataset)
 //!     .fit();
 //! ```
@@ -28,12 +34,19 @@ use std::fmt;
 /// This is a runtime choice that doesn't affect the network architecture.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum ComputeDevice {
-    /// CPU execution (default).
+    /// CPU execution (default, single-threaded).
     ///
     /// Uses standard Rust/ndarray operations.
-    /// Future: may use Rayon for parallel batch processing.
+    /// Compatible with WebAssembly.
     #[default]
     Cpu,
+
+    /// CPU execution with parallel processing (multi-threaded).
+    ///
+    /// Uses Rayon for parallel batch gradient computation.
+    /// Requires the "parallel" feature to be enabled.
+    /// NOT compatible with WebAssembly.
+    CpuParallel,
 
     /// GPU execution (planned, not yet available).
     ///
@@ -46,6 +59,10 @@ impl ComputeDevice {
     pub fn is_available(&self) -> bool {
         match self {
             ComputeDevice::Cpu => true,
+            #[cfg(feature = "parallel")]
+            ComputeDevice::CpuParallel => true,
+            #[cfg(not(feature = "parallel"))]
+            ComputeDevice::CpuParallel => false,
             ComputeDevice::Gpu => false, // Not yet implemented
         }
     }
@@ -55,6 +72,10 @@ impl ComputeDevice {
     pub fn validate(&self) -> Result<(), ComputeDeviceError> {
         match self {
             ComputeDevice::Cpu => Ok(()),
+            #[cfg(feature = "parallel")]
+            ComputeDevice::CpuParallel => Ok(()),
+            #[cfg(not(feature = "parallel"))]
+            ComputeDevice::CpuParallel => Err(ComputeDeviceError::ParallelNotEnabled),
             ComputeDevice::Gpu => Err(ComputeDeviceError::GpuNotAvailable),
         }
     }
@@ -63,8 +84,14 @@ impl ComputeDevice {
     pub fn name(&self) -> &'static str {
         match self {
             ComputeDevice::Cpu => "CPU",
+            ComputeDevice::CpuParallel => "CPU (Parallel)",
             ComputeDevice::Gpu => "GPU",
         }
+    }
+
+    /// Returns true if this device uses parallel processing.
+    pub fn is_parallel(&self) -> bool {
+        matches!(self, ComputeDevice::CpuParallel)
     }
 }
 
@@ -82,6 +109,11 @@ pub enum ComputeDeviceError {
     /// GPU support is planned but not yet implemented.
     /// Use `ComputeDevice::Cpu` instead.
     GpuNotAvailable,
+
+    /// Parallel CPU execution requires the "parallel" feature.
+    ///
+    /// Enable with: `cma-neural-network = { features = ["parallel"] }`
+    ParallelNotEnabled,
 }
 
 impl fmt::Display for ComputeDeviceError {
@@ -91,6 +123,12 @@ impl fmt::Display for ComputeDeviceError {
                 write!(
                     f,
                     "GPU compute is not available. GPU support is planned but not yet implemented. Use ComputeDevice::Cpu instead."
+                )
+            }
+            ComputeDeviceError::ParallelNotEnabled => {
+                write!(
+                    f,
+                    "Parallel CPU requires the 'parallel' feature. Enable with: cma-neural-network = {{ features = [\"parallel\"] }}"
                 )
             }
         }
@@ -113,6 +151,20 @@ mod tests {
     fn test_gpu_not_available() {
         assert!(!ComputeDevice::Gpu.is_available());
         assert!(ComputeDevice::Gpu.validate().is_err());
+    }
+
+    #[test]
+    #[cfg(feature = "parallel")]
+    fn test_parallel_available_with_feature() {
+        assert!(ComputeDevice::CpuParallel.is_available());
+        assert!(ComputeDevice::CpuParallel.validate().is_ok());
+    }
+
+    #[test]
+    #[cfg(not(feature = "parallel"))]
+    fn test_parallel_not_available_without_feature() {
+        assert!(!ComputeDevice::CpuParallel.is_available());
+        assert!(ComputeDevice::CpuParallel.validate().is_err());
     }
 
     #[test]

@@ -14,6 +14,9 @@
 use ndarray::{Array1, Array2, Axis};
 use rand::rng;
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use crate::compute::{ComputeDevice, ComputeDeviceError};
 use crate::network::{Activation, ForwardResult, LossFunction, Network};
 
@@ -38,6 +41,16 @@ pub(crate) struct Trainer<'a> {
 }
 
 impl<'a> Trainer<'a> {
+    /// Gets a reference to the network.
+    pub fn network(&self) -> &Network {
+        self.network
+    }
+
+    /// Gets a mutable reference to the network.
+    pub fn network_mut(&mut self) -> &mut Network {
+        self.network
+    }
+
     /// Creates a new trainer for the given network.
     #[allow(dead_code)]
     pub fn new(
@@ -60,6 +73,8 @@ impl<'a> Trainer<'a> {
     pub fn train_single(&mut self, input: &Array1<f64>, target: &Array1<f64>) {
         match self.device {
             ComputeDevice::Cpu => self.train_single_cpu(input, target),
+            // For single example, parallel doesn't make sense, use CPU
+            ComputeDevice::CpuParallel => self.train_single_cpu(input, target),
             ComputeDevice::Gpu => unreachable!("GPU validated at construction"),
         }
     }
@@ -75,6 +90,10 @@ impl<'a> Trainer<'a> {
 
         match self.device {
             ComputeDevice::Cpu => self.train_batch_cpu(inputs, targets),
+            #[cfg(feature = "parallel")]
+            ComputeDevice::CpuParallel => self.train_batch_parallel(inputs, targets),
+            #[cfg(not(feature = "parallel"))]
+            ComputeDevice::CpuParallel => unreachable!("CpuParallel validated at construction"),
             ComputeDevice::Gpu => unreachable!("GPU validated at construction"),
         }
     }
@@ -158,6 +177,93 @@ impl<'a> Trainer<'a> {
 
         // Average and apply gradients
         self.apply_gradients_batch(&accumulated_weights, &accumulated_biases, batch_size);
+    }
+
+    /// Parallel CPU implementation of batch training using Rayon.
+    ///
+    /// Parallelizes the forward pass and gradient computation across the batch,
+    /// then reduces (sums) the gradients and applies them.
+    #[cfg(feature = "parallel")]
+    fn train_batch_parallel(&mut self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) {
+        let batch_size = inputs.len() as f64;
+        let num_layers = self.network.layers.len();
+
+        // Get layer dimensions for initializing gradient accumulators
+        let weight_dims: Vec<_> = self
+            .network
+            .layers
+            .iter()
+            .map(|l| l.weights.dim())
+            .collect();
+        let bias_dims: Vec<_> = self.network.layers.iter().map(|l| l.biases.len()).collect();
+
+        // Compute gradients in parallel for each sample
+        // Note: We don't use dropout in parallel mode to avoid RNG synchronization issues
+        let gradients: Vec<(Vec<Array2<f64>>, Vec<Array1<f64>>)> = inputs
+            .par_iter()
+            .zip(targets.par_iter())
+            .map(|(input, target)| self.compute_sample_gradients(input, target))
+            .collect();
+
+        // Reduce: sum all gradients
+        let mut accumulated_weights: Vec<Array2<f64>> =
+            weight_dims.iter().map(|&dim| Array2::zeros(dim)).collect();
+        let mut accumulated_biases: Vec<Array1<f64>> =
+            bias_dims.iter().map(|&size| Array1::zeros(size)).collect();
+
+        for (sample_weights, sample_biases) in gradients {
+            for i in 0..num_layers {
+                accumulated_weights[i] = &accumulated_weights[i] + &sample_weights[i];
+                accumulated_biases[i] = &accumulated_biases[i] + &sample_biases[i];
+            }
+        }
+
+        // Average and apply gradients
+        self.apply_gradients_batch(&accumulated_weights, &accumulated_biases, batch_size);
+    }
+
+    /// Computes gradients for a single sample (thread-safe, no mutation).
+    /// Used by the parallel implementation.
+    #[cfg(feature = "parallel")]
+    fn compute_sample_gradients(
+        &self,
+        input: &Array1<f64>,
+        target: &Array1<f64>,
+    ) -> (Vec<Array2<f64>>, Vec<Array1<f64>>) {
+        // Forward pass without dropout (deterministic for parallel execution)
+        let forward_result = self.network.forward_full_internal(input, &mut rand::rng());
+        let activations = &forward_result.activations;
+        let pre_activations = &forward_result.pre_activations;
+        let dropout_masks = &forward_result.dropout_masks;
+        let final_output = activations.last().unwrap();
+
+        // Compute deltas
+        let deltas = self.compute_deltas(
+            target,
+            final_output,
+            activations,
+            pre_activations,
+            dropout_masks,
+        );
+
+        // Compute gradients for each layer
+        let mut weights_gradients = Vec::with_capacity(self.network.layers.len());
+        let mut biases_gradients = Vec::with_capacity(self.network.layers.len());
+
+        for (i, delta) in deltas.iter().enumerate() {
+            let prev_activation = &activations[i];
+
+            let weights_gradient = -delta
+                .view()
+                .insert_axis(Axis(1))
+                .dot(&prev_activation.view().insert_axis(Axis(0)));
+            let biases_gradient = -delta.clone();
+
+            weights_gradients.push(weights_gradient);
+            biases_gradients.push(biases_gradient);
+        }
+
+        (weights_gradients, biases_gradients)
     }
 
     // =========================================================================

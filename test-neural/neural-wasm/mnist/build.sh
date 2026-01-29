@@ -22,8 +22,8 @@ else
     echo "🧠 Training MNIST neural network..."
     echo ""
     
-    # Build and run the training script
-    cargo run --bin train_mnist --release
+    # Build and run the training script with parallel feature
+    cargo run --bin train_mnist --release --features parallel
     
     if [ -f "$MODEL_BIN_PATH" ]; then
         echo "   ✅ Model trained and saved successfully!"

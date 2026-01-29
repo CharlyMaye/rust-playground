@@ -83,10 +83,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let epochs = 2_000;
     let history = network
         .trainer()
+        .cpu()
         .train_data(&train)
         .validation_data(&val)
         .epochs(epochs)
-        .batch_size(64)
+        .batch_size(1536) // 12 cors => 128samples/core if parallel
         .callback(Box::new(
             EarlyStopping::new(100, 0.00001).mode(DeltaMode::Relative),
         ))

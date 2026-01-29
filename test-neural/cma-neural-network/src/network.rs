@@ -943,6 +943,7 @@ impl Network {
         val_dataset: Option<&crate::dataset::Dataset>,
         epochs: usize,
         batch_size: usize,
+        device: crate::compute::ComputeDevice,
         mut scheduler: Option<&mut crate::callbacks::LearningRateScheduler>,
         callbacks: &mut Vec<Box<dyn crate::callbacks::Callback>>,
     ) -> Vec<(f64, Option<f64>)> {
@@ -966,38 +967,45 @@ impl Network {
         let mut history = Vec::new();
         let mut train_data = train_dataset.clone();
 
+        // Create trainer ONCE for all epochs (performance!)
+        let mut trainer = crate::trainer::Trainer::new(self, device)
+            .expect("Device should be validated before calling fit()");
+
         for epoch in 0..epochs {
             // Appel on_epoch_begin
             if let Some(sched) = scheduler.as_mut() {
-                sched.on_epoch_begin(epoch, self);
+                sched.on_epoch_begin(epoch, trainer.network_mut());
             }
             for callback in callbacks.iter_mut() {
-                callback.on_epoch_begin(epoch, self);
+                callback.on_epoch_begin(epoch, trainer.network_mut());
             }
 
             // Shuffle et entraînement
             train_data.shuffle();
 
             for (batch_inputs, batch_targets) in train_data.batches(batch_size) {
-                self.train_batch(&batch_inputs, &batch_targets);
+                trainer.train_batch(&batch_inputs, &batch_targets);
             }
 
             // Calcul des losses
-            let train_loss = self.evaluate(train_dataset.inputs(), train_dataset.targets());
-            let val_loss = val_dataset.map(|val| self.evaluate(val.inputs(), val.targets()));
+            let train_loss = trainer
+                .network()
+                .evaluate(train_dataset.inputs(), train_dataset.targets());
+            let val_loss =
+                val_dataset.map(|val| trainer.network().evaluate(val.inputs(), val.targets()));
 
             history.push((train_loss, val_loss));
 
             // Appel scheduler on_epoch_end et update
             if let Some(sched) = scheduler.as_mut() {
-                sched.on_epoch_end(epoch, self, train_loss, val_loss);
-                sched.update_optimizer_lr(&mut self.optimizer);
+                sched.on_epoch_end(epoch, trainer.network_mut(), train_loss, val_loss);
+                sched.update_optimizer_lr(&mut trainer.network_mut().optimizer);
             }
 
             // Appel on_epoch_end
             let mut should_continue = true;
             for callback in callbacks.iter_mut() {
-                if !callback.on_epoch_end(epoch, self, train_loss, val_loss) {
+                if !callback.on_epoch_end(epoch, trainer.network_mut(), train_loss, val_loss) {
                     should_continue = false;
                     break;
                 }
@@ -1010,10 +1018,10 @@ impl Network {
 
         // Appel on_train_end
         if let Some(sched) = scheduler.as_mut() {
-            sched.on_train_end(self);
+            sched.on_train_end(trainer.network_mut());
         }
         for callback in callbacks.iter_mut() {
-            callback.on_train_end(self);
+            callback.on_train_end(trainer.network_mut());
         }
 
         history
