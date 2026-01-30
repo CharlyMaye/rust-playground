@@ -68,17 +68,111 @@ pub struct WeightsInfo {
     pub layers: Vec<LayerInfo>,
 }
 
-/// Activation information for visualization
+// ===== Common Response Structures =====
+
+/// Prediction result for any classifier
 #[derive(Serialize)]
-pub struct ActivationInfo {
-    pub inputs: Vec<f64>,
-    pub layers: Vec<LayerActivation>,
-    pub output: f64,
+pub struct PredictionResult {
+    pub class_name: String,
+    pub class_index: usize,
+    pub probabilities: Vec<f64>,
+    pub confidence: f64,
 }
 
+/// Layer activation data for visualization
 #[derive(Serialize)]
 pub struct LayerActivation {
+    pub pre_activation: Vec<f64>,
     pub activation: Vec<f64>,
+    pub function: String,
+}
+
+/// Full activation response for network visualization
+#[derive(Serialize)]
+pub struct ActivationsResponse {
+    pub inputs: Vec<f64>,
+    pub layers: Vec<LayerActivation>,
+    pub output: Vec<f64>,
+}
+
+/// Generic test result for any classifier
+#[derive(Serialize)]
+pub struct TestResult {
+    pub inputs: Vec<f64>,
+    pub expected_class: String,
+    pub expected_index: usize,
+    pub predicted_class: String,
+    pub predicted_index: usize,
+    pub probabilities: Vec<f64>,
+    pub confidence: f64,
+    pub is_correct: bool,
+}
+
+// ===== Utility Functions =====
+
+/// Find the class with highest probability
+pub fn find_max_class(probs: &[f64]) -> (usize, f64) {
+    probs
+        .iter()
+        .enumerate()
+        .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
+        .map(|(idx, &val)| (idx, val))
+        .unwrap_or((0, 0.0))
+}
+
+/// Validate input size
+pub fn validate_input_size(input: &[f64], expected: usize) -> Result<(), String> {
+    if input.len() != expected {
+        Err(format!("Expected {} inputs, got {}", expected, input.len()))
+    } else {
+        Ok(())
+    }
+}
+
+/// Build a prediction result from probabilities
+pub fn build_prediction_result(probs: &[f64], class_names: &[String]) -> PredictionResult {
+    let (class_index, confidence) = find_max_class(probs);
+    let class_name = class_names
+        .get(class_index)
+        .cloned()
+        .unwrap_or_else(|| class_index.to_string());
+
+    PredictionResult {
+        class_name,
+        class_index,
+        probabilities: probs.to_vec(),
+        confidence, // ratio 0-1, frontend multiplies by 100 for display
+    }
+}
+
+/// Build a test result from prediction
+pub fn build_test_result(
+    inputs: Vec<f64>,
+    expected_index: usize,
+    probs: &[f64],
+    class_names: &[String],
+) -> TestResult {
+    let (predicted_index, confidence) = find_max_class(probs);
+
+    let expected_class = class_names
+        .get(expected_index)
+        .cloned()
+        .unwrap_or_else(|| expected_index.to_string());
+    let predicted_class = class_names
+        .get(predicted_index)
+        .cloned()
+        .unwrap_or_else(|| predicted_index.to_string());
+
+    TestResult {
+        inputs,
+        expected_class,
+        expected_index,
+        predicted_class,
+        predicted_index,
+        probabilities: probs.to_vec(),
+        confidence, // ratio 0-1, frontend multiplies by 100 for display
+        is_correct: expected_index == predicted_index,
+    }
 }
 
 /// Convert confidence to percentage

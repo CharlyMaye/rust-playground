@@ -10,15 +10,15 @@ export class MnistNetwork {
     /**
      * Run inference and return all neuron activations for visualization
      */
-    get_activations(x1: number, x2: number): string;
+    get_activations(pixels: Float64Array): string;
     /**
-     * Get class names
+     * Get class names (digits 0-9)
      */
     get_class_names(): string;
     /**
-     * Get class probabilities
+     * Get class probabilities for 784 pixels
      */
-    get_probabilities(x1: number, x2: number): string;
+    get_probabilities(pixels: Float64Array): string;
     /**
      * Get all weights and biases as JSON
      */
@@ -32,12 +32,14 @@ export class MnistNetwork {
      */
     constructor();
     /**
-     * Predict MNIST result for two binary inputs
-     * Returns JSON with prediction details
+     * Predict MNIST digit from pixel array
+     * Accepts 784 pixels (28x28 image) or normalized values
+     * Returns JSON with digit prediction (0-9), probabilities, and confidence
      */
-    predict(x1: number, x2: number): string;
+    predict(pixels: Float64Array): string;
     /**
-     * Test all MNIST combinations and return results as JSON string
+     * Test with sample MNIST digits
+     * Returns results with digit predictions (0-9)
      */
     test_all(): string;
 }

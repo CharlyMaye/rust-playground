@@ -127,7 +127,7 @@
             [class.incorrect]="!result.is_correct"
           >
             <span class="test-inputs">{{
-              `[${result.sepal_length.toFixed(1)}, ${result.sepal_width.toFixed(1)}, ${result.petal_length.toFixed(1)}, ${result.petal_width.toFixed(1)}]`
+              `[${result.inputs[0].toFixed(1)}, ${result.inputs[1].toFixed(1)}, ${result.inputs[2].toFixed(1)}, ${result.inputs[3].toFixed(1)}]`
             }}</span>
             <span
               class="test-prediction"
@@ -135,7 +135,7 @@
             >
               <span aria-hidden="true">{{ result.is_correct ? '✓' : '✗' }}</span>
               <span class="sr-only">{{ result.is_correct ? 'Correct:' : 'Incorrect:' }}</span>
-              {{ result.predicted }} (expected: {{ result.expected }})
+              {{ result.predicted_class }} (expected: {{ result.expected_class }})
             </span>
           </div>
         }

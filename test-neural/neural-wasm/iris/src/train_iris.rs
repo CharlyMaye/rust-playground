@@ -51,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     dataset.shuffle();
     println!("   ✅ Dataset shuffled");
 
-    let (train, val) = dataset.split(0.7);
+    let (mut train, val) = dataset.split(0.7);
 
     println!("   Training samples: {} (70%)", train.len());
     println!("   Test samples: {} (30%)\n", val.len());
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let epochs = 2_000;
     let history = network
         .trainer()
-        .train_data(&train)
+        .train_data(&mut train)
         .validation_data(&val)
         .epochs(epochs)
         .batch_size(32)

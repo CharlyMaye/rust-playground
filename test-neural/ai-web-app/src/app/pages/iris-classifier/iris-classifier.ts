@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { form, FormField, max, min } from '@angular/forms/signals';
-import { Activation, IrisPrediction, WasmFacade } from '@cma/wasm/shared';
+import { Activation, PredictionResult, WasmFacade } from '@cma/wasm/shared';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
 import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
@@ -54,7 +54,7 @@ export class IrisClassifier {
     if (!testResults) {
       return 0;
     }
-    return testResults.filter((result) => result.correct).length;
+    return testResults.filter((result) => result.is_correct).length;
   });
 
   private readonly _preset = signal({
@@ -106,7 +106,7 @@ export class IrisClassifier {
     }
     const { sepalLength, sepalWidth, petalLength, petalWidth } = this.formInputs();
     const resultJSON = network.predict(sepalLength, sepalWidth, petalLength, petalWidth);
-    const result = JSON.parse(resultJSON) as IrisPrediction;
+    const result = JSON.parse(resultJSON) as PredictionResult;
     return result;
   });
 
@@ -129,7 +129,7 @@ export class IrisClassifier {
     if (!output) {
       return 'N/A';
     }
-    return output.class;
+    return output.class_name;
   });
 
   /** Formatted confidence value for display */
@@ -138,7 +138,7 @@ export class IrisClassifier {
     if (!output) {
       return 'N/A';
     }
-    return output.confidence.toFixed(1) + '% confidence';
+    return (output.confidence * 100).toFixed(1) + '% confidence';
   });
 
   /** Probability percentages for each class */

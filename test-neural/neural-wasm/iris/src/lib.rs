@@ -1,35 +1,13 @@
 use cma_neural_network::network::Network;
 use ndarray::array;
 use neural_wasm_shared::{
-    load_model_from_bytes, softmax, LayerInfo, ModelInfo, NormalizationStats, WeightsInfo,
+    build_prediction_result, build_test_result, load_model_from_bytes, ActivationsResponse,
+    LayerActivation, LayerInfo, ModelInfo, NormalizationStats, TestResult, WeightsInfo,
 };
-use serde::Serialize;
 use wasm_bindgen::prelude::*;
 
 // Embed the pre-trained model at compile time (binary format for smaller size)
 const MODEL_BIN: &[u8] = include_bytes!("iris_model.bin");
-
-#[derive(Serialize)]
-pub struct IrisPrediction {
-    pub class: String,
-    pub class_idx: usize,
-    pub probabilities: Vec<f64>,
-    pub confidence: f64,
-}
-
-#[derive(Serialize)]
-pub struct IrisTestResult {
-    pub sepal_length: f64,
-    pub sepal_width: f64,
-    pub petal_length: f64,
-    pub petal_width: f64,
-    pub predicted: String,
-    pub predicted_idx: usize,
-    pub expected: String,
-    pub expected_idx: usize,
-    pub probabilities: Vec<f64>,
-    pub is_correct: bool,
-}
 
 #[wasm_bindgen]
 pub struct IrisClassifier {
@@ -101,19 +79,7 @@ impl IrisClassifier {
 
         // Network already uses Softmax output activation - output IS probabilities
         let probs = output.to_vec();
-
-        let (max_idx, _) = probs
-            .iter()
-            .enumerate()
-            .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .unwrap();
-
-        let result = IrisPrediction {
-            class: self.classes[max_idx].clone(),
-            class_idx: max_idx,
-            probabilities: probs.clone(),
-            confidence: probs[max_idx] * 100.0,
-        };
+        let result = build_prediction_result(&probs, &self.classes);
 
         serde_json::to_string(&result).unwrap()
     }
@@ -138,33 +104,16 @@ impl IrisClassifier {
     #[wasm_bindgen]
     pub fn test_all(&self) -> String {
         let test_data = get_iris_test_samples();
-        let mut results = Vec::new();
+        let results: Vec<TestResult> = test_data
+            .iter()
+            .map(|(inputs, expected_idx)| {
+                let input = array![inputs[0], inputs[1], inputs[2], inputs[3]];
+                let output = self.network.predict(&input);
+                let probs = output.to_vec();
 
-        for (inputs, expected_idx) in test_data {
-            let input = array![inputs[0], inputs[1], inputs[2], inputs[3]];
-            let output = self.network.predict(&input);
-            // Network already uses Softmax output activation - output IS probabilities
-            let probs = output.to_vec();
-
-            let (predicted_idx, _) = probs
-                .iter()
-                .enumerate()
-                .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-                .unwrap();
-
-            results.push(IrisTestResult {
-                sepal_length: inputs[0],
-                sepal_width: inputs[1],
-                petal_length: inputs[2],
-                petal_width: inputs[3],
-                predicted: self.classes[predicted_idx].clone(),
-                predicted_idx,
-                expected: self.classes[expected_idx].clone(),
-                expected_idx,
-                probabilities: probs,
-                is_correct: predicted_idx == expected_idx,
-            });
-        }
+                build_test_result(inputs.to_vec(), *expected_idx, &probs, &self.classes)
+            })
+            .collect();
 
         serde_json::to_string(&results).unwrap()
     }
@@ -224,29 +173,15 @@ impl IrisClassifier {
         let activations = self.network.get_all_activations(&input);
 
         let output = self.network.predict(&input);
-        let probs = softmax(&output.to_vec());
-
-        #[derive(Serialize)]
-        struct LayerActivation {
-            pre_activation: Vec<f64>,
-            activation: Vec<f64>,
-            function: String,
-        }
-
-        #[derive(Serialize)]
-        struct ActivationsResponse {
-            inputs: [f64; 4],
-            layers: Vec<LayerActivation>,
-            output: Vec<f64>,
-        }
+        let probs = output.to_vec(); // Network already uses Softmax
 
         let response = ActivationsResponse {
-            inputs: [sepal_length, sepal_width, petal_length, petal_width],
+            inputs: vec![sepal_length, sepal_width, petal_length, petal_width],
             layers: activations
                 .iter()
                 .map(|(pre, post, activation_name)| LayerActivation {
-                    pre_activation: pre.iter().cloned().collect(),
-                    activation: post.iter().cloned().collect(),
+                    pre_activation: pre.to_vec(),
+                    activation: post.to_vec(),
                     function: activation_name.to_string(),
                 })
                 .collect(),
@@ -254,7 +189,7 @@ impl IrisClassifier {
         };
 
         serde_json::to_string(&response)
-            .unwrap_or_else(|_| r#"{"inputs":[0,0,0,0],"layers":[],"output":[]}"#.to_string())
+            .unwrap_or_else(|_| r#"{"inputs":[],"layers":[],"output":[]}"#.to_string())
     }
 }
 

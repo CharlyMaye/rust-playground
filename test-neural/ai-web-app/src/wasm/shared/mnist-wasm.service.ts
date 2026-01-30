@@ -15,7 +15,7 @@ import init, {
   InitOutput as InitMNISTOutput,
   MnistNetwork,
 } from '@cma/wasm/mnist_wasm/neural_wasm_mnist.js';
-import { ModelInfo, NeuralNetworkLayers, XORTestResult } from './model-info';
+import { ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
 
 /**
  * Service for loading and interacting with the MNIST WASM neural network.
@@ -100,14 +100,14 @@ export class MNISTWasmService {
     return weights;
   });
 
-  /** Test results for all MNIST input combinations */
-  public readonly testAll: Signal<XORTestResult[] | undefined> = computed(() => {
+  /** Test results for MNIST samples */
+  public readonly testAll: Signal<TestResult[] | undefined> = computed(() => {
     const mnistNetwork = this.network();
     if (!mnistNetwork) {
       return undefined;
     }
     const testResultsJson: string = mnistNetwork.test_all();
-    const testResults = JSON.parse(testResultsJson);
+    const testResults = JSON.parse(testResultsJson) as TestResult[];
     return testResults;
   });
 }

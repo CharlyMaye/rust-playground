@@ -16,24 +16,25 @@ export class MnistNetwork {
     }
     /**
      * Run inference and return all neuron activations for visualization
-     * @param {number} x1
-     * @param {number} x2
+     * @param {Float64Array} pixels
      * @returns {string}
      */
-    get_activations(x1, x2) {
-        let deferred1_0;
-        let deferred1_1;
+    get_activations(pixels) {
+        let deferred2_0;
+        let deferred2_1;
         try {
-            const ret = wasm.mnistnetwork_get_activations(this.__wbg_ptr, x1, x2);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
+            const ptr0 = passArrayF64ToWasm0(pixels, wasm.__wbindgen_malloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.mnistnetwork_get_activations(this.__wbg_ptr, ptr0, len0);
+            deferred2_0 = ret[0];
+            deferred2_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
         } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
         }
     }
     /**
-     * Get class names
+     * Get class names (digits 0-9)
      * @returns {string}
      */
     get_class_names() {
@@ -49,21 +50,22 @@ export class MnistNetwork {
         }
     }
     /**
-     * Get class probabilities
-     * @param {number} x1
-     * @param {number} x2
+     * Get class probabilities for 784 pixels
+     * @param {Float64Array} pixels
      * @returns {string}
      */
-    get_probabilities(x1, x2) {
-        let deferred1_0;
-        let deferred1_1;
+    get_probabilities(pixels) {
+        let deferred2_0;
+        let deferred2_1;
         try {
-            const ret = wasm.mnistnetwork_get_probabilities(this.__wbg_ptr, x1, x2);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
+            const ptr0 = passArrayF64ToWasm0(pixels, wasm.__wbindgen_malloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.mnistnetwork_get_probabilities(this.__wbg_ptr, ptr0, len0);
+            deferred2_0 = ret[0];
+            deferred2_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
         } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
         }
     }
     /**
@@ -111,26 +113,29 @@ export class MnistNetwork {
         return this;
     }
     /**
-     * Predict MNIST result for two binary inputs
-     * Returns JSON with prediction details
-     * @param {number} x1
-     * @param {number} x2
+     * Predict MNIST digit from pixel array
+     * Accepts 784 pixels (28x28 image) or normalized values
+     * Returns JSON with digit prediction (0-9), probabilities, and confidence
+     * @param {Float64Array} pixels
      * @returns {string}
      */
-    predict(x1, x2) {
-        let deferred1_0;
-        let deferred1_1;
+    predict(pixels) {
+        let deferred2_0;
+        let deferred2_1;
         try {
-            const ret = wasm.mnistnetwork_predict(this.__wbg_ptr, x1, x2);
-            deferred1_0 = ret[0];
-            deferred1_1 = ret[1];
+            const ptr0 = passArrayF64ToWasm0(pixels, wasm.__wbindgen_malloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.mnistnetwork_predict(this.__wbg_ptr, ptr0, len0);
+            deferred2_0 = ret[0];
+            deferred2_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
         } finally {
-            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
         }
     }
     /**
-     * Test all MNIST combinations and return results as JSON string
+     * Test with sample MNIST digits
+     * Returns results with digit predictions (0-9)
      * @returns {string}
      */
     test_all() {
@@ -216,6 +221,14 @@ function getDataViewMemory0() {
     return cachedDataViewMemory0;
 }
 
+let cachedFloat64ArrayMemory0 = null;
+function getFloat64ArrayMemory0() {
+    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
+        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
+    }
+    return cachedFloat64ArrayMemory0;
+}
+
 function getStringFromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return decodeText(ptr, len);
@@ -227,6 +240,13 @@ function getUint8ArrayMemory0() {
         cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
     }
     return cachedUint8ArrayMemory0;
+}
+
+function passArrayF64ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 8, 8) >>> 0;
+    getFloat64ArrayMemory0().set(arg, ptr / 8);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
 }
 
 function passStringToWasm0(arg, malloc, realloc) {
@@ -306,6 +326,7 @@ function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
     cachedDataViewMemory0 = null;
+    cachedFloat64ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
     return wasm;

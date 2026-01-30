@@ -17,21 +17,21 @@ export interface ModelInfo {
 }
 
 /**
- * Result of a single XOR test case.
+ * Result of a single test case (unified for all classifiers).
  */
-export interface XORTestResult {
-  /** First input value (0 or 1) */
-  a: number;
-  /** Second input value (0 or 1) */
-  b: number;
-  /** Expected XOR output */
-  expected: number;
-  /** Model's binary prediction */
-  prediction: number;
-  /** Raw network output before thresholding */
-  raw: number;
+export interface TestResult {
+  /** Input values fed to the network */
+  inputs: number[];
+  /** Expected class name */
+  expected_class: string;
+  /** Predicted class name */
+  predicted_class: string;
+  /** Probability distribution for each class */
+  probabilities: number[];
   /** Confidence score (0-1) */
   confidence: number;
+  /** Whether prediction matches expected */
+  is_correct: boolean;
 }
 
 /**
@@ -78,55 +78,25 @@ export type Activation<TIn = number, TOut = number> = {
 };
 
 /**
- * Prediction result from the XOR network.
+ * Prediction result from any classifier (unified).
  */
-export type XorPrediction = {
+export interface PredictionResult {
+  /** Predicted class name */
+  class_name: string;
+  /** Predicted class index */
+  class_index: number;
+  /** Probability distribution for each class */
+  probabilities: number[];
   /** Confidence score (0-1) */
   confidence: number;
-  /** Binary prediction (0 or 1) */
-  prediction: number;
-  /** Probability distribution [P(0), P(1)] */
-  probabilities: [number, number];
-  /** Raw network output */
-  raw: number;
-};
-
-/**
- * Prediction result from the Iris classifier.
- */
-export type IrisPrediction = {
-  /** Predicted class name (setosa, versicolor, virginica) */
-  class: string;
-  /** Predicted class index (0, 1, or 2) */
-  class_idx: number;
-  /** Probability distribution for each class */
-  probabilities: [number, number, number];
-  /** Confidence score (0-100) */
-  confidence: number;
-};
-
-/**
- * Result of a single Iris test case.
- */
-export interface IrisTestResult {
-  /** Sepal length in cm */
-  sepal_length: number;
-  /** Sepal width in cm */
-  sepal_width: number;
-  /** Petal length in cm */
-  petal_length: number;
-  /** Petal width in cm */
-  petal_width: number;
-  /** Expected class label */
-  expected: string;
-  /** Predicted class label */
-  predicted: string;
-  /** Whether prediction matches expected (snake_case) */
-  is_correct: boolean;
-  /** Whether prediction matches expected (camelCase alias) */
-  correct: boolean;
-  /** Confidence score */
-  confidence: number;
-  /** Probability distribution for each class */
-  probabilities: [number, number, number];
 }
+
+/**
+ * @deprecated Use PredictionResult instead
+ */
+export type IrisPrediction = PredictionResult;
+
+/**
+ * @deprecated Use TestResult instead
+ */
+export type IrisTestResult = TestResult;
