@@ -1,0 +1,14 @@
+@if (xorIsLoading()) {
+  <app-loader id="loading" [message]="'Loading Neural Network...'" />
+} @else {
+  <!-- Interactive Predictor -->
+  <div class="card">
+    <div class="card-title"></div>
+  </div>
+
+  <!-- Network Visualization -->
+  <app-neural-network-model-vizualizer [activations]="activations()" [weights]="xorWeights()" />
+
+  <!-- Model Info -->
+  <app-model-info [modelInfo]="xorModelInfo()" />
+}
