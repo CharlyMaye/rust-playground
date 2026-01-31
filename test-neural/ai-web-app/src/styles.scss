@@ -404,3 +404,15 @@ footer a:hover {
     grid-template-columns: 1fr;
   }
 }
+
+.canvas-draw {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.canvas-draw .canvas {
+  border: 2px solid var(--muted);
+  border-radius: 0.5rem;
+  background: white;
+  touch-action: none;
+}

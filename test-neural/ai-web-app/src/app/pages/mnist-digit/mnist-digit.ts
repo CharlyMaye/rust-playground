@@ -1,6 +1,7 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { WasmFacade } from '@cma/wasm/shared';
+import { PredictionResult, WasmFacade } from '@cma/wasm/shared';
+import { CanvasDraw } from 'src/app/ui/canvas-draw/canvas-draw';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
 import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
@@ -11,7 +12,7 @@ import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizu
  */
 @Component({
   selector: 'app-mnist-digit',
-  imports: [DecimalPipe, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
+  imports: [DecimalPipe, CanvasDraw, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
   templateUrl: './mnist-digit.html',
   styleUrl: './mnist-digit.scss',
   host: { class: 'page container' },
@@ -28,62 +29,75 @@ export class MnistDigit {
   /** Network architecture */
   public readonly xorArchitecture = this.wasmService.mnistArchitecture;
   /** Network weights */
-  public readonly xorWeights = this.wasmService.mnistWeights;
+  public readonly weights = this.wasmService.mnistWeights;
   /** Test results for all XOR combinations */
   public readonly xorTestAll = this.wasmService.mnistTestAll;
 
-  /** First input value (0 or 1) */
-  public readonly inputA = signal(0);
-  /** Second input value (0 or 1) */
-  public readonly inputB = signal(0);
+  /** Current drawn digit data (28x28 grid) */
+  public readonly drawnDigit = signal<number[][]>([]);
 
   /** Current prediction output from the network */
   public readonly output = computed(() => {
     const network = this.xorNetwork();
-    if (!network) {
+    const digitData = this.drawnDigit();
+
+    if (!network || digitData.length === 0) {
       return null;
     }
-    // const inputA = this.inputA();
-    // const inputB = this.inputB();
-    // // TODO - modifier le code cote neural network
-    // const prediction = network.predict(inputA, inputB);
-    // const output = JSON.parse(prediction) as XorPrediction;
-    // return output;
-    return null;
+
+    // Flatten the 28x28 grid into a 784-element Float64Array for MNIST
+    const flattenedInput = new Float64Array(digitData.flat());
+
+    // Call the WASM predict function with flattened input
+    const prediction = network.predict(flattenedInput);
+    const output = JSON.parse(prediction) as PredictionResult;
+    return output;
   });
 
   /** Layer activations for the current input */
   public readonly activations = computed(() => {
     const network = this.xorNetwork();
-    if (!network) {
+    const digitData = this.drawnDigit();
+
+    if (!network || digitData.length === 0) {
       return null;
     }
-    // const inputA = this.inputA();
-    // const inputB = this.inputB();
-    // const acts = JSON.parse(network.get_activations(inputA, inputB)) as Activation<number, number>;
-    // // TODO - modifier le code cote neural network
-    // acts.output = [acts.output as unknown as number];
-    // return acts;
-    return null;
+
+    const flattenedInput = new Float64Array(digitData.flat());
+    const acts = JSON.parse(network.get_activations(flattenedInput));
+    return acts;
   });
 
   /** Formatted prediction value for display */
   public readonly predictionDisplay = computed(() => {
     const output = this.output();
     if (!output) {
-      return 'N/A';
+      return 'Draw a digit';
     }
-    return 'N/A';
-    // return output.prediction;
+    return `Digit: ${output.class_name}`;
   });
 
   /** Formatted confidence value for display */
   public readonly confidenceDisplay = computed(() => {
     const output = this.output();
     if (!output) {
-      return 'N/A';
+      return '';
     }
-    return 'N/A';
-    // return (output.confidence * 100).toFixed(1) + '% confidence';
+    return (output.confidence * 100).toFixed(1) + '% confidence';
   });
+
+  /**
+   * Handle drawing changes from the canvas
+   * @param gridData - The 28x28 grid with pixel intensities (0-1)
+   */
+  public onDrawingChanged(gridData: number[][]): void {
+    this.drawnDigit.set(gridData);
+  }
+
+  /**
+   * Clear the canvas and reset prediction
+   */
+  public clearCanvas(): void {
+    this.drawnDigit.set([]);
+  }
 }
