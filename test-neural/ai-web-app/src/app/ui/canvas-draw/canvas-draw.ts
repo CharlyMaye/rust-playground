@@ -61,7 +61,9 @@ export class CanvasDraw {
       for (let col = 0; col < cols; col++) {
         const intensity = this.grid[row][col];
         if (intensity > 0) {
-          this.ctx.fillStyle = `rgba(0, 0, 0, ${intensity})`;
+          // Convert 0-255 to 0-1 for CSS rgba
+          const alpha = intensity / 255;
+          this.ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
           this.ctx.fillRect(
             col * this.cellWidth,
             row * this.cellHeight,
@@ -146,15 +148,17 @@ export class CanvasDraw {
 
     const { rows, cols } = this.gridSize();
     if (row >= 0 && row < rows && col >= 0 && col < cols) {
-      this.grid[row][col] = 1; // Full intensity
+      this.grid[row][col] = 255; // Full intensity (0-255 like MNIST)
       this.drawGrid();
+      // Emit a clone for zoneless change detection
+      this.dataChanged.emit(this.grid.map(row => [...row]));
     }
   }
 
   private stopDrawing(): void {
     if (this.isDrawing) {
       this.isDrawing = false;
-      this.dataChanged.emit(this.grid);
+      // Final emit at the end (already cloned during drawing)
     }
   }
 
@@ -164,7 +168,8 @@ export class CanvasDraw {
       .fill(0)
       .map(() => Array(cols).fill(0));
     this.drawGrid();
-    this.dataChanged.emit(this.grid);
+    // Emit a clone for zoneless change detection
+    this.dataChanged.emit(this.grid.map(row => [...row]));
   }
 
   public getGridData(): number[][] {

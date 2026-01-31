@@ -21,24 +21,24 @@ export class MnistDigit {
   private readonly wasmService = inject(WasmFacade);
 
   /** Whether the WASM module is currently loading */
-  public readonly xorIsLoading = this.wasmService.mnistWasmResource.isLoading;
-  /** XOR network instance */
-  public readonly xorNetwork = this.wasmService.mnistNetwork;
+  public readonly isLoading = this.wasmService.mnistWasmResource.isLoading;
+  /** MNIST network instance */
+  public readonly network = this.wasmService.mnistNetwork;
   /** Model metadata */
-  public readonly xorModelInfo = this.wasmService.mnistModelInfo;
+  public readonly modelInfo = this.wasmService.mnistModelInfo;
   /** Network architecture */
-  public readonly xorArchitecture = this.wasmService.mnistArchitecture;
+  public readonly architecture = this.wasmService.mnistArchitecture;
   /** Network weights */
   public readonly weights = this.wasmService.mnistWeights;
-  /** Test results for all XOR combinations */
-  public readonly xorTestAll = this.wasmService.mnistTestAll;
+  /** Test results for all MNIST combinations */
+  public readonly testAll = this.wasmService.mnistTestAll;
 
   /** Current drawn digit data (28x28 grid) */
   public readonly drawnDigit = signal<number[][]>([]);
 
   /** Current prediction output from the network */
   public readonly output = computed(() => {
-    const network = this.xorNetwork();
+    const network = this.network();
     const digitData = this.drawnDigit();
 
     if (!network || digitData.length === 0) {
@@ -56,7 +56,7 @@ export class MnistDigit {
 
   /** Layer activations for the current input */
   public readonly activations = computed(() => {
-    const network = this.xorNetwork();
+    const network = this.network();
     const digitData = this.drawnDigit();
 
     if (!network || digitData.length === 0) {

@@ -1,4 +1,4 @@
-@if (xorIsLoading()) {
+@if (isLoading()) {
   <app-loader id="loading" [message]="'Loading Neural Network...'" />
 } @else {
   <!-- Interactive Predictor -->
@@ -27,5 +27,5 @@
   <!-- <app-neural-network-model-vizualizer [activations]="activations()" [weights]="weights()" /> -->
 
   <!-- Model Info -->
-  <app-model-info [modelInfo]="xorModelInfo()" />
+  <app-model-info [modelInfo]="modelInfo()" />
 }
