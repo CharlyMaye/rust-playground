@@ -4,7 +4,7 @@ export type {
   IrisTestResult,
   ModelInfo,
   NeuralNetworkLayers,
-  XorPrediction,
-  XORTestResult,
+  PredictionResult,
+  TestResult,
 } from './model-info';
 export { WasmFacade } from './wasm';

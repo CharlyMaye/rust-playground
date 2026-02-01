@@ -5,18 +5,19 @@ echo "╔═══════════════════════�
 echo "║          Iris Neural WASM Build Script                      ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 
-MODEL_PATH="src/iris_model.json"
+MODEL_BIN_PATH="src/iris_model.bin"
+MODEL_JSON_PATH="src/iris_model.json"
 cd "$(dirname "$0")"
 
 # Step 1: Check if model exists
 echo ""
 echo "🔍 Checking for pre-trained model..."
 
-if [ -f "$MODEL_PATH" ]; then
-    echo "   ✅ Model found: $MODEL_PATH"
+if [ -f "$MODEL_BIN_PATH" ]; then
+    echo "   ✅ Model found: $MODEL_BIN_PATH"
     echo "   📊 Using existing trained model"
 else
-    echo "   ⚠️  No model found at $MODEL_PATH"
+    echo "   ⚠️  No model found at $MODEL_BIN_PATH"
     echo ""
     echo "🧠 Training Iris classification network..."
     echo ""
@@ -24,7 +25,7 @@ else
     # Build and run the training script
     cargo run --bin train_iris --release
     
-    if [ -f "$MODEL_PATH" ]; then
+    if [ -f "$MODEL_BIN_PATH" ]; then
         echo "   ✅ Model trained and saved successfully!"
     else
         echo "   ❌ Error: Model training failed!"

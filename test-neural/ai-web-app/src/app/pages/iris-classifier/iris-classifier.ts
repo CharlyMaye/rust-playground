@@ -1,9 +1,13 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { form, FormField, max, min } from '@angular/forms/signals';
-import { Activation, IrisPrediction, WasmFacade } from '@cma/wasm/shared';
+import { Activation, PredictionResult, WasmFacade } from '@cma/wasm/shared';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
-import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
+import {
+  activationToArchitecture,
+  neuralNetworkLayersToWeights,
+} from '../../ui/network-visualization/adapter';
+import { ConfigurableNetworkVisualization } from '../../ui/network-visualization/configurable-network-visualization';
 
 /**
  * Form state for Iris flower measurements.
@@ -22,7 +26,7 @@ interface IrisFormState {
  */
 @Component({
   selector: 'app-iris-classifier',
-  imports: [FormField, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
+  imports: [FormField, Loader, ModelInfoComponent, ConfigurableNetworkVisualization],
   templateUrl: './iris-classifier.html',
   styleUrl: './iris-classifier.scss',
   host: { class: 'page container' },
@@ -54,7 +58,7 @@ export class IrisClassifier {
     if (!testResults) {
       return 0;
     }
-    return testResults.filter((result) => result.correct).length;
+    return testResults.filter((result) => result.is_correct).length;
   });
 
   private readonly _preset = signal({
@@ -106,7 +110,7 @@ export class IrisClassifier {
     }
     const { sepalLength, sepalWidth, petalLength, petalWidth } = this.formInputs();
     const resultJSON = network.predict(sepalLength, sepalWidth, petalLength, petalWidth);
-    const result = JSON.parse(resultJSON) as IrisPrediction;
+    const result = JSON.parse(resultJSON) as PredictionResult;
     return result;
   });
 
@@ -123,13 +127,27 @@ export class IrisClassifier {
     return activationData;
   });
 
+  /** Network architecture for visualization (converted from activations) */
+  public readonly networkArchitecture = computed(() => {
+    const acts = this.activations();
+    if (!acts) return null;
+    return activationToArchitecture(acts);
+  });
+
+  /** Network weights for visualization (converted from WASM weights) */
+  public readonly networkWeights = computed(() => {
+    const wts = this.irisWeights();
+    if (!wts) return null;
+    return neuralNetworkLayersToWeights(wts);
+  });
+
   /** Formatted prediction class for display */
   public readonly predictionDisplay = computed(() => {
     const output = this.output();
     if (!output) {
       return 'N/A';
     }
-    return output.class;
+    return output.class_name;
   });
 
   /** Formatted confidence value for display */
@@ -138,7 +156,7 @@ export class IrisClassifier {
     if (!output) {
       return 'N/A';
     }
-    return output.confidence.toFixed(1) + '% confidence';
+    return (output.confidence * 100).toFixed(1) + '% confidence';
   });
 
   /** Probability percentages for each class */

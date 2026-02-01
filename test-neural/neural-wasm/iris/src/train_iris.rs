@@ -10,19 +10,18 @@ use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
 use csv::ReaderBuilder;
 use ndarray::{array, Array1};
-use neural_wasm_shared::{calculate_multiclass_accuracy, save_model_with_normalization, NormalizationStats};
+use neural_wasm_shared::{calculate_multiclass_accuracy, save_model_binary, NormalizationStats};
 use std::error::Error;
-use std::path::Path;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║         Iris Classification Neural Network Training          ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
-    let model_path = "src/iris_model.json";
+    let model_path = "src/iris_model.bin";
 
     // Check if model already exists
-    if Path::new(model_path).exists() {
+    if std::path::Path::new(model_path).exists() {
         println!("⚠️  Model already exists at {}", model_path);
         println!("   Delete it manually if you want to retrain.\n");
         return Ok(());
@@ -52,7 +51,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     dataset.shuffle();
     println!("   ✅ Dataset shuffled");
 
-    let (train, val) = dataset.split(0.7);
+    let (mut train, val) = dataset.split(0.7);
 
     println!("   Training samples: {} (70%)", train.len());
     println!("   Test samples: {} (30%)\n", val.len());
@@ -82,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let epochs = 2_000;
     let history = network
         .trainer()
-        .train_data(&train)
+        .train_data(&mut train)
         .validation_data(&val)
         .epochs(epochs)
         .batch_size(32)
@@ -130,9 +129,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     // ═══════════════════════════════════════════════════════════════════════
     // 5. SAVE MODEL WITH METADATA
     // ═══════════════════════════════════════════════════════════════════════
-    println!("\n💾 Saving model with metadata...\n");
+    println!("\n💾 Saving model...\n");
 
-    match save_model_with_normalization(network, acc, total, Some(norm_stats), model_path) {
+    match save_model_binary(network, acc, total, Some(norm_stats), model_path) {
         Ok(_) => {
             println!("   ✅ Model saved to {}", model_path);
             println!("   📊 Accuracy: {:.2}%", acc * 100.0);
@@ -232,6 +231,6 @@ fn normalize_features_with_stats(inputs: &[Array1<f64>]) -> (Vec<Array1<f64>>, N
             )
         })
         .collect();
-    
+
     (normalized, NormalizationStats::new(means, stds))
 }

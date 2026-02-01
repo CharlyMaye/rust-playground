@@ -1,9 +1,13 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
-import { Activation, WasmFacade, XorPrediction } from '@cma/wasm/shared';
+import { Activation, PredictionResult, WasmFacade } from '@cma/wasm/shared';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
-import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
+import {
+  activationToArchitecture,
+  neuralNetworkLayersToWeights,
+} from '../../ui/network-visualization/adapter';
+import { ConfigurableNetworkVisualization } from '../../ui/network-visualization/configurable-network-visualization';
 
 /**
  * Interactive XOR logic gate demo page.
@@ -11,7 +15,7 @@ import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizu
  */
 @Component({
   selector: 'app-xor-logic-gate',
-  imports: [DecimalPipe, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
+  imports: [DecimalPipe, Loader, ModelInfoComponent, ConfigurableNetworkVisualization],
   templateUrl: './xor-logic-gate.html',
   styleUrl: './xor-logic-gate.scss',
   host: { class: 'page container' },
@@ -45,9 +49,8 @@ export class XorLogicGate {
     }
     const inputA = this.inputA();
     const inputB = this.inputB();
-    // TODO - modifier le code cote neural network
     const prediction = network.predict(inputA, inputB);
-    const output = JSON.parse(prediction) as XorPrediction;
+    const output = JSON.parse(prediction) as PredictionResult;
     return output;
   });
 
@@ -60,9 +63,21 @@ export class XorLogicGate {
     const inputA = this.inputA();
     const inputB = this.inputB();
     const acts = JSON.parse(network.get_activations(inputA, inputB)) as Activation<number, number>;
-    // TODO - modifier le code cote neural network
-    acts.output = [acts.output as unknown as number];
     return acts;
+  });
+
+  /** Network architecture for visualization (converted from activations) */
+  public readonly networkArchitecture = computed(() => {
+    const acts = this.activations();
+    if (!acts) return null;
+    return activationToArchitecture(acts);
+  });
+
+  /** Network weights for visualization (converted from WASM weights) */
+  public readonly networkWeights = computed(() => {
+    const wts = this.xorWeights();
+    if (!wts) return null;
+    return neuralNetworkLayersToWeights(wts);
   });
 
   /** Formatted prediction value for display */
@@ -71,7 +86,7 @@ export class XorLogicGate {
     if (!output) {
       return 'N/A';
     }
-    return output.prediction;
+    return output.class_index;
   });
 
   /** Formatted confidence value for display */

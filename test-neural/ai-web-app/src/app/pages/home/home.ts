@@ -23,6 +23,8 @@ export class Home {
   public readonly xorIsLoading = this.wasmService.xorWasmResource.isLoading;
   /** Whether Iris WASM module is loading */
   public readonly irisIsLoading = this.wasmService.irisWasmResource.isLoading;
+  /** Whether MNIST WASM module is loading */
+  public readonly mnistIsLoading = this.wasmService.mnistWasmResource.isLoading;
 
   /** XOR model metadata */
   public readonly xorModelInfo = this.wasmService.xorModelInfo;
@@ -33,4 +35,9 @@ export class Home {
   public readonly irisModelInfo = this.wasmService.irisModelInfo;
   /** Iris network architecture */
   public readonly irisArchitecture = this.wasmService.irisArchitecture;
+
+  /** MNIST model metadata */
+  public readonly mnistModelInfo = this.wasmService.mnistModelInfo;
+  /** MNIST network architecture */
+  public readonly mnistArchitecture = this.wasmService.mnistArchitecture;
 }
