@@ -7,12 +7,7 @@
 </div>
 
 <div class="visualization-container">
-  @if (isLoading()) {
-    <div class="loading-state">
-      <div class="spinner"></div>
-      <p>Loading visualization...</p>
-    </div>
-  } @else if (renderData()) {
+  @if (renderData()) {
     <canvas
       #networkCanvas
       class="network-canvas"
@@ -33,7 +28,7 @@
   <div class="visualization-info">
     <div class="info-item">
       <strong>Renderer:</strong>
-      <span class="badge badge-success">Canvas2D</span>
+      <span class="badge badge-info">{{ currentRendererType() }}</span>
     </div>
     <div class="info-item">
       <strong>Neurons:</strong>

@@ -24,7 +24,12 @@
   </div>
 
   <!-- Network Visualization -->
-  <app-network-visualization [architecture]="networkArchitecture()" [weights]="networkWeights()" />
+  <app-network-visualization
+    [architecture]="networkArchitecture()"
+    [weights]="networkWeights()"
+    [rendererType]="'webgl'"
+    [debug]="true"
+  />
 
   <!-- Model Info -->
   <app-model-info [modelInfo]="modelInfo()" />

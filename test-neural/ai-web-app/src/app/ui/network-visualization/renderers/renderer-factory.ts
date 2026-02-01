@@ -1,5 +1,6 @@
 import { Canvas2DRenderer } from './canvas2d-renderer';
 import { INetworkRenderer, RenderConfig, RendererPreference } from './types';
+import { WebGLRenderer } from './webgl-renderer';
 
 /**
  * Renderer factory for creating the appropriate renderer based on
@@ -96,9 +97,7 @@ export class RendererFactory {
 
           case 'webgl':
             if (this.isWebGLAvailable()) {
-              // WebGL renderer not yet implemented
-              console.warn('WebGL renderer not yet implemented, falling back');
-              continue;
+              return new WebGLRenderer(canvas, config);
             }
             break;
 

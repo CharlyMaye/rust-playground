@@ -8,6 +8,7 @@ export * from './types';
 
 // Renderers
 export * from './canvas2d-renderer';
+export * from './webgl-renderer';
 
 // Layout calculator
 export * from './layout-calculator';

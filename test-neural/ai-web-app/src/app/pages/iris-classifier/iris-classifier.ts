@@ -1,6 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { form, FormField, max, min } from '@angular/forms/signals';
 import { Activation, PredictionResult, WasmFacade } from '@cma/wasm/shared';
+import { NeuralNetworkModelVizualizer } from 'src/app/ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
 import {
@@ -26,7 +27,13 @@ interface IrisFormState {
  */
 @Component({
   selector: 'app-iris-classifier',
-  imports: [FormField, Loader, ModelInfoComponent, NetworkVisualization],
+  imports: [
+    FormField,
+    Loader,
+    ModelInfoComponent,
+    NeuralNetworkModelVizualizer,
+    NetworkVisualization,
+  ],
   templateUrl: './iris-classifier.html',
   styleUrl: './iris-classifier.scss',
   host: { class: 'page container' },

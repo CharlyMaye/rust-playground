@@ -60,13 +60,17 @@ export class MnistDigit {
   /** Layer activations for the current input */
   public readonly activations = computed(() => {
     const network = this.network();
-    const digitData = this.drawnDigit();
-
-    if (!network || digitData.length === 0) {
+    if (!network) {
       return null;
     }
 
-    const flattenedInput = new Float64Array(digitData.flat());
+    const digitData = this.drawnDigit();
+    // Use zeros if no digit is drawn, to show the network structure
+    const flattenedInput =
+      digitData.length === 0
+        ? new Float64Array(28 * 28).fill(0)
+        : new Float64Array(digitData.flat());
+
     const acts = JSON.parse(network.get_activations(flattenedInput));
     return acts;
   });

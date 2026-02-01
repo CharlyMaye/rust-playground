@@ -107,7 +107,18 @@
   </div>
 
   <!-- Network Visualization -->
-  <app-network-visualization [architecture]="networkArchitecture()" [weights]="networkWeights()" />
+  <!-- <app-neural-network-model-vizualizer [activations]="activations()" [weights]="irisWeights()" /> -->
+  <app-network-visualization
+    [architecture]="networkArchitecture()"
+    [weights]="networkWeights()"
+    [debug]="false"
+  />
+  <app-network-visualization
+    [architecture]="networkArchitecture()"
+    [weights]="networkWeights()"
+    [rendererType]="'webgl'"
+    [debug]="true"
+  />
 
   <!-- Model Info -->
   <app-model-info [modelInfo]="irisModelInfo()" />

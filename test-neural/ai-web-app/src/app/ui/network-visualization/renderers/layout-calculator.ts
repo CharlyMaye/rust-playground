@@ -1,180 +1,158 @@
-import { Connection, CssColor, Label, NetworkRenderData, Neuron } from './types';
+import {
+  Bounds,
+  Connection,
+  ContentDimensions,
+  CssColor,
+  DEFAULT_CONTENT_DIMENSIONS,
+  Label,
+  NetworkRenderData,
+  Neuron,
+} from './types';
 
 /**
  * Layer information extracted from activations
  */
 export interface LayerInfo {
-  /** Number of neurons in this layer */
-  size: number;
-  /** Activation values */
-  activations: number[];
-  /** Activation function name */
-  activationFunction: string;
-  /** Whether this is the output layer */
-  isOutput: boolean;
+  readonly size: number;
+  readonly activations: readonly number[];
+  readonly activationFunction: string;
+  readonly isOutput: boolean;
 }
 
 /**
  * Network architecture for layout calculation
  */
 export interface NetworkArchitecture {
-  /** Input values */
-  inputs: number[];
-  /** Hidden and output layers */
-  layers: LayerInfo[];
+  readonly inputs: readonly number[];
+  readonly layers: readonly LayerInfo[];
 }
 
 /**
  * Weight matrix for a layer
  */
 export interface LayerWeights {
-  /** Weight matrix (can be flat array or 2D array) */
-  weights: number[] | number[][];
+  readonly weights: number[] | number[][];
 }
-
-/**
- * Layout configuration
- */
-export interface LayoutConfig {
-  /** Canvas width */
-  width: number;
-  /** Canvas height */
-  height: number;
-  /** Margin from edges */
-  margin: number;
-  /** Vertical spacing config */
-  verticalMargin: number;
-  verticalPadding: number;
-  /** Neuron radii */
-  neuronRadius: {
-    input: number;
-    hidden: number;
-    output: number;
-  };
-  /** Font sizes */
-  fontSize: {
-    input: number;
-    hidden: number;
-    output: number;
-    label: number;
-    layerLabel: number;
-  };
-  /** Y position for layer labels */
-  labelY: number;
-}
-
-/**
- * Default layout configuration matching current design
- */
-export const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
-  width: 500,
-  height: 280,
-  margin: 60,
-  verticalMargin: 30,
-  verticalPadding: 40,
-  neuronRadius: {
-    input: 20,
-    hidden: 16,
-    output: 25,
-  },
-  fontSize: {
-    input: 14,
-    hidden: 9,
-    output: 16,
-    label: 11,
-    layerLabel: 10,
-  },
-  labelY: 270,
-};
 
 /**
  * Network Layout Calculator
  *
- * Responsible for calculating positions of neurons, connections, and labels
- * based on network architecture and weights. This logic is separated from
- * rendering so it can be used by any renderer implementation.
+ * Calculates positions in NATURAL coordinates (content-first approach).
+ * The natural size is determined by readability constraints:
+ * - Fixed neuron diameter
+ * - Fixed padding between neurons
+ * - Fixed spacing between layers
+ *
+ * The renderer then scales this to fit the display canvas.
  */
 export class NetworkLayoutCalculator {
-  private config: LayoutConfig;
+  private readonly dimensions: ContentDimensions;
 
-  constructor(config: Partial<LayoutConfig> = {}) {
-    this.config = { ...DEFAULT_LAYOUT_CONFIG, ...config };
+  constructor(dimensions: Partial<ContentDimensions> = {}) {
+    this.dimensions = { ...DEFAULT_CONTENT_DIMENSIONS, ...dimensions };
   }
 
   /**
-   * Calculate complete render data from architecture and weights
+   * Calculate complete render data in natural coordinates.
+   * Returns data with naturalBounds for scaling.
    */
-  calculateLayout(architecture: NetworkArchitecture, weights: LayerWeights[]): NetworkRenderData {
+  calculateLayout(
+    architecture: NetworkArchitecture,
+    weights: readonly LayerWeights[],
+  ): NetworkRenderData {
     const layerSizes = this.getLayerSizes(architecture);
-    const layerX = this.calculateLayerXPositions(layerSizes.length);
-    const layerY = this.calculateAllLayerYPositions(layerSizes);
+    const naturalBounds = this.calculateNaturalBounds(layerSizes);
+    const layerX = this.calculateLayerXPositions(layerSizes.length, naturalBounds.width);
+    const layerY = this.calculateAllLayerYPositions(layerSizes, naturalBounds.height);
 
     return {
       connections: this.buildConnections(weights, layerSizes, layerX, layerY),
       neurons: this.buildNeurons(architecture, layerX, layerY),
-      labels: this.buildLabels(architecture, layerX),
+      labels: this.buildLabels(architecture, layerX, naturalBounds.height),
+      naturalBounds,
     };
   }
 
   /**
-   * Update layout configuration
+   * Update content dimensions
    */
-  updateConfig(config: Partial<LayoutConfig>): void {
-    this.config = { ...this.config, ...config };
+  updateDimensions(dimensions: Partial<ContentDimensions>): void {
+    Object.assign(this.dimensions, dimensions);
   }
 
   // ============================================================================
-  // Private: Layer Size Calculations
+  // Natural Bounds Calculation
   // ============================================================================
 
-  private getLayerSizes(architecture: NetworkArchitecture): number[] {
-    const inputCount = architecture.inputs.length;
-    const layerCounts = architecture.layers.map((layer) => layer.size);
-    return [inputCount, ...layerCounts];
+  /**
+   * Calculate natural bounds based on network structure.
+   * Size is determined by content, not canvas.
+   */
+  private calculateNaturalBounds(layerSizes: readonly number[]): Bounds {
+    const { neuronDiameter, neuronPaddingY, layerPaddingX, margin, labelOffsetY } = this.dimensions;
+
+    // Width: layers * spacing + margins
+    const width = margin * 2 + (layerSizes.length - 1) * layerPaddingX;
+
+    // Height: tallest layer determines height
+    const maxNeurons = Math.max(...layerSizes);
+    const neuronsHeight = maxNeurons * neuronDiameter + (maxNeurons - 1) * neuronPaddingY;
+    const height = margin * 2 + neuronsHeight + labelOffsetY;
+
+    return { width, height };
   }
 
-  private calculateLayerXPositions(layerCount: number): number[] {
-    const spacing = (this.config.width - 2 * this.config.margin) / (layerCount - 1);
+  private getLayerSizes(architecture: NetworkArchitecture): readonly number[] {
+    return [architecture.inputs.length, ...architecture.layers.map((layer) => layer.size)];
+  }
+
+  private calculateLayerXPositions(layerCount: number, totalWidth: number): readonly number[] {
+    const { margin, layerPaddingX } = this.dimensions;
     const positions: number[] = [];
+
     for (let i = 0; i < layerCount; i++) {
-      positions.push(this.config.margin + i * spacing);
+      positions.push(margin + i * layerPaddingX);
     }
+
     return positions;
   }
 
-  private calculateAllLayerYPositions(layerSizes: number[]): number[][] {
-    return layerSizes.map((size) => this.calculateNeuronYPositions(size));
+  private calculateAllLayerYPositions(
+    layerSizes: readonly number[],
+    totalHeight: number,
+  ): number[][] {
+    return layerSizes.map((size) => [...this.calculateNeuronYPositions(size, totalHeight)]);
   }
 
-  private calculateNeuronYPositions(count: number): number[] {
-    const available =
-      this.config.height - 2 * this.config.verticalMargin - this.config.verticalPadding;
-    const spacing = count > 1 ? available / (count - 1) : 0;
-    const positions: number[] = [];
-    const startY =
-      this.config.verticalMargin +
-      (this.config.height -
-        2 * this.config.verticalMargin -
-        this.config.verticalPadding -
-        spacing * (count - 1)) /
-        2;
+  private calculateNeuronYPositions(count: number, totalHeight: number): readonly number[] {
+    const { neuronDiameter, neuronPaddingY, margin, labelOffsetY } = this.dimensions;
+    const availableHeight = totalHeight - margin * 2 - labelOffsetY;
 
+    // Calculate total height needed for this layer
+    const layerHeight = count * neuronDiameter + (count - 1) * neuronPaddingY;
+
+    // Center vertically
+    const startY = margin + (availableHeight - layerHeight) / 2 + neuronDiameter / 2;
+    const step = neuronDiameter + neuronPaddingY;
+
+    const positions: number[] = [];
     for (let i = 0; i < count; i++) {
-      positions.push(startY + i * spacing);
+      positions.push(startY + i * step);
     }
+
     return positions;
   }
 
   // ============================================================================
-  // Private: Connection Building
+  // Connection Building
   // ============================================================================
 
   private buildConnections(
-    weights: LayerWeights[],
-    layerSizes: number[],
-    layerX: number[],
-    layerY: number[][],
-  ): Connection[] {
+    weights: readonly LayerWeights[],
+    layerSizes: readonly number[],
+    layerX: readonly number[],
+    layerY: readonly number[][],
+  ): readonly Connection[] {
     const connections: Connection[] = [];
 
     for (let layerIndex = 0; layerIndex < weights.length; layerIndex++) {
@@ -200,38 +178,29 @@ export class NetworkLayoutCalculator {
     toSize: number,
     fromX: number,
     toX: number,
-    fromY: number[],
-    toY: number[],
-  ): Connection[] {
+    fromY: readonly number[],
+    toY: readonly number[],
+  ): readonly Connection[] {
     const connections: Connection[] = [];
-    const isNestedArray = Array.isArray(layer.weights[0]);
+    const flatWeights = this.flattenWeights(layer.weights, fromSize, toSize);
 
-    for (let i = 0; i < toSize; i++) {
-      for (let j = 0; j < fromSize; j++) {
-        let weight: number;
+    // Find max weight for normalization
+    const absWeights = flatWeights.map(Math.abs);
+    const maxWeight = Math.max(...absWeights, 0.001);
 
-        if (isNestedArray) {
-          weight = (layer.weights as number[][])[i][j];
-        } else {
-          weight = (layer.weights as number[])[i * fromSize + j];
-        }
-
-        if (weight === undefined || isNaN(weight)) {
-          continue;
-        }
-
-        const absWeight = Math.abs(weight);
-        const opacity = Math.min(absWeight / 2, 0.9) + 0.3;
-        const strokeWidth = Math.min(absWeight * 2, 2.5) + 0.8;
-        const color = weight > 0 ? 'var(--nn-positive)' : 'var(--nn-negative)';
+    for (let from = 0; from < fromSize; from++) {
+      for (let to = 0; to < toSize; to++) {
+        const weightIndex = from * toSize + to;
+        const weight = flatWeights[weightIndex] ?? 0;
+        const normalizedWeight = Math.abs(weight) / maxWeight;
 
         connections.push({
-          from: { x: fromX, y: fromY[j] },
-          to: { x: toX, y: toY[i] },
+          from: { x: fromX, y: fromY[from] },
+          to: { x: toX, y: toY[to] },
           weight,
-          color,
-          opacity,
-          strokeWidth,
+          color: weight >= 0 ? 'var(--nn-positive)' : 'var(--nn-negative)',
+          opacity: 0.1 + normalizedWeight * 0.5,
+          strokeWidth: 1 + normalizedWeight * 1.5,
         });
       }
     }
@@ -239,83 +208,68 @@ export class NetworkLayoutCalculator {
     return connections;
   }
 
+  private flattenWeights(
+    weights: number[] | number[][],
+    fromSize: number,
+    toSize: number,
+  ): number[] {
+    if (!Array.isArray(weights[0])) {
+      return weights as number[];
+    }
+    return (weights as number[][]).flat();
+  }
+
   // ============================================================================
-  // Private: Neuron Building
+  // Neuron Building
   // ============================================================================
 
   private buildNeurons(
     architecture: NetworkArchitecture,
-    layerX: number[],
-    layerY: number[][],
-  ): Neuron[] {
+    layerX: readonly number[],
+    layerY: readonly number[][],
+  ): readonly Neuron[] {
     const neurons: Neuron[] = [];
+    const { neuronDiameter, neuronFontSize } = this.dimensions;
+    const radius = neuronDiameter / 2;
 
-    // Input neurons
-    neurons.push(...this.buildInputNeurons(architecture.inputs, layerX[0], layerY[0]));
-
-    // Hidden and output neurons
-    neurons.push(...this.buildHiddenAndOutputNeurons(architecture, layerX, layerY));
-
-    return neurons;
-  }
-
-  private buildInputNeurons(inputs: number[], x: number, yPositions: number[]): Neuron[] {
-    const neurons: Neuron[] = [];
-    const threshold = 0.5;
-
-    for (let i = 0; i < inputs.length; i++) {
-      const value = inputs[i];
-      const fill = value > threshold ? 'var(--nn-positive)' : 'var(--nn-neutral)';
-
+    // Input layer
+    const inputX = layerX[0];
+    const inputY = layerY[0];
+    for (let i = 0; i < architecture.inputs.length; i++) {
+      const value = architecture.inputs[i];
       neurons.push({
-        position: { x, y: yPositions[i] },
-        radius: this.config.neuronRadius.input,
+        position: { x: inputX, y: inputY[i] },
+        radius,
         activation: value,
-        value: value.toFixed(1),
-        fill,
+        value: value.toFixed(2),
+        fill: this.getInputColor(value),
         stroke: 'var(--nn-stroke)',
         strokeWidth: 2,
+        fontSize: neuronFontSize,
+        fontWeight: 'normal',
         label: this.getInputLabel(i),
-        labelPosition: { x: x - 35, y: yPositions[i] },
-        labelAlign: 'center',
-        fontSize: this.config.fontSize.input,
-        fontWeight: 'bold',
+        labelPosition: { x: inputX - radius - 10, y: inputY[i] },
+        labelAlign: 'right',
       });
     }
 
-    return neurons;
-  }
-
-  private buildHiddenAndOutputNeurons(
-    architecture: NetworkArchitecture,
-    layerX: number[],
-    layerY: number[][],
-  ): Neuron[] {
-    const neurons: Neuron[] = [];
-
+    // Hidden and output layers
     for (let layerIndex = 0; layerIndex < architecture.layers.length; layerIndex++) {
       const layer = architecture.layers[layerIndex];
       const x = layerX[layerIndex + 1];
       const yPositions = layerY[layerIndex + 1];
       const isOutput = layer.isOutput;
-      const isSoftmax = layer.activationFunction.toLowerCase() === 'softmax';
 
       for (let neuronIndex = 0; neuronIndex < layer.activations.length; neuronIndex++) {
         const activation = layer.activations[neuronIndex];
-        const radius = isOutput ? this.config.neuronRadius.output : this.config.neuronRadius.hidden;
-        const fontSize = isOutput ? this.config.fontSize.output : this.config.fontSize.hidden;
+        const neuronRadius = isOutput ? radius * 1.2 : radius;
+        const fontSize = isOutput ? neuronFontSize * 1.2 : neuronFontSize;
 
-        let fill: CssColor;
-        if (isOutput) {
-          const threshold = isSoftmax ? 0.33 : 0.5;
-          fill = activation > threshold ? 'var(--nn-positive)' : 'var(--nn-neutral)';
-        } else {
-          fill = this.getNeuronColor(activation, layer.activationFunction);
-        }
+        const fill = this.getNeuronColor(activation, layer.activationFunction, isOutput);
 
         const neuron: Neuron = {
           position: { x, y: yPositions[neuronIndex] },
-          radius,
+          radius: neuronRadius,
           activation,
           value: activation.toFixed(2),
           fill,
@@ -327,12 +281,15 @@ export class NetworkLayoutCalculator {
 
         // Add label for output neurons
         if (isOutput) {
-          neuron.label = layer.activations.length > 1 ? `Out ${neuronIndex}` : 'Out';
-          neuron.labelPosition = { x: x + 40, y: yPositions[neuronIndex] };
-          neuron.labelAlign = 'left';
+          neurons.push({
+            ...neuron,
+            label: layer.activations.length > 1 ? `Out ${neuronIndex}` : 'Out',
+            labelPosition: { x: x + neuronRadius + 10, y: yPositions[neuronIndex] },
+            labelAlign: 'left',
+          });
+        } else {
+          neurons.push(neuron);
         }
-
-        neurons.push(neuron);
       }
     }
 
@@ -340,34 +297,39 @@ export class NetworkLayoutCalculator {
   }
 
   // ============================================================================
-  // Private: Label Building
+  // Label Building
   // ============================================================================
 
-  private buildLabels(architecture: NetworkArchitecture, layerX: number[]): Label[] {
+  private buildLabels(
+    architecture: NetworkArchitecture,
+    layerX: readonly number[],
+    totalHeight: number,
+  ): readonly Label[] {
+    const { margin, labelFontSize, labelOffsetY } = this.dimensions;
+    const labelY = totalHeight - margin + labelOffsetY / 2;
     const labels: Label[] = [];
 
     // Input layer label
     labels.push({
-      position: { x: layerX[0], y: this.config.labelY },
+      position: { x: layerX[0], y: labelY },
       text: 'Input',
       color: 'var(--nn-neutral)',
-      fontSize: this.config.fontSize.layerLabel,
+      fontSize: labelFontSize,
       align: 'center',
     });
 
     // Hidden and output layer labels
     for (let i = 0; i < architecture.layers.length; i++) {
       const layer = architecture.layers[i];
-      const isOutput = layer.isOutput;
-      const text = isOutput
+      const text = layer.isOutput
         ? `Output (${layer.activationFunction})`
         : `Hidden ${i + 1} (${layer.activationFunction})`;
 
       labels.push({
-        position: { x: layerX[i + 1], y: this.config.labelY },
+        position: { x: layerX[i + 1], y: labelY },
         text,
         color: 'var(--nn-neutral)',
-        fontSize: this.config.fontSize.layerLabel,
+        fontSize: labelFontSize,
         align: 'center',
       });
     }
@@ -376,7 +338,7 @@ export class NetworkLayoutCalculator {
   }
 
   // ============================================================================
-  // Private: Utilities
+  // Color Utilities
   // ============================================================================
 
   private getInputLabel(index: number): string {
@@ -384,7 +346,18 @@ export class NetworkLayoutCalculator {
     return labels[index] || `I${index}`;
   }
 
-  private getNeuronColor(value: number, activationFunction: string): string {
+  private getInputColor(value: number): CssColor {
+    const normalized = Math.max(0, Math.min(1, value));
+    return normalized > 0.5 ? 'var(--nn-positive)' : 'var(--nn-neutral)';
+  }
+
+  private getNeuronColor(value: number, activationFunction: string, isOutput: boolean): CssColor {
+    if (isOutput) {
+      const isSoftmax = activationFunction.toLowerCase() === 'softmax';
+      const threshold = isSoftmax ? 0.33 : 0.5;
+      return value > threshold ? 'var(--nn-positive)' : 'var(--nn-neutral)';
+    }
+
     const func = activationFunction.toLowerCase();
     let normalized: number;
 
@@ -398,6 +371,7 @@ export class NetworkLayoutCalculator {
       normalized = (value + 1) / 2;
     }
 
+    // Interpolate between red (negative) and green (positive)
     const r = Math.round(normalized * 34 + (1 - normalized) * 239);
     const g = Math.round(normalized * 197 + (1 - normalized) * 68);
     const b = Math.round(normalized * 94 + (1 - normalized) * 68);
