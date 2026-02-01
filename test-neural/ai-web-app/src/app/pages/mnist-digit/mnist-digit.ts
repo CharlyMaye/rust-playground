@@ -1,10 +1,13 @@
-import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { PredictionResult, WasmFacade } from '@cma/wasm/shared';
 import { CanvasDraw } from 'src/app/ui/canvas-draw/canvas-draw';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
-import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
+import {
+  activationToArchitecture,
+  neuralNetworkLayersToWeights,
+} from '../../ui/network-visualization/adapter';
+import { NetworkVisualization } from '../../ui/network-visualization/network-visualization';
 
 /**
  * MNIST digit classifier demo page.
@@ -12,7 +15,7 @@ import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizu
  */
 @Component({
   selector: 'app-mnist-digit',
-  imports: [DecimalPipe, CanvasDraw, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
+  imports: [CanvasDraw, Loader, ModelInfoComponent, NetworkVisualization],
   templateUrl: './mnist-digit.html',
   styleUrl: './mnist-digit.scss',
   host: { class: 'page container' },
@@ -66,6 +69,20 @@ export class MnistDigit {
     const flattenedInput = new Float64Array(digitData.flat());
     const acts = JSON.parse(network.get_activations(flattenedInput));
     return acts;
+  });
+
+  /** Network architecture for visualization (converted from activations) */
+  public readonly networkArchitecture = computed(() => {
+    const acts = this.activations();
+    if (!acts) return null;
+    return activationToArchitecture(acts);
+  });
+
+  /** Network weights for visualization (converted from WASM weights) */
+  public readonly networkWeights = computed(() => {
+    const wts = this.weights();
+    if (!wts) return null;
+    return neuralNetworkLayersToWeights(wts);
   });
 
   /** Formatted prediction value for display */

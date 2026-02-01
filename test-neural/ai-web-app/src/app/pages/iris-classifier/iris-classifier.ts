@@ -3,7 +3,11 @@ import { form, FormField, max, min } from '@angular/forms/signals';
 import { Activation, PredictionResult, WasmFacade } from '@cma/wasm/shared';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
-import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
+import {
+  activationToArchitecture,
+  neuralNetworkLayersToWeights,
+} from '../../ui/network-visualization/adapter';
+import { NetworkVisualization } from '../../ui/network-visualization/network-visualization';
 
 /**
  * Form state for Iris flower measurements.
@@ -22,7 +26,7 @@ interface IrisFormState {
  */
 @Component({
   selector: 'app-iris-classifier',
-  imports: [FormField, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
+  imports: [FormField, Loader, ModelInfoComponent, NetworkVisualization],
   templateUrl: './iris-classifier.html',
   styleUrl: './iris-classifier.scss',
   host: { class: 'page container' },
@@ -121,6 +125,20 @@ export class IrisClassifier {
       network.get_activations(sepalLength, sepalWidth, petalLength, petalWidth),
     ) as Activation<number, number>;
     return activationData;
+  });
+
+  /** Network architecture for visualization (converted from activations) */
+  public readonly networkArchitecture = computed(() => {
+    const acts = this.activations();
+    if (!acts) return null;
+    return activationToArchitecture(acts);
+  });
+
+  /** Network weights for visualization (converted from WASM weights) */
+  public readonly networkWeights = computed(() => {
+    const wts = this.irisWeights();
+    if (!wts) return null;
+    return neuralNetworkLayersToWeights(wts);
   });
 
   /** Formatted prediction class for display */

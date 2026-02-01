@@ -1,9 +1,14 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Activation, PredictionResult, WasmFacade } from '@cma/wasm/shared';
+import { NeuralNetworkModelVizualizer } from 'src/app/ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
-import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
+import {
+  activationToArchitecture,
+  neuralNetworkLayersToWeights,
+} from '../../ui/network-visualization/adapter';
+import { NetworkVisualization } from '../../ui/network-visualization/network-visualization';
 
 /**
  * Interactive XOR logic gate demo page.
@@ -11,7 +16,13 @@ import { NeuralNetworkModelVizualizer } from '../../ui/neural-network-model-vizu
  */
 @Component({
   selector: 'app-xor-logic-gate',
-  imports: [DecimalPipe, Loader, ModelInfoComponent, NeuralNetworkModelVizualizer],
+  imports: [
+    DecimalPipe,
+    Loader,
+    ModelInfoComponent,
+    NeuralNetworkModelVizualizer,
+    NetworkVisualization,
+  ],
   templateUrl: './xor-logic-gate.html',
   styleUrl: './xor-logic-gate.scss',
   host: { class: 'page container' },
@@ -60,6 +71,20 @@ export class XorLogicGate {
     const inputB = this.inputB();
     const acts = JSON.parse(network.get_activations(inputA, inputB)) as Activation<number, number>;
     return acts;
+  });
+
+  /** Network architecture for visualization (converted from activations) */
+  public readonly networkArchitecture = computed(() => {
+    const acts = this.activations();
+    if (!acts) return null;
+    return activationToArchitecture(acts);
+  });
+
+  /** Network weights for visualization (converted from WASM weights) */
+  public readonly networkWeights = computed(() => {
+    const wts = this.xorWeights();
+    if (!wts) return null;
+    return neuralNetworkLayersToWeights(wts);
   });
 
   /** Formatted prediction value for display */

@@ -1,1 +1,47 @@
-<p>network-visualization works!</p>
+<div class="card-title">
+  <span aria-hidden="true">🔬</span>
+  Network Visualization
+  @if (debug()) {
+    <span class="badge badge-info">Debug Mode</span>
+  }
+</div>
+
+<div class="visualization-container">
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <p>Loading visualization...</p>
+    </div>
+  } @else if (renderData()) {
+    <canvas
+      #networkCanvas
+      class="network-canvas"
+      width="500"
+      height="280"
+      (click)="onCanvasClick($event)"
+      role="img"
+      aria-label="Neural network visualization showing neurons and connections"
+    ></canvas>
+  } @else {
+    <div class="empty-state">
+      <p>No network data available</p>
+    </div>
+  }
+</div>
+
+@if (renderData()) {
+  <div class="visualization-info">
+    <div class="info-item">
+      <strong>Renderer:</strong>
+      <span class="badge badge-success">Canvas2D</span>
+    </div>
+    <div class="info-item">
+      <strong>Neurons:</strong>
+      {{ renderData()!.neurons.length }}
+    </div>
+    <div class="info-item">
+      <strong>Connections:</strong>
+      {{ renderData()!.connections.length }}
+    </div>
+  </div>
+}
