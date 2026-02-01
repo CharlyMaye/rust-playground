@@ -16,10 +16,10 @@ import {
  * - Applies uniform transformation matrix for scaling
  * - All elements (neurons, connections, labels) scale uniformly
  *
- * Features:
- * - GPU-accelerated rendering
- * - Handles 100K+ connections at 60 FPS
- * - Identical output to Canvas2D
+ * Text Rendering:
+ * - Text is rendered to an offscreen canvas
+ * - Then uploaded as a texture and composited on the WebGL canvas
+ * - Single canvas output, no overlay needed
  */
 export class WebGLRenderer implements INetworkRenderer {
   private readonly gl: WebGLRenderingContext;
@@ -32,14 +32,17 @@ export class WebGLRenderer implements INetworkRenderer {
   // Shader programs
   private lineProgram: WebGLProgram | null = null;
   private circleProgram: WebGLProgram | null = null;
+  private textureProgram: WebGLProgram | null = null;
 
   // Buffers
   private lineBuffer: WebGLBuffer | null = null;
   private circleBuffer: WebGLBuffer | null = null;
+  private quadBuffer: WebGLBuffer | null = null;
 
-  // Text rendering via 2D canvas overlay
+  // Text rendering
   private textCanvas: HTMLCanvasElement;
   private textCtx: CanvasRenderingContext2D;
+  private textTexture: WebGLTexture | null = null;
 
   constructor(canvas: HTMLCanvasElement, config: Partial<RenderConfig> = {}) {
     this.canvas = canvas;
@@ -77,9 +80,23 @@ export class WebGLRenderer implements INetworkRenderer {
 
     this.lineProgram = this.createLineProgram();
     this.circleProgram = this.createCircleProgram();
+    this.textureProgram = this.createTextureProgram();
 
     this.lineBuffer = gl.createBuffer();
     this.circleBuffer = gl.createBuffer();
+    this.quadBuffer = gl.createBuffer();
+    this.textTexture = gl.createTexture();
+
+    // Setup fullscreen quad for texture rendering
+    this.setupQuadBuffer();
+  }
+
+  private setupQuadBuffer(): void {
+    const gl = this.gl;
+    // Fullscreen quad: position (x, y) + texcoord (u, v)
+    const quadVertices = new Float32Array([-1, -1, 0, 1, 1, -1, 1, 1, -1, 1, 0, 0, 1, 1, 1, 0]);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, quadVertices, gl.STATIC_DRAW);
   }
 
   private setupCanvas(): void {
@@ -171,6 +188,32 @@ export class WebGLRenderer implements INetworkRenderer {
         // Anti-aliasing
         float alpha = 1.0 - smoothstep(0.95, 1.0, dist);
         gl_FragColor = vec4(v_color.rgb, v_color.a * alpha);
+      }
+    `;
+
+    return this.createProgram(vertexSource, fragmentSource);
+  }
+
+  private createTextureProgram(): WebGLProgram {
+    const vertexSource = `
+      attribute vec2 a_position;
+      attribute vec2 a_texCoord;
+      
+      varying vec2 v_texCoord;
+      
+      void main() {
+        gl_Position = vec4(a_position, 0, 1);
+        v_texCoord = a_texCoord;
+      }
+    `;
+
+    const fragmentSource = `
+      precision mediump float;
+      uniform sampler2D u_texture;
+      varying vec2 v_texCoord;
+      
+      void main() {
+        gl_FragColor = texture2D(u_texture, v_texCoord);
       }
     `;
 
@@ -301,8 +344,12 @@ export class WebGLRenderer implements INetworkRenderer {
 
     // Quad offsets for circle rendering
     const quadOffsets = [
-      [-1, -1], [1, -1], [-1, 1],
-      [1, -1], [1, 1], [-1, 1],
+      [-1, -1],
+      [1, -1],
+      [-1, 1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
     ];
 
     const vertices: number[] = [];
@@ -310,10 +357,15 @@ export class WebGLRenderer implements INetworkRenderer {
       const color = this.parseColor(neuron.fill);
       for (const [ox, oy] of quadOffsets) {
         vertices.push(
-          neuron.position.x, neuron.position.y,
+          neuron.position.x,
+          neuron.position.y,
           neuron.radius,
-          color.r, color.g, color.b, 1.0,
-          ox, oy
+          color.r,
+          color.g,
+          color.b,
+          1.0,
+          ox,
+          oy,
         );
       }
     }
@@ -350,10 +402,17 @@ export class WebGLRenderer implements INetworkRenderer {
   }
 
   /**
-   * Render labels using 2D canvas (overlaid on WebGL).
-   * Text is rendered in screen space after applying viewport transformation.
+   * Render labels to offscreen 2D canvas, then composite as WebGL texture.
    */
   private renderLabels(data: NetworkRenderData, viewport: Viewport): void {
+    // Step 1: Render text to 2D canvas
+    this.renderTextToCanvas(data, viewport);
+
+    // Step 2: Upload canvas as texture and draw as fullscreen quad
+    this.compositeTextTexture();
+  }
+
+  private renderTextToCanvas(data: NetworkRenderData, viewport: Viewport): void {
     const ctx = this.textCtx;
     ctx.clearRect(0, 0, this.textCanvas.width, this.textCanvas.height);
 
@@ -400,28 +459,54 @@ export class WebGLRenderer implements INetworkRenderer {
     }
 
     ctx.restore();
-
-    // Composite text canvas onto WebGL canvas
-    this.compositeTextCanvas();
   }
 
-  private compositeTextCanvas(): void {
-    // Draw text canvas on top of WebGL using a 2D context
-    // Since we're using WebGL, we need to either:
-    // 1. Use a separate overlay canvas (cleanest)
-    // 2. Create texture from text canvas and render as quad
-    // For simplicity and correctness, we'll use overlay approach
+  /**
+   * Upload text canvas as texture and render as fullscreen quad.
+   */
+  private compositeTextTexture(): void {
+    if (!this.textureProgram || !this.quadBuffer || !this.textTexture) return;
 
-    // The text is already rendered to textCanvas
-    // In a real implementation, the component would overlay this canvas
-    // For now, we'll render debug info that the text is ready
+    const gl = this.gl;
+
+    // Upload text canvas as texture
+    gl.bindTexture(gl.TEXTURE_2D, this.textTexture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.textCanvas);
+
+    // Draw fullscreen quad with texture
+    gl.useProgram(this.textureProgram);
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
+
+    const posLoc = gl.getAttribLocation(this.textureProgram, 'a_position');
+    const texLoc = gl.getAttribLocation(this.textureProgram, 'a_texCoord');
+    const stride = 4 * 4;
+
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(texLoc);
+    gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, stride, 2 * 4);
+
+    const textureLoc = gl.getUniformLocation(this.textureProgram, 'u_texture');
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.textTexture);
+    gl.uniform1i(textureLoc, 0);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
     if (this.config.debug) {
-      console.log('[WebGL] Labels rendered to overlay canvas');
+      console.log('[WebGL] Text composited as texture');
     }
   }
 
   private renderDebugInfo(data: NetworkRenderData, viewport: Viewport): void {
     const ctx = this.textCtx;
+
+    // Debug info is rendered before compositing
     ctx.save();
     ctx.scale(this.dpr, this.dpr);
 
@@ -465,12 +550,15 @@ export class WebGLRenderer implements INetworkRenderer {
     this.renderConnections(data, viewport);
     this.renderNeurons(data, viewport);
 
-    // Render text via 2D canvas overlay
-    this.renderLabels(data, viewport);
+    // Render text to canvas (includes debug info if enabled)
+    this.renderTextToCanvas(data, viewport);
 
     if (this.config.debug) {
       this.renderDebugInfo(data, viewport);
     }
+
+    // Composite text as texture on top of WebGL
+    this.compositeTextTexture();
   }
 
   clear(): void {
@@ -499,13 +587,19 @@ export class WebGLRenderer implements INetworkRenderer {
 
     if (this.lineProgram) gl.deleteProgram(this.lineProgram);
     if (this.circleProgram) gl.deleteProgram(this.circleProgram);
+    if (this.textureProgram) gl.deleteProgram(this.textureProgram);
     if (this.lineBuffer) gl.deleteBuffer(this.lineBuffer);
     if (this.circleBuffer) gl.deleteBuffer(this.circleBuffer);
+    if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer);
+    if (this.textTexture) gl.deleteTexture(this.textTexture);
 
     this.lineProgram = null;
     this.circleProgram = null;
+    this.textureProgram = null;
     this.lineBuffer = null;
     this.circleBuffer = null;
+    this.quadBuffer = null;
+    this.textTexture = null;
 
     const loseContext = gl.getExtension('WEBGL_lose_context');
     if (loseContext) loseContext.loseContext();
@@ -513,12 +607,5 @@ export class WebGLRenderer implements INetworkRenderer {
 
   getType(): RendererPreference {
     return 'webgl';
-  }
-
-  /**
-   * Get the text overlay canvas for compositing
-   */
-  getTextCanvas(): HTMLCanvasElement {
-    return this.textCanvas;
   }
 }

@@ -71,6 +71,8 @@ export interface ContentDimensions {
   readonly labelFontSize: number;
   /** Label offset from bottom of content */
   readonly labelOffsetY: number;
+  /** Target aspect ratio (width/height). If set, layout adjusts to match. */
+  readonly targetAspectRatio?: number;
 }
 
 /**

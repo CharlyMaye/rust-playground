@@ -68,7 +68,7 @@ export class NetworkVisualization implements OnDestroy {
   /** Current renderer instance */
   private renderer: INetworkRenderer | null = null;
 
-  /** Layout calculator (stateless, reusable) */
+  /** Layout calculator (updated with aspect ratio) */
   private readonly layoutCalculator = new NetworkLayoutCalculator();
 
   /** Current renderer type for display */
@@ -78,19 +78,26 @@ export class NetworkVisualization implements OnDestroy {
   private readonly displayWidth = signal(500);
   private readonly displayHeight = signal(280);
 
+  /** Aspect ratio for layout calculation */
+  private readonly aspectRatio = computed(() => this.displayWidth() / this.displayHeight());
+
   // ============================================================================
   // Computed State (Derived)
   // ============================================================================
 
   /**
    * Computed render data in natural coordinates.
-   * Recalculates when architecture or weights change.
+   * Recalculates when architecture, weights, or aspect ratio changes.
    */
   readonly renderData = computed<NetworkRenderData | null>(() => {
     const arch = this.architecture();
     const wts = this.weights();
+    const ratio = this.aspectRatio();
 
     if (!arch || !wts) return null;
+
+    // Update layout calculator with current aspect ratio
+    this.layoutCalculator.updateDimensions({ targetAspectRatio: ratio });
 
     return this.layoutCalculator.calculateLayout(arch, wts);
   });

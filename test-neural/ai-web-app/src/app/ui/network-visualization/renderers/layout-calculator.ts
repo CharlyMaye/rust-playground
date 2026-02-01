@@ -86,18 +86,26 @@ export class NetworkLayoutCalculator {
 
   /**
    * Calculate natural bounds based on network structure.
-   * Size is determined by content, not canvas.
+   * If targetAspectRatio is set, adjusts dimensions to match.
    */
   private calculateNaturalBounds(layerSizes: readonly number[]): Bounds {
-    const { neuronDiameter, neuronPaddingY, layerPaddingX, margin, labelOffsetY } = this.dimensions;
-
-    // Width: layers * spacing + margins
-    const width = margin * 2 + (layerSizes.length - 1) * layerPaddingX;
+    const { neuronDiameter, neuronPaddingY, margin, labelOffsetY, targetAspectRatio } =
+      this.dimensions;
 
     // Height: tallest layer determines height
     const maxNeurons = Math.max(...layerSizes);
     const neuronsHeight = maxNeurons * neuronDiameter + (maxNeurons - 1) * neuronPaddingY;
     const height = margin * 2 + neuronsHeight + labelOffsetY;
+
+    // Width: based on aspect ratio or layer count
+    let width: number;
+    if (targetAspectRatio) {
+      // Match target aspect ratio
+      width = height * targetAspectRatio;
+    } else {
+      // Default: use fixed layer padding
+      width = margin * 2 + (layerSizes.length - 1) * this.dimensions.layerPaddingX;
+    }
 
     return { width, height };
   }
