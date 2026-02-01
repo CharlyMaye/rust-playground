@@ -8,20 +8,29 @@ import {
   Viewport,
 } from './types';
 
+import {
+  BarData,
+  ConfigurableRenderData,
+  GridData,
+  LayerElement,
+} from './configurable-layout-calculator';
+
 /**
- * WebGL-based neural network renderer for high-performance visualization.
+ * Configurable WebGL-based neural network renderer for high-performance visualization.
+ *
+ * Extends the basic WebGLRenderer to support:
+ * - Heatmap layer representation (rendered as quads)
+ * - Bar layer representation
+ * - Stats display
  *
  * Content-First Architecture:
  * - Receives data in natural coordinates
  * - Applies uniform transformation matrix for scaling
- * - All elements (neurons, connections, labels) scale uniformly
+ * - All elements scale uniformly
  *
- * Text Rendering:
- * - Text is rendered to an offscreen canvas
- * - Then uploaded as a texture and composited on the WebGL canvas
- * - Single canvas output, no overlay needed
+ * Text and complex UI elements rendered to offscreen canvas then composited.
  */
-export class WebGLRenderer implements INetworkRenderer {
+export class ConfigurableWebGLRenderer implements INetworkRenderer {
   private readonly gl: WebGLRenderingContext;
   private readonly canvas: HTMLCanvasElement;
   private config: RenderConfig;
@@ -32,12 +41,14 @@ export class WebGLRenderer implements INetworkRenderer {
   // Shader programs
   private lineProgram: WebGLProgram | null = null;
   private circleProgram: WebGLProgram | null = null;
+  private quadProgram: WebGLProgram | null = null;
   private textureProgram: WebGLProgram | null = null;
 
   // Buffers
   private lineBuffer: WebGLBuffer | null = null;
   private circleBuffer: WebGLBuffer | null = null;
   private quadBuffer: WebGLBuffer | null = null;
+  private heatmapBuffer: WebGLBuffer | null = null;
 
   // Text rendering
   private textCanvas: HTMLCanvasElement;
@@ -60,7 +71,7 @@ export class WebGLRenderer implements INetworkRenderer {
 
     this.gl = gl;
 
-    // Create offscreen canvas for text rendering
+    // Create offscreen canvas for text/stats rendering
     this.textCanvas = document.createElement('canvas');
     this.textCtx = this.textCanvas.getContext('2d')!;
 
@@ -80,18 +91,19 @@ export class WebGLRenderer implements INetworkRenderer {
 
     this.lineProgram = this.createLineProgram();
     this.circleProgram = this.createCircleProgram();
+    this.quadProgram = this.createQuadProgram();
     this.textureProgram = this.createTextureProgram();
 
     this.lineBuffer = gl.createBuffer();
     this.circleBuffer = gl.createBuffer();
     this.quadBuffer = gl.createBuffer();
+    this.heatmapBuffer = gl.createBuffer();
     this.textTexture = gl.createTexture();
 
-    // Setup fullscreen quad for texture rendering
-    this.setupQuadBuffer();
+    this.setupFullscreenQuad();
   }
 
-  private setupQuadBuffer(): void {
+  private setupFullscreenQuad(): void {
     const gl = this.gl;
     // Fullscreen quad: position (x, y) + texcoord (u, v)
     const quadVertices = new Float32Array([-1, -1, 0, 1, 1, -1, 1, 1, -1, 1, 0, 0, 1, 1, 1, 0]);
@@ -129,7 +141,6 @@ export class WebGLRenderer implements INetworkRenderer {
       varying vec4 v_color;
       
       void main() {
-        // Apply scale and offset, then convert to clip space
         vec2 scaled = a_position * u_scale + u_offset;
         vec2 clipSpace = (scaled / u_resolution) * 2.0 - 1.0;
         gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
@@ -164,7 +175,6 @@ export class WebGLRenderer implements INetworkRenderer {
       varying vec2 v_texCoord;
       
       void main() {
-        // Scale center and radius, apply offset
         vec2 scaledCenter = a_center * u_scale + u_translate;
         float scaledRadius = a_radius * u_scale;
         vec2 position = scaledCenter + a_offset * scaledRadius;
@@ -185,9 +195,42 @@ export class WebGLRenderer implements INetworkRenderer {
         float dist = length(v_texCoord);
         if (dist > 1.0) discard;
         
-        // Anti-aliasing
         float alpha = 1.0 - smoothstep(0.95, 1.0, dist);
         gl_FragColor = vec4(v_color.rgb, v_color.a * alpha);
+      }
+    `;
+
+    return this.createProgram(vertexSource, fragmentSource);
+  }
+
+  /**
+   * Quad program for rendering heatmap cells
+   */
+  private createQuadProgram(): WebGLProgram {
+    const vertexSource = `
+      attribute vec2 a_position;
+      attribute vec4 a_color;
+      
+      uniform vec2 u_resolution;
+      uniform vec2 u_offset;
+      uniform float u_scale;
+      
+      varying vec4 v_color;
+      
+      void main() {
+        vec2 scaled = a_position * u_scale + u_offset;
+        vec2 clipSpace = (scaled / u_resolution) * 2.0 - 1.0;
+        gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+        v_color = a_color;
+      }
+    `;
+
+    const fragmentSource = `
+      precision mediump float;
+      varying vec4 v_color;
+      
+      void main() {
+        gl_FragColor = v_color;
       }
     `;
 
@@ -294,7 +337,7 @@ export class WebGLRenderer implements INetworkRenderer {
   }
 
   // ============================================================================
-  // Rendering (Natural Coordinates)
+  // Connection Rendering
   // ============================================================================
 
   private renderConnections(data: NetworkRenderData, viewport: Viewport): void {
@@ -303,7 +346,6 @@ export class WebGLRenderer implements INetworkRenderer {
     const gl = this.gl;
     gl.useProgram(this.lineProgram);
 
-    // Prepare vertex data (position + color)
     const vertices: number[] = [];
     for (const conn of data.connections) {
       const color = this.parseColor(conn.color);
@@ -314,7 +356,6 @@ export class WebGLRenderer implements INetworkRenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
 
-    // Set uniforms (transformation)
     const resLoc = gl.getUniformLocation(this.lineProgram, 'u_resolution');
     const offsetLoc = gl.getUniformLocation(this.lineProgram, 'u_offset');
     const scaleLoc = gl.getUniformLocation(this.lineProgram, 'u_scale');
@@ -323,7 +364,6 @@ export class WebGLRenderer implements INetworkRenderer {
     gl.uniform2f(offsetLoc, viewport.offsetX, viewport.offsetY);
     gl.uniform1f(scaleLoc, viewport.scale);
 
-    // Set attributes
     const posLoc = gl.getAttribLocation(this.lineProgram, 'a_position');
     const colorLoc = gl.getAttribLocation(this.lineProgram, 'a_color');
     const stride = 6 * 4;
@@ -336,13 +376,16 @@ export class WebGLRenderer implements INetworkRenderer {
     gl.drawArrays(gl.LINES, 0, vertices.length / 6);
   }
 
+  // ============================================================================
+  // Neuron Rendering
+  // ============================================================================
+
   private renderNeurons(data: NetworkRenderData, viewport: Viewport): void {
     if (!this.circleProgram || !this.circleBuffer) return;
 
     const gl = this.gl;
     gl.useProgram(this.circleProgram);
 
-    // Quad offsets for circle rendering
     const quadOffsets = [
       [-1, -1],
       [1, -1],
@@ -373,7 +416,6 @@ export class WebGLRenderer implements INetworkRenderer {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.circleBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
 
-    // Set uniforms
     const resLoc = gl.getUniformLocation(this.circleProgram, 'u_resolution');
     const translateLoc = gl.getUniformLocation(this.circleProgram, 'u_translate');
     const scaleLoc = gl.getUniformLocation(this.circleProgram, 'u_scale');
@@ -382,7 +424,6 @@ export class WebGLRenderer implements INetworkRenderer {
     gl.uniform2f(translateLoc, viewport.offsetX, viewport.offsetY);
     gl.uniform1f(scaleLoc, viewport.scale);
 
-    // Set attributes
     const centerLoc = gl.getAttribLocation(this.circleProgram, 'a_center');
     const radiusLoc = gl.getAttribLocation(this.circleProgram, 'a_radius');
     const colorLoc = gl.getAttribLocation(this.circleProgram, 'a_color');
@@ -401,22 +442,152 @@ export class WebGLRenderer implements INetworkRenderer {
     gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 9);
   }
 
-  /**
-   * Render labels to offscreen 2D canvas, then composite as WebGL texture.
-   */
-  private renderLabels(data: NetworkRenderData, viewport: Viewport): void {
-    // Step 1: Render text to 2D canvas
-    this.renderTextToCanvas(data, viewport);
+  // ============================================================================
+  // Layer Element Rendering (Heatmaps, Bars)
+  // ============================================================================
 
-    // Step 2: Upload canvas as texture and draw as fullscreen quad
-    this.compositeTextTexture();
+  private renderLayerElements(elements: readonly LayerElement[], viewport: Viewport): void {
+    for (const element of elements) {
+      switch (element.type) {
+        case 'heatmap':
+          if (element.gridData) {
+            this.renderHeatmapWebGL(element, element.gridData, viewport);
+          }
+          break;
+
+        case 'bar':
+          if (element.barData) {
+            this.renderBarWebGL(element, element.barData, viewport);
+          }
+          break;
+
+        // Stats and collapsed rendered via text canvas
+      }
+    }
   }
 
-  private renderTextToCanvas(data: NetworkRenderData, viewport: Viewport): void {
+  private renderHeatmapWebGL(element: LayerElement, gridData: GridData, viewport: Viewport): void {
+    if (!this.quadProgram || !this.heatmapBuffer) return;
+
+    const gl = this.gl;
+    gl.useProgram(this.quadProgram);
+
+    const { rows, cols, cellSize, colors } = gridData;
+    const startX = element.position.x - (cols * cellSize) / 2;
+    const startY = element.position.y - (rows * cellSize) / 2;
+
+    // Build quad vertices for each cell
+    const vertices: number[] = [];
+
+    for (let row = 0; row < rows; row++) {
+      for (let col = 0; col < cols; col++) {
+        const idx = row * cols + col;
+        const colorStr = colors[idx] ?? 'rgb(50,50,50)';
+        const color = this.parseColor(colorStr);
+
+        const x = startX + col * cellSize;
+        const y = startY + row * cellSize;
+
+        // Two triangles for a quad
+        // Triangle 1
+        vertices.push(x, y, color.r, color.g, color.b, 1.0);
+        vertices.push(x + cellSize, y, color.r, color.g, color.b, 1.0);
+        vertices.push(x, y + cellSize, color.r, color.g, color.b, 1.0);
+        // Triangle 2
+        vertices.push(x + cellSize, y, color.r, color.g, color.b, 1.0);
+        vertices.push(x + cellSize, y + cellSize, color.r, color.g, color.b, 1.0);
+        vertices.push(x, y + cellSize, color.r, color.g, color.b, 1.0);
+      }
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.heatmapBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
+
+    const resLoc = gl.getUniformLocation(this.quadProgram, 'u_resolution');
+    const offsetLoc = gl.getUniformLocation(this.quadProgram, 'u_offset');
+    const scaleLoc = gl.getUniformLocation(this.quadProgram, 'u_scale');
+
+    gl.uniform2f(resLoc, this.displayWidth, this.displayHeight);
+    gl.uniform2f(offsetLoc, viewport.offsetX, viewport.offsetY);
+    gl.uniform1f(scaleLoc, viewport.scale);
+
+    const posLoc = gl.getAttribLocation(this.quadProgram, 'a_position');
+    const colorLoc = gl.getAttribLocation(this.quadProgram, 'a_color');
+    const stride = 6 * 4;
+
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(colorLoc);
+    gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, stride, 2 * 4);
+
+    gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 6);
+  }
+
+  private renderBarWebGL(element: LayerElement, barData: BarData, viewport: Viewport): void {
+    if (!this.quadProgram || !this.heatmapBuffer) return;
+
+    const gl = this.gl;
+    gl.useProgram(this.quadProgram);
+
+    const { width, height, colorGradient } = barData;
+    const startX = element.position.x - width / 2;
+    const startY = element.position.y - height / 2;
+
+    // Build vertical gradient bar
+    const vertices: number[] = [];
+    const bands = Math.min(colorGradient.length, 50);
+    const bandWidth = width / bands;
+
+    for (let i = 0; i < bands; i++) {
+      const colorIdx = Math.floor((i / bands) * colorGradient.length);
+      const color = this.parseColor(colorGradient[colorIdx] ?? 'rgb(50,50,50)');
+
+      const x = startX + i * bandWidth;
+
+      // Quad for this band
+      vertices.push(x, startY, color.r, color.g, color.b, 1.0);
+      vertices.push(x + bandWidth, startY, color.r, color.g, color.b, 1.0);
+      vertices.push(x, startY + height, color.r, color.g, color.b, 1.0);
+      vertices.push(x + bandWidth, startY, color.r, color.g, color.b, 1.0);
+      vertices.push(x + bandWidth, startY + height, color.r, color.g, color.b, 1.0);
+      vertices.push(x, startY + height, color.r, color.g, color.b, 1.0);
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.heatmapBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
+
+    const resLoc = gl.getUniformLocation(this.quadProgram, 'u_resolution');
+    const offsetLoc = gl.getUniformLocation(this.quadProgram, 'u_offset');
+    const scaleLoc = gl.getUniformLocation(this.quadProgram, 'u_scale');
+
+    gl.uniform2f(resLoc, this.displayWidth, this.displayHeight);
+    gl.uniform2f(offsetLoc, viewport.offsetX, viewport.offsetY);
+    gl.uniform1f(scaleLoc, viewport.scale);
+
+    const posLoc = gl.getAttribLocation(this.quadProgram, 'a_position');
+    const colorLoc = gl.getAttribLocation(this.quadProgram, 'a_color');
+    const stride = 6 * 4;
+
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(colorLoc);
+    gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, stride, 2 * 4);
+
+    gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 6);
+  }
+
+  // ============================================================================
+  // Text Rendering (2D Canvas → Texture)
+  // ============================================================================
+
+  private renderTextToCanvas(
+    data: NetworkRenderData,
+    viewport: Viewport,
+    layerElements?: readonly LayerElement[],
+  ): void {
     const ctx = this.textCtx;
     ctx.clearRect(0, 0, this.textCanvas.width, this.textCanvas.height);
 
-    // Apply DPR scaling
     ctx.save();
     ctx.scale(this.dpr, this.dpr);
 
@@ -440,11 +611,13 @@ export class WebGLRenderer implements INetworkRenderer {
       const fontSize = neuron.fontSize * viewport.scale;
 
       // Neuron value
-      ctx.fillStyle = this.resolveColor(neuron.stroke);
-      ctx.font = `${neuron.fontWeight} ${fontSize}px 'Segoe UI', system-ui, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(neuron.value, screenX, screenY);
+      if (neuron.value) {
+        ctx.fillStyle = this.resolveColor(neuron.stroke);
+        ctx.font = `${neuron.fontWeight} ${fontSize}px 'Segoe UI', system-ui, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(neuron.value, screenX, screenY);
+      }
 
       // Neuron label
       if (neuron.label && neuron.labelPosition) {
@@ -458,18 +631,78 @@ export class WebGLRenderer implements INetworkRenderer {
       }
     }
 
+    // Render stats/bar labels for layer elements
+    if (layerElements) {
+      for (const element of layerElements) {
+        if (element.type === 'stats' || element.type === 'collapsed') {
+          this.renderStatsToCanvas(ctx, element, viewport);
+        } else if (element.type === 'bar' && element.barData) {
+          this.renderBarLabelToCanvas(ctx, element, element.barData, viewport);
+        }
+      }
+    }
+
     ctx.restore();
   }
 
-  /**
-   * Upload text canvas as texture and render as fullscreen quad.
-   */
+  private renderStatsToCanvas(
+    ctx: CanvasRenderingContext2D,
+    element: LayerElement,
+    viewport: Viewport,
+  ): void {
+    if (!element.statsData) return;
+
+    const { count, mean, std } = element.statsData;
+    const screenX = element.position.x * viewport.scale + viewport.offsetX;
+    const screenY = element.position.y * viewport.scale + viewport.offsetY;
+    const width = element.width * viewport.scale;
+    const height = element.height * viewport.scale;
+
+    // Draw background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.strokeStyle = this.resolveColor('var(--nn-stroke)');
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(screenX - width / 2, screenY - height / 2, width, height, 8 * viewport.scale);
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw count
+    ctx.fillStyle = this.resolveColor('var(--nn-positive)');
+    ctx.font = `bold ${14 * viewport.scale}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`n=${count}`, screenX, screenY - 10 * viewport.scale);
+
+    // Draw stats
+    ctx.fillStyle = 'white';
+    ctx.font = `${10 * viewport.scale}px monospace`;
+    ctx.fillText(`μ=${mean.toFixed(2)}`, screenX, screenY + 8 * viewport.scale);
+    ctx.fillText(`σ=${std.toFixed(2)}`, screenX, screenY + 20 * viewport.scale);
+  }
+
+  private renderBarLabelToCanvas(
+    ctx: CanvasRenderingContext2D,
+    element: LayerElement,
+    barData: BarData,
+    viewport: Viewport,
+  ): void {
+    const screenX = element.position.x * viewport.scale + viewport.offsetX;
+    const screenY = element.position.y * viewport.scale + viewport.offsetY;
+    const height = element.height * viewport.scale;
+
+    ctx.fillStyle = 'white';
+    ctx.font = `${10 * viewport.scale}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(`μ=${barData.mean.toFixed(2)}`, screenX, screenY - height / 2 - 2);
+  }
+
   private compositeTextTexture(): void {
     if (!this.textureProgram || !this.quadBuffer || !this.textTexture) return;
 
     const gl = this.gl;
 
-    // Upload text canvas as texture
     gl.bindTexture(gl.TEXTURE_2D, this.textTexture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -477,9 +710,7 @@ export class WebGLRenderer implements INetworkRenderer {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, this.textCanvas);
 
-    // Draw fullscreen quad with texture
     gl.useProgram(this.textureProgram);
-
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
 
     const posLoc = gl.getAttribLocation(this.textureProgram, 'a_position');
@@ -499,10 +730,17 @@ export class WebGLRenderer implements INetworkRenderer {
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
   }
 
-  private renderDebugInfo(data: NetworkRenderData, viewport: Viewport): void {
+  // ============================================================================
+  // Debug Rendering
+  // ============================================================================
+
+  private renderDebugInfo(
+    data: NetworkRenderData,
+    viewport: Viewport,
+    layerElements?: readonly LayerElement[],
+  ): void {
     const ctx = this.textCtx;
 
-    // Debug info is rendered before compositing
     ctx.save();
     ctx.scale(this.dpr, this.dpr);
 
@@ -511,12 +749,15 @@ export class WebGLRenderer implements INetworkRenderer {
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
 
+    const layerTypes = layerElements?.map((e) => e.type).join(', ') ?? 'neurons';
+
     const info = [
-      `Renderer: WebGL`,
+      `Renderer: WebGL (Configurable)`,
       `Natural: ${data.naturalBounds.width.toFixed(0)}×${data.naturalBounds.height.toFixed(0)}`,
       `Scale: ${viewport.scale.toFixed(3)}`,
       `Connections: ${data.connections.length}`,
       `Neurons: ${data.neurons.length}`,
+      `Layers: ${layerTypes}`,
     ];
 
     info.forEach((line, i) => {
@@ -533,27 +774,28 @@ export class WebGLRenderer implements INetworkRenderer {
   render(data: NetworkRenderData, viewport: Viewport): void {
     this.clear();
 
-    if (this.config.debug) {
-      console.log('[WebGL] Rendering:', {
-        natural: data.naturalBounds,
-        viewport,
-        connections: data.connections.length,
-        neurons: data.neurons.length,
-      });
+    const configurableData = data as ConfigurableRenderData;
+    const layerElements = configurableData.layerElements;
+
+    // Render WebGL content
+    this.renderConnections(data, viewport);
+
+    // Render layer elements (heatmaps, bars)
+    if (layerElements) {
+      this.renderLayerElements(layerElements, viewport);
     }
 
-    // Render WebGL content (connections and neuron circles)
-    this.renderConnections(data, viewport);
+    // Render neurons
     this.renderNeurons(data, viewport);
 
-    // Render text to canvas (includes debug info if enabled)
-    this.renderTextToCanvas(data, viewport);
+    // Render text to canvas
+    this.renderTextToCanvas(data, viewport, layerElements);
 
     if (this.config.debug) {
-      this.renderDebugInfo(data, viewport);
+      this.renderDebugInfo(data, viewport, layerElements);
     }
 
-    // Composite text as texture on top of WebGL
+    // Composite text as texture
     this.compositeTextTexture();
   }
 
@@ -583,18 +825,22 @@ export class WebGLRenderer implements INetworkRenderer {
 
     if (this.lineProgram) gl.deleteProgram(this.lineProgram);
     if (this.circleProgram) gl.deleteProgram(this.circleProgram);
+    if (this.quadProgram) gl.deleteProgram(this.quadProgram);
     if (this.textureProgram) gl.deleteProgram(this.textureProgram);
     if (this.lineBuffer) gl.deleteBuffer(this.lineBuffer);
     if (this.circleBuffer) gl.deleteBuffer(this.circleBuffer);
     if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer);
+    if (this.heatmapBuffer) gl.deleteBuffer(this.heatmapBuffer);
     if (this.textTexture) gl.deleteTexture(this.textTexture);
 
     this.lineProgram = null;
     this.circleProgram = null;
+    this.quadProgram = null;
     this.textureProgram = null;
     this.lineBuffer = null;
     this.circleBuffer = null;
     this.quadBuffer = null;
+    this.heatmapBuffer = null;
     this.textTexture = null;
 
     const loseContext = gl.getExtension('WEBGL_lose_context');

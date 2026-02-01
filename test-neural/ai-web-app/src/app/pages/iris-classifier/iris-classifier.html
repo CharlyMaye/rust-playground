@@ -108,16 +108,10 @@
 
   <!-- Network Visualization -->
   <!-- <app-neural-network-model-vizualizer [activations]="activations()" [weights]="irisWeights()" /> -->
-  <app-network-visualization
+  <app-configurable-network
     [architecture]="networkArchitecture()"
     [weights]="networkWeights()"
-    [debug]="false"
-  />
-  <app-network-visualization
-    [architecture]="networkArchitecture()"
-    [weights]="networkWeights()"
-    [rendererType]="'webgl'"
-    [debug]="false"
+    preset="medium-network"
   />
 
   <!-- Model Info -->

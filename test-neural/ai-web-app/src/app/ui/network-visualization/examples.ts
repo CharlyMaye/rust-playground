@@ -6,7 +6,7 @@
  */
 
 import { Component, computed, signal } from '@angular/core';
-import { NetworkVisualization } from './network-visualization';
+import { ConfigurableNetworkVisualization } from './configurable-network-visualization';
 import { LayerWeights, NetworkArchitecture } from './renderers';
 
 /**
@@ -14,12 +14,12 @@ import { LayerWeights, NetworkArchitecture } from './renderers';
  */
 @Component({
   selector: 'app-example-xor',
-  imports: [NetworkVisualization],
+  imports: [ConfigurableNetworkVisualization],
   template: `
-    <app-network-visualization
+    <app-configurable-network
       [architecture]="architecture()"
       [weights]="weights()"
-      [debug]="false"
+      preset="small-network"
     />
   `,
 })
@@ -65,12 +65,12 @@ export class ExampleXOR {
  */
 @Component({
   selector: 'app-example-mnist',
-  imports: [NetworkVisualization],
+  imports: [ConfigurableNetworkVisualization],
   template: `
-    <app-network-visualization
+    <app-configurable-network
       [architecture]="architecture()"
       [weights]="weights()"
-      [debug]="true"
+      preset="mnist"
     />
   `,
 })
@@ -153,11 +153,12 @@ export class ExampleMNIST {
  */
 @Component({
   selector: 'app-example-wasm-integration',
-  imports: [NetworkVisualization],
+  imports: [ConfigurableNetworkVisualization],
   template: `
-    <app-network-visualization
+    <app-configurable-network
       [architecture]="networkArchitecture()"
       [weights]="networkWeights()"
+      [autoConfig]="true"
     />
   `,
 })
@@ -208,11 +209,15 @@ export class ExampleWasmIntegration {
  */
 @Component({
   selector: 'app-example-interactive',
-  imports: [NetworkVisualization],
+  imports: [ConfigurableNetworkVisualization],
   template: `
     <div>
       <button (click)="updateInputs()">Update Inputs</button>
-      <app-network-visualization [architecture]="architecture()" [weights]="weights()" />
+      <app-configurable-network
+        [architecture]="architecture()"
+        [weights]="weights()"
+        preset="interactive"
+      />
     </div>
   `,
 })

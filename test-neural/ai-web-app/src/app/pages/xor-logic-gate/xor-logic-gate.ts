@@ -1,14 +1,13 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { Activation, PredictionResult, WasmFacade } from '@cma/wasm/shared';
-import { NeuralNetworkModelVizualizer } from 'src/app/ui/neural-network-model-vizualizer/neural-network-model-vizualizer';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
 import {
   activationToArchitecture,
   neuralNetworkLayersToWeights,
 } from '../../ui/network-visualization/adapter';
-import { NetworkVisualization } from '../../ui/network-visualization/network-visualization';
+import { ConfigurableNetworkVisualization } from '../../ui/network-visualization/configurable-network-visualization';
 
 /**
  * Interactive XOR logic gate demo page.
@@ -16,13 +15,7 @@ import { NetworkVisualization } from '../../ui/network-visualization/network-vis
  */
 @Component({
   selector: 'app-xor-logic-gate',
-  imports: [
-    DecimalPipe,
-    Loader,
-    ModelInfoComponent,
-    NeuralNetworkModelVizualizer,
-    NetworkVisualization,
-  ],
+  imports: [DecimalPipe, Loader, ModelInfoComponent, ConfigurableNetworkVisualization],
   templateUrl: './xor-logic-gate.html',
   styleUrl: './xor-logic-gate.scss',
   host: { class: 'page container' },

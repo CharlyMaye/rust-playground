@@ -49,8 +49,11 @@
   </div>
 
   <!-- Network Visualization -->
-  <app-neural-network-model-vizualizer [activations]="activations()" [weights]="xorWeights()" />
-  <app-network-visualization [architecture]="networkArchitecture()" [weights]="networkWeights()" />
+  <app-configurable-network
+    [architecture]="networkArchitecture()"
+    [weights]="networkWeights()"
+    preset="small-network"
+  />
 
   <!-- Truth Table -->
   <div class="card">

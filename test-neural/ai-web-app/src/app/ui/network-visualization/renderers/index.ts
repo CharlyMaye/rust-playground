@@ -7,11 +7,21 @@
 export * from './types';
 
 // Renderers
-export * from './canvas2d-renderer';
-export * from './webgl-renderer';
+export * from './configurable-canvas2d-renderer';
+export * from './configurable-webgl-renderer';
 
 // Layout calculator
-export * from './layout-calculator';
+export { ConfigurableLayoutCalculator } from './configurable-layout-calculator';
+export type {
+  BarData,
+  ConfigurableRenderData,
+  GridData,
+  LayerElement,
+  LayerInfo,
+  LayerWeights,
+  NetworkArchitecture,
+  StatsData,
+} from './configurable-layout-calculator';
 
 // Factory
 export * from './renderer-factory';

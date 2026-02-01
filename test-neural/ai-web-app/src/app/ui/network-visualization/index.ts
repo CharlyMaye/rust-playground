@@ -6,7 +6,10 @@
  */
 
 // Main component
-export { NetworkVisualization } from './network-visualization';
+export { ConfigurableNetworkVisualization } from './configurable-network-visualization';
+
+// Configuration system (Builder, Presets, Types)
+export * from './config';
 
 // Renderer system (types, implementations, factory)
 export * from './renderers';

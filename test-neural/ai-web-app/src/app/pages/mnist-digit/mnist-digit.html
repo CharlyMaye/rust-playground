@@ -23,13 +23,21 @@
     </div>
   </div>
 
-  <!-- Network Visualization -->
-  <app-network-visualization
-    [architecture]="networkArchitecture()"
-    [weights]="networkWeights()"
-    [rendererType]="'webgl'"
-    [debug]="false"
-  />
+  <!-- Network Visualization (using new configurable component with mnist preset) -->
+  <div class="card visualization-card">
+    <div class="card-header">
+      <h2 class="card-title">Network Architecture</h2>
+      <p class="card-subtitle">
+        MNIST network: 784 input (28×28 heatmap) → hidden layers (bars) → 10 output neurons
+      </p>
+    </div>
+    <app-configurable-network
+      [architecture]="networkArchitecture()"
+      [weights]="networkWeights()"
+      preset="mnist"
+      [debug]="false"
+    />
+  </div>
 
   <!-- Model Info -->
   <app-model-info [modelInfo]="modelInfo()" />

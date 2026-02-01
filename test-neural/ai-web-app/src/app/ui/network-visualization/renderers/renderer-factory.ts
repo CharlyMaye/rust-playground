@@ -1,6 +1,6 @@
-import { Canvas2DRenderer } from './canvas2d-renderer';
+import { ConfigurableCanvas2DRenderer } from './configurable-canvas2d-renderer';
+import { ConfigurableWebGLRenderer } from './configurable-webgl-renderer';
 import { INetworkRenderer, RenderConfig, RendererPreference } from './types';
-import { WebGLRenderer } from './webgl-renderer';
 
 /**
  * Renderer factory for creating the appropriate renderer based on
@@ -97,13 +97,13 @@ export class RendererFactory {
 
           case 'webgl':
             if (this.isWebGLAvailable()) {
-              return new WebGLRenderer(canvas, config);
+              return new ConfigurableWebGLRenderer(canvas, config);
             }
             break;
 
           case 'canvas2d':
             if (this.isCanvas2DAvailable()) {
-              return new Canvas2DRenderer(canvas, config);
+              return new ConfigurableCanvas2DRenderer(canvas, config);
             }
             break;
         }
@@ -115,7 +115,7 @@ export class RendererFactory {
 
     // Last resort: try Canvas2D
     if (this.isCanvas2DAvailable()) {
-      return new Canvas2DRenderer(canvas, config);
+      return new ConfigurableCanvas2DRenderer(canvas, config);
     }
 
     throw new Error('No suitable renderer available');

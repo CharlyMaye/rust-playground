@@ -1,8 +1,11 @@
 <div class="card-title">
-  <span aria-hidden="true">🔬</span>
+  <span aria-hidden="true">🧠</span>
   Network Visualization
   @if (debug()) {
     <span class="badge badge-info">Debug Mode</span>
+  }
+  @if (preset()) {
+    <span class="badge badge-success">{{ preset() }}</span>
   }
 </div>
 
@@ -38,5 +41,11 @@
       <strong>Connections:</strong>
       {{ renderData()!.connections.length }}
     </div>
+    @if (renderData()!.layerElements) {
+      <div class="info-item">
+        <strong>Layers:</strong>
+        {{ getLayerTypes() }}
+      </div>
+    }
   </div>
 }

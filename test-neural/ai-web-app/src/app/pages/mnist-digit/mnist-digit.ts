@@ -7,7 +7,7 @@ import {
   activationToArchitecture,
   neuralNetworkLayersToWeights,
 } from '../../ui/network-visualization/adapter';
-import { NetworkVisualization } from '../../ui/network-visualization/network-visualization';
+import { ConfigurableNetworkVisualization } from '../../ui/network-visualization/configurable-network-visualization';
 
 /**
  * MNIST digit classifier demo page.
@@ -15,7 +15,7 @@ import { NetworkVisualization } from '../../ui/network-visualization/network-vis
  */
 @Component({
   selector: 'app-mnist-digit',
-  imports: [CanvasDraw, Loader, ModelInfoComponent, NetworkVisualization],
+  imports: [CanvasDraw, Loader, ModelInfoComponent, ConfigurableNetworkVisualization],
   templateUrl: './mnist-digit.html',
   styleUrl: './mnist-digit.scss',
   host: { class: 'page container' },
