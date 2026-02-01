@@ -75,6 +75,10 @@ export class ConfigurableWebGLRenderer implements INetworkRenderer {
     this.textCanvas = document.createElement('canvas');
     this.textCtx = this.textCanvas.getContext('2d')!;
 
+    // Configure image smoothing for sharp text rendering
+    this.textCtx.imageSmoothingEnabled = true;
+    this.textCtx.imageSmoothingQuality = 'high';
+
     this.initializeWebGL();
     this.setupCanvas();
   }

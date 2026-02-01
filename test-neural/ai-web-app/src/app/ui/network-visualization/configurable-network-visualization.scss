@@ -29,8 +29,9 @@
 .network-canvas {
   display: block;
   width: 100%;
-  max-width: 500px;
-  height: auto;
+  max-width: 400px;
+  height: 300px;
+  aspect-ratio: 4 / 3;
   cursor: default;
   border-radius: 0.25rem;
 }

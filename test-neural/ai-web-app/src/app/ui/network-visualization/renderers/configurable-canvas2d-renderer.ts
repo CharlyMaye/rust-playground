@@ -54,6 +54,11 @@ export class ConfigurableCanvas2DRenderer implements INetworkRenderer {
     }
 
     this.ctx = ctx;
+
+    // Configure image smoothing for sharp rendering
+    this.ctx.imageSmoothingEnabled = true;
+    this.ctx.imageSmoothingQuality = 'high';
+
     this.setupCanvas();
   }
 

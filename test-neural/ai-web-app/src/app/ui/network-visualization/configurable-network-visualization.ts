@@ -100,6 +100,9 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
   /** Current renderer instance */
   private renderer: INetworkRenderer | null = null;
 
+  /** ResizeObserver for responsive canvas */
+  private resizeObserver: ResizeObserver | null = null;
+
   /** Current renderer type for display */
   readonly currentRendererType = signal<string>('none');
 
@@ -212,6 +215,7 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
       untracked(() => {
         if (canvasEl) {
           this.initializeRenderer(canvasEl.nativeElement, config);
+          this.setupResizeObserver(canvasEl.nativeElement);
         }
       });
     });
@@ -252,6 +256,7 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
 
   ngOnDestroy(): void {
     this.destroyRenderer();
+    this.destroyResizeObserver();
   }
 
   // ============================================================================
@@ -334,6 +339,55 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
     if (this.renderer) {
       this.renderer.destroy();
       this.renderer = null;
+    }
+  }
+
+  /**
+   * Setup ResizeObserver to handle window/container resizing
+   */
+  private setupResizeObserver(canvas: HTMLCanvasElement): void {
+    this.destroyResizeObserver();
+
+    this.resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+
+        if (width > 0 && height > 0) {
+          // Update display dimensions
+          this.displayWidth.set(width);
+          this.displayHeight.set(height);
+
+          // Resize renderer if available
+          if (this.renderer) {
+            this.renderer.resize(width, height);
+
+            // Re-render with new viewport
+            const data = this.renderData();
+            const viewport = this.viewport();
+            if (data && viewport) {
+              this.renderer.render(data, viewport);
+            }
+          }
+
+          if (this.debug()) {
+            console.log(
+              `[ConfigurableNetworkVisualization] Canvas resized to ${width.toFixed(0)}×${height.toFixed(0)}`,
+            );
+          }
+        }
+      }
+    });
+
+    this.resizeObserver.observe(canvas);
+  }
+
+  /**
+   * Destroy ResizeObserver
+   */
+  private destroyResizeObserver(): void {
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
     }
   }
 
