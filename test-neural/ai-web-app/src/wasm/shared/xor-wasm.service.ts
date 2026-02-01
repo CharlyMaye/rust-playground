@@ -15,7 +15,7 @@ import init, {
   InitOutput as InitXorOutput,
   XorNetwork,
 } from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
-import { ModelInfo, NeuralNetworkLayers, XORTestResult } from './model-info';
+import { ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
 
 /**
  * Service for loading and interacting with the XOR WASM neural network.
@@ -101,13 +101,13 @@ export class XorWasmService {
   });
 
   /** Test results for all XOR input combinations */
-  public readonly testAll: Signal<XORTestResult[] | undefined> = computed(() => {
+  public readonly testAll: Signal<TestResult[] | undefined> = computed(() => {
     const xorNetwork = this.network();
     if (!xorNetwork) {
       return undefined;
     }
     const testResultsJson: string = xorNetwork.test_all();
-    const testResults = JSON.parse(testResultsJson);
+    const testResults = JSON.parse(testResultsJson) as TestResult[];
     return testResults;
   });
 }

@@ -4,25 +4,23 @@
 //! and saves it to neural-wasm/src/xor_model.json
 
 use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
+use cma_neural_network::callbacks::{DeltaMode, EarlyStopping, ProgressBar};
+use cma_neural_network::dataset::Dataset;
+use cma_neural_network::metrics::accuracy;
 use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
-use cma_neural_network::dataset::Dataset;
-use cma_neural_network::callbacks::{EarlyStopping, DeltaMode, ProgressBar};
-use cma_neural_network::metrics::accuracy;
-use neural_wasm_shared::{ModelWithMetadata, ModelMetadata};
 use ndarray::array;
-use std::path::Path;
-use chrono::Local;
+use neural_wasm_shared::save_model_binary;
 
 fn main() {
     println!("╔══════════════════════════════════════════════════════════════╗");
     println!("║         XOR Neural Network Training                          ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
-    let model_path = "src/xor_model.json";
+    let model_path = "src/xor_model.bin";
 
     // Check if model already exists
-    if Path::new(model_path).exists() {
+    if std::path::Path::new(model_path).exists() {
         println!("⚠️  Model already exists at {}", model_path);
         println!("   Delete it manually if you want to retrain.\n");
         return;
@@ -32,21 +30,25 @@ fn main() {
     // 1. DATA PREPARATION
     // ═══════════════════════════════════════════════════════════════════════
     println!("📦 Preparing XOR dataset...\n");
-    
+
     // Create an extended XOR dataset for training
     let mut inputs = Vec::new();
     let mut targets = Vec::new();
-    
+
     for _ in 0..200 {
-        inputs.push(array![0.0, 0.0]); targets.push(array![0.0]);
-        inputs.push(array![0.0, 1.0]); targets.push(array![1.0]);
-        inputs.push(array![1.0, 0.0]); targets.push(array![1.0]);
-        inputs.push(array![1.0, 1.0]); targets.push(array![0.0]);
+        inputs.push(array![0.0, 0.0]);
+        targets.push(array![0.0]);
+        inputs.push(array![0.0, 1.0]);
+        targets.push(array![1.0]);
+        inputs.push(array![1.0, 0.0]);
+        targets.push(array![1.0]);
+        inputs.push(array![1.0, 1.0]);
+        targets.push(array![0.0]);
     }
-    
+
     let dataset = Dataset::new(inputs, targets);
-    let (train, val) = dataset.split(0.7);
-    
+    let (mut train, val) = dataset.split(0.7);
+
     println!("   Training samples: {} (70%)", train.len());
     println!("   Test samples: {} (30%)\n", val.len());
 
@@ -72,20 +74,26 @@ fn main() {
     println!("🏋️  Training...\n");
 
     let epochs = 5_000;
-    let history = network.trainer()
-        .train_data(&train)
+    let history = network
+        .trainer()
+        .train_data(&mut train)
         .validation_data(&val)
         .epochs(epochs)
         .batch_size(32)
-        .callback(Box::new(EarlyStopping::new(200, 0.00001).mode(DeltaMode::Absolute)))
+        .callback(Box::new(
+            EarlyStopping::new(200, 0.00001).mode(DeltaMode::Absolute),
+        ))
         .callback(Box::new(ProgressBar::new(epochs)))
         .fit();
 
     println!("\n   ✅ Training completed in {} epochs", history.len());
-    
+
     if let Some((train_loss, val_loss)) = history.last() {
-        println!("   Final loss - Train: {:.6} | Val: {:.6}",
-            train_loss, val_loss.unwrap_or(0.0));
+        println!(
+            "   Final loss - Train: {:.6} | Val: {:.6}",
+            train_loss,
+            val_loss.unwrap_or(0.0)
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -96,14 +104,15 @@ fn main() {
     network.eval_mode();
 
     let test_inputs = vec![
-        array![0.0, 0.0], array![0.0, 1.0],
-        array![1.0, 0.0], array![1.0, 1.0],
+        array![0.0, 0.0],
+        array![0.0, 1.0],
+        array![1.0, 0.0],
+        array![1.0, 1.0],
     ];
-    let test_targets = vec![
-        array![0.0], array![1.0], array![1.0], array![0.0],
-    ];
+    let test_targets = vec![array![0.0], array![1.0], array![1.0], array![0.0]];
 
-    let predictions: Vec<_> = test_inputs.iter()
+    let predictions: Vec<_> = test_inputs
+        .iter()
         .map(|input| network.predict(input))
         .collect();
 
@@ -111,17 +120,24 @@ fn main() {
     println!("   ┌─────┬─────┬──────────┬────────────┐");
     println!("   │  A  │  B  │ Expected │ Prediction │");
     println!("   ├─────┼─────┼──────────┼────────────┤");
-    
-    for (input, (pred, target)) in test_inputs.iter()
+
+    for (input, (pred, target)) in test_inputs
+        .iter()
         .zip(predictions.iter().zip(test_targets.iter()))
     {
         let pred_val = pred[0];
         let pred_binary = if pred_val > 0.5 { 1 } else { 0 };
         let expected = target[0] as u8;
-        let status = if pred_binary == expected { "✓" } else { "✗" };
-        
-        println!("   │  {}  │  {}  │    {}     │ {} ({:.2}) {} │",
-            input[0] as u8, input[1] as u8, expected, pred_binary, pred_val, status);
+        let status = if pred_binary == expected {
+            "✓"
+        } else {
+            "✗"
+        };
+
+        println!(
+            "   │  {}  │  {}  │    {}     │ {} ({:.2}) {} │",
+            input[0] as u8, input[1] as u8, expected, pred_binary, pred_val, status
+        );
     }
     println!("   └─────┴─────┴──────────┴────────────┘");
 
@@ -131,25 +147,12 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════════════
     // 5. SAVE MODEL WITH METADATA
     // ═══════════════════════════════════════════════════════════════════════
-    println!("\n💾 Saving model with metadata...\n");
+    println!("\n💾 Saving model...\n");
 
-    let model_with_metadata = ModelWithMetadata {
-        network,
-        metadata: ModelMetadata {
-            accuracy: acc,
-            test_samples: test_targets.len(),
-            trained_at: Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
-        },
-    };
-
-    match std::fs::write(
-        model_path,
-        serde_json::to_string_pretty(&model_with_metadata).unwrap(),
-    ) {
+    match save_model_binary(network, acc, test_targets.len(), None, model_path) {
         Ok(_) => {
             println!("   ✅ Model saved to {}", model_path);
             println!("   📊 Accuracy: {:.2}%", acc * 100.0);
-            println!("   📅 Trained: {}", model_with_metadata.metadata.trained_at);
             println!("\n╔══════════════════════════════════════════════════════════════╗");
             println!("║              Training Complete! 🎉                           ║");
             println!("╚══════════════════════════════════════════════════════════════╝");

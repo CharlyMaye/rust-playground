@@ -1,7 +1,8 @@
-use crate::network::{Network, Activation, LossFunction, WeightInit};
-use crate::optimizer::OptimizerType;
-use crate::dataset::Dataset;
 use crate::callbacks::{Callback, LearningRateScheduler};
+use crate::compute::{ComputeDevice, ComputeDeviceError};
+use crate::dataset::Dataset;
+use crate::network::{Activation, LossFunction, Network, WeightInit};
+use crate::optimizer::OptimizerType;
 
 /// Builder for constructing neural networks using a fluent interface.
 ///
@@ -114,11 +115,14 @@ impl NetworkBuilder {
     /// Builds the network.
     pub fn build(self) -> Network {
         if self.hidden_layers.is_empty() {
-            panic!("Network must have at least one hidden layer. Use .hidden_layer() to add layers.");
+            panic!(
+                "Network must have at least one hidden layer. Use .hidden_layer() to add layers."
+            );
         }
 
         let hidden_sizes: Vec<usize> = self.hidden_layers.iter().map(|(size, _)| *size).collect();
-        let hidden_activations: Vec<Activation> = self.hidden_layers.iter().map(|(_, act)| *act).collect();
+        let hidden_activations: Vec<Activation> =
+            self.hidden_layers.iter().map(|(_, act)| *act).collect();
 
         // Déterminer les initialisations
         let (hidden_inits, output_init) = if let Some(init) = self.weight_init {
@@ -126,7 +130,8 @@ impl NetworkBuilder {
             (vec![init; hidden_sizes.len()], init)
         } else {
             // Initialisation automatique basée sur l'activation
-            let hidden_inits: Vec<WeightInit> = hidden_activations.iter()
+            let hidden_inits: Vec<WeightInit> = hidden_activations
+                .iter()
                 .map(|&act| WeightInit::for_activation(act))
                 .collect();
             let output_init = WeightInit::for_activation(self.output_activation);
@@ -191,12 +196,16 @@ impl NetworkBuilder {
 /// ```
 pub struct TrainingBuilder<'a> {
     network: &'a mut Network,
-    train_data: Option<&'a Dataset>,
+    train_data: Option<&'a mut Dataset>,
     val_data: Option<&'a Dataset>,
     epochs: usize,
     batch_size: usize,
     callbacks: Vec<Box<dyn Callback>>,
     scheduler: Option<LearningRateScheduler>,
+    /// Compute device for training (CPU or GPU)
+    device: ComputeDevice,
+    /// Evaluate every N epochs (1 = every epoch, 5 = every 5 epochs, etc.)
+    eval_every: usize,
 }
 
 impl<'a> TrainingBuilder<'a> {
@@ -205,6 +214,8 @@ impl<'a> TrainingBuilder<'a> {
     /// Defaults:
     /// - epochs: 100
     /// - batch_size: 32
+    /// - device: CPU
+    /// - eval_every: 1 (evaluate every epoch)
     pub fn new(network: &'a mut Network) -> Self {
         Self {
             network,
@@ -214,11 +225,79 @@ impl<'a> TrainingBuilder<'a> {
             batch_size: 32,
             callbacks: Vec::new(),
             scheduler: None,
+            device: ComputeDevice::Cpu,
+            eval_every: 1,
         }
     }
 
+    /// Configures the compute device for training.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// use cma_neural_network::compute::ComputeDevice;
+    ///
+    /// network.trainer()
+    ///     .device(ComputeDevice::Cpu)
+    ///     .train_data(&dataset)
+    ///     .fit();
+    /// ```
+    pub fn device(mut self, device: ComputeDevice) -> Self {
+        self.device = device;
+        self
+    }
+
+    /// Configures training to use CPU (default).
+    ///
+    /// This is the default device and is always available.
+    pub fn cpu(mut self) -> Self {
+        self.device = ComputeDevice::Cpu;
+        self
+    }
+
+    /// Configures training to use GPU.
+    ///
+    /// **Note**: GPU support is planned but not yet implemented.
+    /// Calling `fit()` with GPU device will return an error.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // This will fail until GPU support is implemented
+    /// let result = network.trainer()
+    ///     .gpu()
+    ///     .train_data(&dataset)
+    ///     .try_fit();
+    /// assert!(result.is_err());
+    /// ```
+    pub fn gpu(mut self) -> Self {
+        self.device = ComputeDevice::Gpu;
+        self
+    }
+
+    /// Configures training to use parallel CPU processing with Rayon.
+    ///
+    /// This enables multi-threaded gradient computation across the batch,
+    /// which can significantly speed up training on multi-core CPUs.
+    ///
+    /// **Note**: Requires the "parallel" feature to be enabled.
+    /// NOT compatible with WebAssembly.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Enable in Cargo.toml: cma-neural-network = { features = ["parallel"] }
+    /// let history = network.trainer()
+    ///     .parallel()
+    ///     .train_data(&dataset)
+    ///     .epochs(100)
+    ///     .batch_size(64)
+    ///     .fit();
+    /// ```
+    pub fn parallel(mut self) -> Self {
+        self.device = ComputeDevice::CpuParallel;
+        self
+    }
+
     /// Configures the training data.
-    pub fn train_data(mut self, dataset: &'a Dataset) -> Self {
+    pub fn train_data(mut self, dataset: &'a mut Dataset) -> Self {
         self.train_data = Some(dataset);
         self
     }
@@ -241,6 +320,29 @@ impl<'a> TrainingBuilder<'a> {
         self
     }
 
+    /// Configures evaluation frequency.
+    ///
+    /// By default, the network is evaluated on train/validation sets every epoch.
+    /// For large datasets, this can be expensive. Use this to evaluate every N epochs.
+    ///
+    /// # Arguments
+    /// - `n`: Evaluate every N epochs (1 = every epoch, 5 = every 5 epochs, etc.)
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Evaluate only every 5 epochs (20% of the monitoring overhead)
+    /// network.trainer()
+    ///     .train_data(&dataset)
+    ///     .epochs(100)
+    ///     .eval_every(5)  // Evaluate at epochs 5, 10, 15, ..., 100
+    ///     .fit();
+    /// ```
+    pub fn eval_every(mut self, n: usize) -> Self {
+        assert!(n > 0, "eval_every must be at least 1");
+        self.eval_every = n;
+        self
+    }
+
     /// Adds a callback.
     pub fn callback(mut self, callback: Box<dyn Callback>) -> Self {
         self.callbacks.push(callback);
@@ -253,23 +355,46 @@ impl<'a> TrainingBuilder<'a> {
         self
     }
 
-    /// Starts training.
+    /// Starts training, returning an error if the device is not available.
+    ///
+    /// Use this method when using GPU to handle the case where GPU is not available.
+    ///
+    /// # Errors
+    /// Returns `ComputeDeviceError::GpuNotAvailable` if GPU device is selected but not available.
     ///
     /// # Panics
     /// Panics if train_data has not been configured.
-    pub fn fit(mut self) -> Vec<(f64, Option<f64>)> {
-        let train_dataset = self.train_data.expect("train_data must be set before calling fit()");
+    pub fn try_fit(mut self) -> Result<Vec<(f64, Option<f64>)>, ComputeDeviceError> {
+        // Validate device is available
+        self.device.validate()?;
+
+        let train_dataset = self
+            .train_data
+            .expect("train_data must be set before calling try_fit()");
 
         // Unified fit() call with optional scheduler
         let scheduler_ref = self.scheduler.as_mut();
-        self.network.fit(
+        Ok(self.network.fit(
             train_dataset,
             self.val_data,
             self.epochs,
             self.batch_size,
+            self.device,
             scheduler_ref,
             &mut self.callbacks,
-        )
+            self.eval_every,
+        ))
+    }
+
+    /// Starts training.
+    ///
+    /// # Panics
+    /// - Panics if train_data has not been configured.
+    /// - Panics if GPU device is selected (GPU not yet available).
+    ///   Use `try_fit()` to handle GPU errors gracefully.
+    pub fn fit(self) -> Vec<(f64, Option<f64>)> {
+        self.try_fit()
+            .expect("Compute device not available. Use try_fit() to handle errors gracefully.")
     }
 }
 

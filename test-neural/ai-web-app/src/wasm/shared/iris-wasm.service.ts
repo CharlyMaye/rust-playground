@@ -15,7 +15,7 @@ import init, {
   InitOutput as InitIraisOutput,
   IrisClassifier,
 } from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
-import { IrisTestResult, ModelInfo, NeuralNetworkLayers } from './model-info';
+import { ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
 
 /**
  * Service for loading and interacting with the Iris WASM neural network classifier.
@@ -107,7 +107,7 @@ export class IrisWasmService {
       return undefined;
     }
     const testResultsJson: string = network.test_all();
-    const testResults = JSON.parse(testResultsJson) as IrisTestResult[];
+    const testResults = JSON.parse(testResultsJson) as TestResult[];
     return testResults;
   });
 }

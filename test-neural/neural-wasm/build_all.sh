@@ -18,7 +18,7 @@ echo ""
 echo "✅ Shared library built"
 
 # Build each model
-MODELS=("xor" "iris")
+MODELS=("xor" "iris" "mnist")
 SUCCESS_COUNT=0
 FAIL_COUNT=0
 

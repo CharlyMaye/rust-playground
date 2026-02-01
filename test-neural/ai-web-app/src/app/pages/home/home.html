@@ -30,9 +30,9 @@
       <div class="demo-meta">
         <span class="badge badge-info">{{ irisArchitecture()?.[0] }} inputs</span>
         <span class="badge badge-info">{{ irisArchitecture()?.slice(-1)?.[0] }} classes</span>
-        <span class="badge badge-success" id="iris-accuracy"
-          >{{ irisModelInfo()?.accuracy | number: '1.1-1' }}%</span
-        >
+        <span class="badge badge-success" id="iris-accuracy">
+          {{ irisModelInfo()?.accuracy | number: '1.1-1' }}%
+        </span>
       </div>
     } @else {
       <app-loader id="loading" [message]="'Loading Neural Network...'" />
@@ -40,12 +40,38 @@
   </a>
 
   <!-- MNIST Demo (coming soon) -->
-  <a [routerLink]="['/mnist-digit']" class="demo-card disabled" aria-disabled="true" tabindex="-1">
-    <div class="demo-icon" aria-hidden="true">✍️</div>
-    <h3>MNIST Digits</h3>
-    <p>Handwritten digit recognition (coming soon)</p>
+  <a [routerLink]="['/mnist-digit']" class="demo-card">
+    @if (!mnistIsLoading()) {
+      <div class="demo-icon" aria-hidden="true">✍️</div>
+      <h3>{{ mnistModelInfo()?.name }}</h3>
+      <p>{{ mnistModelInfo()?.description }}</p>
+      <div class="demo-meta">
+        <span class="badge badge-info">{{ mnistArchitecture()?.[0] }} inputs</span>
+        <span class="badge badge-info">{{ mnistArchitecture()?.slice(-1)?.[0] }} classes</span>
+        <span class="badge badge-success" id="mnist-accuracy">
+          {{ mnistModelInfo()?.accuracy | number: '1.1-1' }}%
+        </span>
+      </div>
+    } @else {
+      <app-loader id="loading" [message]="'Loading Neural Network...'" />
+    }
+  </a>
+
+  <!-- coming soon -->
+  <a [routerLink]="['/coming-soon']" class="demo-card">
+    <div class="demo-icon" aria-hidden="true">⏰</div>
+    <h3>COMMING SOON</h3>
     <div class="demo-meta">
       <span class="badge badge-warning">Coming soon</span>
     </div>
   </a>
+
+  <!-- <a [routerLink]="['/coming-soon']" class="demo-card disabled" aria-disabled="true" tabindex="-1">
+    <div class="demo-icon" aria-hidden="true">⏰</div>
+    <h3>COMMING SOON</h3>
+    <p>(coming soon)</p>
+    <div class="demo-meta">
+      <span class="badge badge-warning">Coming soon</span>
+    </div>
+  </a> -->
 </div>
