@@ -21,6 +21,11 @@ export const routes: Routes = [
       import('./pages/iris-classifier').then((m) => m.getRoutes({ showBackButton: true })),
   },
   {
+    path: 'coming-soon',
+    loadChildren: () =>
+      import('./pages/coming-soon').then((m) => m.getRoutes({ showBackButton: true })),
+  },
+  {
     path: 'empty',
     loadChildren: () => import('./pages/empty').then((m) => m.getRoutes({ showBackButton: true })),
   },
