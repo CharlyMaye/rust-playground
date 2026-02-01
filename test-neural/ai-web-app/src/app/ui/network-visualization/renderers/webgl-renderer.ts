@@ -497,10 +497,6 @@ export class WebGLRenderer implements INetworkRenderer {
     gl.uniform1i(textureLoc, 0);
 
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
-
-    if (this.config.debug) {
-      console.log('[WebGL] Text composited as texture');
-    }
   }
 
   private renderDebugInfo(data: NetworkRenderData, viewport: Viewport): void {
