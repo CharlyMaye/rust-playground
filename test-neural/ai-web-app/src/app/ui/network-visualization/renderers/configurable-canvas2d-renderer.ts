@@ -406,6 +406,9 @@ export class ConfigurableCanvas2DRenderer implements INetworkRenderer {
   }
 
   resize(width: number, height: number): void {
+    // Update DPR in case of browser zoom
+    this.dpr = window.devicePixelRatio || 1;
+
     this.canvas.style.width = `${width}px`;
     this.canvas.style.height = `${height}px`;
     this.canvas.width = width * this.dpr;

@@ -810,6 +810,9 @@ export class ConfigurableWebGLRenderer implements INetworkRenderer {
   }
 
   resize(width: number, height: number): void {
+    // Update DPR in case of browser zoom
+    this.dpr = window.devicePixelRatio || 1;
+
     this.displayWidth = width;
     this.displayHeight = height;
     this.canvas.width = width * this.dpr;
