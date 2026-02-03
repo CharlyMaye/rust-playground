@@ -64,8 +64,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("🔧 Building network...\n");
 
     let mut network = NetworkBuilder::new(784, 10)
-        .hidden_layer(16, Activation::ReLU)
-        .hidden_layer(8, Activation::ReLU)
+        .hidden_layer(128, Activation::ReLU)
+        .hidden_layer(64, Activation::ReLU)
         .output_activation(Activation::Softmax)
         .loss(LossFunction::CategoricalCrossEntropy)
         .optimizer(OptimizerType::adam(0.001)) // Réduit de 0.01 à 0.001
@@ -89,7 +89,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .epochs(epochs)
         .batch_size(1536) // 12 cors => 128samples/core if parallel
         .callback(Box::new(
-            EarlyStopping::new(100, 0.001).mode(DeltaMode::Relative),
+            EarlyStopping::new(100, 0.005).mode(DeltaMode::Relative),
         ))
         .callback(Box::new(ProgressBar::new(epochs)))
         .fit();
