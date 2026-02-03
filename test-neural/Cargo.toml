@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "cma-neural-network",
+    "cma-cnn",
+    "cma-models",
     "neural-wasm/shared",
     "neural-wasm/xor",
     "neural-wasm/mnist",
