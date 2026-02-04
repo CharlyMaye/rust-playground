@@ -88,11 +88,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     cnn.summary(input_shape);
     println!("\n   Flattened output size: {}", flat_size);
 
+    // Build FC classifier - Higher LR for random CNN features
     let mut classifier = NetworkBuilder::new(flat_size, 10)
+        .hidden_layer(256, Activation::ReLU)
         .hidden_layer(128, Activation::ReLU)
         .output_activation(Activation::Softmax)
         .loss(LossFunction::CategoricalCrossEntropy)
-        .optimizer(OptimizerType::adam(0.001))
+        .optimizer(OptimizerType::adam(0.01)) // Higher LR
+        .dropout(0.4)
         .build();
 
     println!("   FC Classifier: {} → 128 → 10", flat_size);
@@ -114,22 +117,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut train_fc = Dataset::new(train_features, train.targets().to_vec());
     let val_fc = Dataset::new(val_features, val.targets().to_vec());
 
-    let epochs = 300;
+    let epochs = 500;
     let history = classifier
         .trainer()
         .parallel() // Enable multi-threaded training
         .train_data(&mut train_fc)
         .validation_data(&val_fc)
         .epochs(epochs)
-        .batch_size(128)
-        .max_grad_norm(5.0) // Prevent gradient explosion
+        .batch_size(64) // Smaller batch
+        .max_grad_norm(1.0)
         .scheduler(LearningRateScheduler::new(LRSchedule::ReduceOnPlateau {
-            patience: 10,
+            patience: 25,
             factor: 0.5,
-            min_delta: 0.0001,
+            min_delta: 0.001,
         }))
         .callback(Box::new(
-            EarlyStopping::new(30, 0.001).mode(DeltaMode::Relative),
+            EarlyStopping::new(50, 0.005).mode(DeltaMode::Relative),
         ))
         .callback(Box::new(ProgressBar::new(epochs)))
         .fit();

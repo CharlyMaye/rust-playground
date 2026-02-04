@@ -69,12 +69,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let flat_size = resnet.output_features();
 
-    // FC classifier
+    // FC classifier - Higher LR because features are from random CNN
     let mut classifier = NetworkBuilder::new(flat_size, 10)
-        .hidden_layer(64, Activation::ReLU)
+        .hidden_layer(128, Activation::ReLU)  // Larger hidden layer
+        .hidden_layer(64, Activation::ReLU)   // Additional layer
         .output_activation(Activation::Softmax)
         .loss(LossFunction::CategoricalCrossEntropy)
-        .optimizer(OptimizerType::adam(0.001))
+        .optimizer(OptimizerType::adam(0.01))  // Higher LR for feature learning
+        .dropout(0.3)  // Regularization
         .build();
 
     println!("\n   FC Classifier: {} → 64 → 10", flat_size);
@@ -96,24 +98,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut train_fc = Dataset::new(train_features, train.targets().to_vec());
     let val_fc = Dataset::new(val_features, val.targets().to_vec());
 
-    let epochs = 300;
+    let epochs = 500;
     let history = classifier
         .trainer()
         .parallel() // Enable multi-threaded training
         .train_data(&mut train_fc)
         .validation_data(&val_fc)
         .epochs(epochs)
-        .batch_size(128)
-        .max_grad_norm(5.0) // Prevent gradient explosion
+        .batch_size(64)  // Smaller batch for better gradient estimates
+        .max_grad_norm(1.0) // Tighter gradient clipping
         .scheduler(LearningRateScheduler::new(
             LRSchedule::ReduceOnPlateau {
-                patience: 10,
+                patience: 25,   // Wait longer before reducing LR
                 factor: 0.5,
-                min_delta: 0.0001,
+                min_delta: 0.001,  // Larger threshold for improvement
             },
         ))
         .callback(Box::new(
-            EarlyStopping::new(30, 0.001).mode(DeltaMode::Relative),
+            EarlyStopping::new(50, 0.005).mode(DeltaMode::Relative),  // More patience
         ))
         .callback(Box::new(ProgressBar::new(epochs)))
         .fit();

@@ -8,7 +8,7 @@ echo "🔧 Building ResNet MNIST WASM..."
 # First train the model if needed
 if [ ! -f "src/resnet_model.bin" ]; then
     echo "📦 Training ResNet model first..."
-    cargo run --bin train_resnet --release --features training
+    cargo run --bin train_resnet --release --features training 2>&1 | tee src/training.log
 fi
 
 # Build WASM

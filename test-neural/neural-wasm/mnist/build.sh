@@ -23,7 +23,7 @@ else
     echo ""
     
     # Build and run the training script with training feature (includes parallel)
-    cargo run --bin train_mnist --release --features training
+    cargo run --bin train_mnist --release --features training 2>&1 | tee src/training.log
     
     if [ -f "$MODEL_BIN_PATH" ]; then
         echo "   ✅ Model trained and saved successfully!"
