@@ -9,7 +9,7 @@
 //! - **H**: Height (hauteur en pixels)
 //! - **W**: Width (largeur en pixels)
 
-use ndarray::{Array2, Array4, Axis, s};
+use ndarray::{Array2, Array4, s};
 use serde::{Deserialize, Serialize};
 
 /// Shape d'un tenseur 4D
@@ -147,14 +147,13 @@ impl Tensor4D {
         let shape = self.shape();
         let flat_size = shape.channels * shape.height * shape.width;
 
-        // Reshape chaque image du batch en vecteur
+        // Reshape chaque image du batch en vecteur - optimisé sans allocation intermédiaire
         let mut result = Array2::zeros((shape.batch, flat_size));
         for b in 0..shape.batch {
             let image = self.data.slice(s![b, .., .., ..]);
-            // Flatten en row-major (C-order)
-            let flat: Vec<f64> = image.iter().cloned().collect();
-            for (i, val) in flat.iter().enumerate() {
-                result[[b, i]] = *val;
+            // Itère directement sans Vec intermédiaire
+            for (i, &val) in image.iter().enumerate() {
+                result[[b, i]] = val;
             }
         }
         result
@@ -206,7 +205,6 @@ impl Tensor4D {
 
     /// Extrait une image du batch
     pub fn get_image(&self, batch_idx: usize) -> Array4<f64> {
-        let shape = self.shape();
         let image = self.data.slice(s![batch_idx..batch_idx + 1, .., .., ..]);
         image.to_owned()
     }

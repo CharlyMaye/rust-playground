@@ -50,7 +50,7 @@ pub use layers::{
     ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Dropout2D, Flatten, GlobalAvgPool2D, Layer,
     LayerType, MaxPool2D,
 };
-pub use ops::{Padding, col2im, im2col};
+pub use ops::{Padding, col2im, conv2d_im2col, im2col, im2col_single};
 pub use sequential::Sequential;
 pub use tensor::{Tensor4D, TensorShape};
 

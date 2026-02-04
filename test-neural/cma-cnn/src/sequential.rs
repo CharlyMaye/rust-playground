@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::layers::{
     ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Dropout2D, Flatten, GlobalAvgPool2D, Layer,
-    LayerType, MaxPool2D,
+    MaxPool2D,
 };
 use crate::tensor::{Tensor4D, TensorShape};
 
@@ -174,9 +174,14 @@ impl Sequential {
             .add_activation(ActivationLayer::relu())
     }
 
-    /// Propagation avant
+    /// Propagation avant (version avec référence, clone nécessaire)
     pub fn forward(&self, input: &Tensor4D) -> Tensor4D {
-        let mut x = input.clone();
+        self.forward_owned(input.clone())
+    }
+
+    /// Propagation avant optimisée (prend ownership, évite le clone)
+    pub fn forward_owned(&self, input: Tensor4D) -> Tensor4D {
+        let mut x = input;
         for layer in &self.layers {
             x = layer.as_layer().forward(&x);
         }

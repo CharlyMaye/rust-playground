@@ -7,6 +7,11 @@
 use ndarray::{Array2, Array4};
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "parallel")]
+use ndarray::Axis;
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use crate::tensor::{Tensor4D, TensorShape};
 
 /// Mode de padding pour les convolutions
@@ -53,10 +58,17 @@ impl Padding {
 /// * `kernel_size` - Taille du kernel (carré)
 /// * `stride` - Pas de déplacement
 /// * `padding` - Padding (zéros autour)
+/// * `batch_idx` - Index du batch à traiter
 ///
 /// # Returns
-/// Matrice [batch, kernel_size² × channels, out_height × out_width]
-pub fn im2col(input: &Tensor4D, kernel_size: usize, stride: usize, padding: usize) -> Array2<f64> {
+/// Matrice [kernel_size² × channels, out_height × out_width]
+pub fn im2col_single(
+    input: &Tensor4D,
+    kernel_size: usize,
+    stride: usize,
+    padding: usize,
+    batch_idx: usize,
+) -> Array2<f64> {
     let shape = input.shape();
     let data = input.data();
 
@@ -69,46 +81,54 @@ pub fn im2col(input: &Tensor4D, kernel_size: usize, stride: usize, padding: usiz
     // Nombre de colonnes = positions spatiales
     let num_cols = out_h * out_w;
 
-    // Pour simplifier, on traite batch_size = 1 pour l'instant
-    // TODO: Support multi-batch
     let mut cols = Array2::zeros((col_size, num_cols));
+    let mut col_idx = 0;
 
-    for b in 0..shape.batch.min(1) {
-        // Premier élément du batch
-        let mut col_idx = 0;
+    for oh in 0..out_h {
+        for ow in 0..out_w {
+            let mut row_idx = 0;
 
-        for oh in 0..out_h {
-            for ow in 0..out_w {
-                let mut row_idx = 0;
+            for c in 0..shape.channels {
+                for kh in 0..kernel_size {
+                    for kw in 0..kernel_size {
+                        let ih = oh * stride + kh;
+                        let iw = ow * stride + kw;
 
-                for c in 0..shape.channels {
-                    for kh in 0..kernel_size {
-                        for kw in 0..kernel_size {
-                            let ih = oh * stride + kh;
-                            let iw = ow * stride + kw;
+                        // Gestion du padding
+                        let val = if ih >= padding
+                            && ih < shape.height + padding
+                            && iw >= padding
+                            && iw < shape.width + padding
+                        {
+                            data[[batch_idx, c, ih - padding, iw - padding]]
+                        } else {
+                            0.0 // Zero-padding
+                        };
 
-                            // Gestion du padding
-                            let val = if ih >= padding
-                                && ih < shape.height + padding
-                                && iw >= padding
-                                && iw < shape.width + padding
-                            {
-                                data[[b, c, ih - padding, iw - padding]]
-                            } else {
-                                0.0 // Zero-padding
-                            };
-
-                            cols[[row_idx, col_idx]] = val;
-                            row_idx += 1;
-                        }
+                        cols[[row_idx, col_idx]] = val;
+                        row_idx += 1;
                     }
                 }
-                col_idx += 1;
             }
+            col_idx += 1;
         }
     }
 
     cols
+}
+
+/// Im2Col pour tout le batch (retourne Vec de matrices pour chaque image)
+#[allow(dead_code)]
+pub fn im2col(
+    input: &Tensor4D,
+    kernel_size: usize,
+    stride: usize,
+    padding: usize,
+) -> Vec<Array2<f64>> {
+    let shape = input.shape();
+    (0..shape.batch)
+        .map(|b| im2col_single(input, kernel_size, stride, padding, b))
+        .collect()
 }
 
 /// Col2Im: Inverse de im2col, utilisé pour le backward pass
@@ -183,10 +203,13 @@ pub fn col2im(
     }
 }
 
-/// Convolution 2D naïve (pour référence et tests)
+/// Convolution 2D naïve (implémentation de référence pour les tests)
 ///
-/// Implémentation directe avec boucles nested.
-/// Plus lente que im2col mais plus lisible.
+/// Implémentation directe avec boucles imbriquées - O(B × Co × Ci × H × W × K²).
+/// Utilisée uniquement pour valider que `conv2d_im2col` donne les mêmes résultats.
+///
+/// **Note**: Ne pas utiliser en production, préférer `conv2d_im2col`.
+#[cfg(test)]
 pub fn conv2d_naive(
     input: &Tensor4D,
     weights: &Array4<f64>, // [out_channels, in_channels, kH, kW]
@@ -240,6 +263,135 @@ pub fn conv2d_naive(
             }
         }
     }
+
+    Tensor4D::from_array(output)
+}
+
+/// Convolution 2D optimisée avec im2col + multiplication matricielle (GEMM)
+///
+/// Cette implémentation est ~10-100x plus rapide que conv2d_naive car elle
+/// transforme la convolution en une seule multiplication matricielle.
+///
+/// # Principe
+/// 1. Transforme l'input en colonnes avec im2col: [K²×C, H'×W']
+/// 2. Reshape les poids en matrice: [Out_C, K²×C]  
+/// 3. Multiplie: Output = Weights × Im2Col(Input)
+/// 4. Reshape le résultat en [Batch, Out_C, H', W']
+pub fn conv2d_im2col(
+    input: &Tensor4D,
+    weights: &Array4<f64>, // [out_channels, in_channels, kH, kW]
+    bias: Option<&ndarray::Array1<f64>>,
+    stride: usize,
+    padding: usize,
+) -> Tensor4D {
+    #[cfg(feature = "parallel")]
+    return conv2d_im2col_parallel(input, weights, bias, stride, padding);
+
+    #[cfg(not(feature = "parallel"))]
+    conv2d_im2col_sequential(input, weights, bias, stride, padding)
+}
+
+/// Version séquentielle de conv2d_im2col
+#[allow(dead_code)]
+fn conv2d_im2col_sequential(
+    input: &Tensor4D,
+    weights: &Array4<f64>,
+    bias: Option<&ndarray::Array1<f64>>,
+    stride: usize,
+    padding: usize,
+) -> Tensor4D {
+    let in_shape = input.shape();
+    let out_channels = weights.dim().0;
+    let in_channels = weights.dim().1;
+    let kernel_h = weights.dim().2;
+    let kernel_w = weights.dim().3;
+
+    let out_h = (in_shape.height + 2 * padding - kernel_h) / stride + 1;
+    let out_w = (in_shape.width + 2 * padding - kernel_w) / stride + 1;
+
+    // Reshape weights: [out_channels, in_channels, kH, kW] → [out_channels, in_channels * kH * kW]
+    let weight_rows = out_channels;
+    let weight_cols = in_channels * kernel_h * kernel_w;
+    let weights_2d = weights
+        .view()
+        .into_shape_with_order((weight_rows, weight_cols))
+        .expect("Failed to reshape weights");
+
+    let mut output = Array4::zeros((in_shape.batch, out_channels, out_h, out_w));
+
+    // Traiter chaque image du batch
+    for b in 0..in_shape.batch {
+        // Im2col pour cette image: [K²×C, H'×W']
+        let cols = im2col_single(input, kernel_h, stride, padding, b);
+
+        // GEMM: [out_channels, K²×C] × [K²×C, H'×W'] = [out_channels, H'×W']
+        let conv_result = weights_2d.dot(&cols);
+
+        // Reshape et copie dans output
+        for oc in 0..out_channels {
+            let bias_val = bias.map_or(0.0, |b| b[oc]);
+            for oh in 0..out_h {
+                for ow in 0..out_w {
+                    output[[b, oc, oh, ow]] = conv_result[[oc, oh * out_w + ow]] + bias_val;
+                }
+            }
+        }
+    }
+
+    Tensor4D::from_array(output)
+}
+
+/// Version parallélisée de conv2d_im2col avec Rayon
+#[cfg(feature = "parallel")]
+fn conv2d_im2col_parallel(
+    input: &Tensor4D,
+    weights: &Array4<f64>,
+    bias: Option<&ndarray::Array1<f64>>,
+    stride: usize,
+    padding: usize,
+) -> Tensor4D {
+    let in_shape = input.shape();
+    let out_channels = weights.dim().0;
+    let in_channels = weights.dim().1;
+    let kernel_h = weights.dim().2;
+    let kernel_w = weights.dim().3;
+
+    let out_h = (in_shape.height + 2 * padding - kernel_h) / stride + 1;
+    let out_w = (in_shape.width + 2 * padding - kernel_w) / stride + 1;
+
+    // Reshape weights
+    let weight_rows = out_channels;
+    let weight_cols = in_channels * kernel_h * kernel_w;
+    let weights_2d = weights
+        .view()
+        .into_shape_with_order((weight_rows, weight_cols))
+        .expect("Failed to reshape weights");
+
+    // Traiter chaque image du batch en parallèle
+    let batch_results: Vec<Array4<f64>> = (0..in_shape.batch)
+        .into_par_iter()
+        .map(|b| {
+            let cols = im2col_single(input, kernel_h, stride, padding, b);
+            let conv_result = weights_2d.dot(&cols);
+
+            let mut batch_output = Array4::zeros((1, out_channels, out_h, out_w));
+            for oc in 0..out_channels {
+                let bias_val = bias.map_or(0.0, |bias_arr| bias_arr[oc]);
+                for oh in 0..out_h {
+                    for ow in 0..out_w {
+                        batch_output[[0, oc, oh, ow]] =
+                            conv_result[[oc, oh * out_w + ow]] + bias_val;
+                    }
+                }
+            }
+            batch_output
+        })
+        .collect();
+
+    // Concaténer les résultats
+    let views: Vec<_> = batch_results.iter().map(|a| a.view()).collect();
+    let output =
+        ndarray::concatenate(Axis(0), &views).expect("Failed to concatenate batch results");
 
     Tensor4D::from_array(output)
 }
