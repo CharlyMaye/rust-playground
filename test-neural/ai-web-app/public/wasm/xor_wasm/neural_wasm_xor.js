@@ -33,6 +33,22 @@ export class XorNetwork {
         }
     }
     /**
+     * Get architecture summary
+     * @returns {string}
+     */
+    get_architecture() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.xornetwork_get_architecture(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
      * Get class names
      * @returns {string}
      */

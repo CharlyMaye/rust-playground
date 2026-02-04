@@ -15,14 +15,14 @@ export class MnistLeNetNetwork {
         wasm.__wbg_mnistlenetnetwork_free(ptr, 0);
     }
     /**
-     * Get class names (digits 0-9)
+     * Get architecture summary
      * @returns {string}
      */
-    get_class_names() {
+    get_architecture() {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.mnistlenetnetwork_get_class_names(this.__wbg_ptr);
+            const ret = wasm.mnistlenetnetwork_get_architecture(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -31,14 +31,14 @@ export class MnistLeNetNetwork {
         }
     }
     /**
-     * Get CNN architecture summary
+     * Get class names (digits 0-9)
      * @returns {string}
      */
-    get_cnn_summary() {
+    get_class_names() {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.mnistlenetnetwork_get_cnn_summary(this.__wbg_ptr);
+            const ret = wasm.mnistlenetnetwork_get_class_names(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);

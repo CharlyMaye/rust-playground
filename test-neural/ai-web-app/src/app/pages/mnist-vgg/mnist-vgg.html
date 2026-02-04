@@ -1,0 +1,53 @@
+@if (hasError()) {
+  <div class="card error-card">
+    <div class="card-header">
+      <h2 class="card-title">⚠️ VGG-Tiny Model Not Ready</h2>
+    </div>
+    <div class="error-content">
+      <p>The VGG-Tiny model has not been trained yet.</p>
+      <p>
+        Run training with:
+        <code
+          >cd neural-wasm/mnist-vgg && cargo run --bin train_vgg --features training --release</code
+        >
+      </p>
+    </div>
+  </div>
+} @else if (isLoading()) {
+  <app-loader id="loading" [message]="'Loading VGG-Tiny CNN...'" />
+} @else {
+  <!-- Interactive Predictor -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">📚 VGG-Tiny CNN - Draw a Digit (0-9)</h2>
+      <p class="card-subtitle">
+        This uses a VGG-style CNN (Simonyan & Zisserman, 2014) with stacked 3×3 convolutions to
+        recognize handwritten digits
+      </p>
+    </div>
+
+    <div class="predictor-container">
+      <app-canvas-draw
+        [gridSize]="{ rows: 28, cols: 28 }"
+        (dataChanged)="onDrawingChanged($event)"
+      />
+
+      <div class="prediction-result">
+        <div class="prediction-value">{{ predictionDisplay() }}</div>
+        <div class="prediction-confidence">{{ confidenceDisplay() }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CNN Architecture -->
+  <div class="card cnn-card">
+    <div class="card-header">
+      <h2 class="card-title">CNN Architecture (VGG-Tiny)</h2>
+      <p class="card-subtitle">Stacked 3×3 convolutions for deep feature extraction</p>
+    </div>
+    <pre class="cnn-summary">{{ architectureSummaryDisplay() }}</pre>
+  </div>
+
+  <!-- Model Info -->
+  <app-model-info [modelInfo]="modelInfo()" />
+}

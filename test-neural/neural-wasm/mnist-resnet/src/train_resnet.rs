@@ -1,15 +1,19 @@
-//! ResNet-Micro CNN Training for MNIST
+//! ResNet-MNIST CNN Training
 //!
-//! Minimal ResNet (He et al., 2015) for MNIST - very fast version.
-//! Uses only 1 conv layer + 1 residual block to keep training fast.
+//! Proper ResNet (He et al., 2015) with residual blocks for MNIST.
+//! Uses ResNetBuilder from cma_models for flexible architecture configuration.
 //!
-//! Architecture:
-//! - Input: 28x28x1
-//! - Conv 1→16, 3x3 + ReLU + MaxPool → 14x14x16
-//! - Flatten → 3136
-//! - FC: 3136 → 64 → 10
+//! Architecture (via ResNetBuilder::mnist()):
+//! - Input: 28x28x1 (grayscale)
+//! - Stem: Conv 1→16, 3x3 → 28x28x16
+//! - Stage 1: 2× BasicBlock(16→16) → 28x28x16
+//! - Stage 2: 2× BasicBlock(16→32, stride=2) → 14x14x32
+//! - Stage 3: 2× BasicBlock(32→64, stride=2) → 7x7x64
+//! - Global Average Pooling → 64
+//! - FC: 64 → 10
 
-use cma_cnn::{ActivationLayer, Conv2D, Layer, MaxPool2D, Sequential, Tensor4D, TensorShape};
+use cma_cnn::Tensor4D;
+use cma_models::resnet::{ResNet, ResNetBuilder};
 use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
 use cma_neural_network::callbacks::{DeltaMode, EarlyStopping, ProgressBar};
 use cma_neural_network::dataset::Dataset;
@@ -21,7 +25,7 @@ use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║     ResNet-Micro CNN for MNIST (He et al., 2015 style)       ║");
+    println!("║       ResNet-MNIST CNN (He et al., 2015) with Skip Conn      ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
     let model_path = "src/resnet_model.bin";
@@ -44,34 +48,27 @@ fn main() -> Result<(), Box<dyn Error>> {
     let targets: Vec<Array1<f64>> = mnist_data.iter().map(|(_, t)| t.clone()).collect();
 
     let (inputs, norm_stats) = normalize_features_with_stats(&inputs);
-    println!("   ✅ Features normalized");
+    println!("   ✅ Features normalized (z-score)");
 
     let mut dataset = Dataset::new(inputs, targets);
     dataset.shuffle();
+    println!("   ✅ Dataset shuffled");
 
     let (train, val) = dataset.split(0.8);
     println!("   Training: {} | Validation: {}\n", train.len(), val.len());
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 2. BUILD ResNet-Micro CNN (minimal for speed)
+    // 2. BUILD ResNet using cma_models::ResNetBuilder
     // ═══════════════════════════════════════════════════════════════════════
-    println!("🔧 Building ResNet-Micro CNN...\n");
+    println!("🔧 Building ResNet-MNIST using ResNetBuilder...\n");
 
-    // Very simple: 1 conv + pool → flatten
-    let cnn = Sequential::named("ResNet-Micro")
-        .add_conv2d(Conv2D::new(1, 16, 3, 1, 1)) // 28x28x16
-        .add_activation(ActivationLayer::relu())
-        .add_maxpool(MaxPool2D::new(2, 2)) // 14x14x16
-        .add_flatten();
+    // Use the library's builder with MNIST preset
+    let resnet = ResNetBuilder::mnist().build();
+    resnet.summary();
 
-    let input_shape = TensorShape::new(1, 1, 28, 28);
-    let output_shape = cnn.output_shape(input_shape);
-    let flat_size = output_shape.width;
+    let flat_size = resnet.output_features();
 
-    println!("   CNN Architecture:");
-    cnn.summary(input_shape);
-    println!("\n   Flattened output size: {}", flat_size);
-
+    // FC classifier
     let mut classifier = NetworkBuilder::new(flat_size, 10)
         .hidden_layer(64, Activation::ReLU)
         .output_activation(Activation::Softmax)
@@ -79,33 +76,47 @@ fn main() -> Result<(), Box<dyn Error>> {
         .optimizer(OptimizerType::adam(0.001))
         .build();
 
-    println!("   FC Classifier: {} → 64 → 10", flat_size);
+    println!("\n   FC Classifier: {} → 64 → 10", flat_size);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 3. TRAIN
+    // 3. TRAIN (CNN features are fixed, only FC is trained)
     // ═══════════════════════════════════════════════════════════════════════
-    println!("\n🏋️  Training...\n");
+    println!("\n🏋️  Training (ResNet forward + FC backprop)...\n");
 
-    println!("   📊 Extracting CNN features...");
-    let train_features = extract_cnn_features(&cnn, train.inputs());
-    let val_features = extract_cnn_features(&cnn, val.inputs());
-    println!("   ✅ Features extracted");
+    println!("   📊 Extracting ResNet features...");
+    let train_features = extract_resnet_features(&resnet, train.inputs());
+    let val_features = extract_resnet_features(&resnet, val.inputs());
+    println!(
+        "   ✅ Features extracted: {} training, {} validation",
+        train_features.len(),
+        val_features.len()
+    );
 
     let mut train_fc = Dataset::new(train_features, train.targets().to_vec());
     let val_fc = Dataset::new(val_features, val.targets().to_vec());
 
-    let epochs = 200;
+    let epochs = 300;
     let history = classifier
         .trainer()
         .train_data(&mut train_fc)
         .validation_data(&val_fc)
         .epochs(epochs)
         .batch_size(128)
-        .callback(Box::new(EarlyStopping::new(20, 0.001).mode(DeltaMode::Relative)))
+        .callback(Box::new(
+            EarlyStopping::new(30, 0.001).mode(DeltaMode::Relative),
+        ))
         .callback(Box::new(ProgressBar::new(epochs)))
         .fit();
 
     println!("\n   ✅ Training completed in {} epochs", history.len());
+
+    if let Some((train_loss, val_loss)) = history.last() {
+        println!(
+            "   Final loss - Train: {:.6} | Val: {:.6}",
+            train_loss,
+            val_loss.unwrap_or(0.0)
+        );
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // 4. EVALUATE
@@ -119,18 +130,36 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     for i in 0..total {
         let output = classifier.predict(&val_fc.inputs()[i]);
-        let predicted = output.iter().enumerate()
+        let predicted = output
+            .iter()
+            .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(idx, _)| idx).unwrap();
-        let expected = val_fc.targets()[i].iter().enumerate()
+            .map(|(idx, _)| idx)
+            .unwrap();
+
+        let expected = val_fc.targets()[i]
+            .iter()
+            .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
-            .map(|(idx, _)| idx).unwrap();
-        if predicted == expected { correct += 1; }
+            .map(|(idx, _)| idx)
+            .unwrap();
+
+        if predicted == expected {
+            correct += 1;
+        }
     }
 
     let acc = correct as f64 / total as f64;
 
-    println!("   ResNet-Micro MNIST: {}/{} ({:.2}%)", correct, total, acc * 100.0);
+    println!("   ResNet-MNIST Classification Results:");
+    println!("   ┌─────────────────────────────────────┐");
+    println!(
+        "   │  Correct: {}/{} ({:.2}%)      │",
+        correct,
+        total,
+        acc * 100.0
+    );
+    println!("   └─────────────────────────────────────┘");
 
     // ═══════════════════════════════════════════════════════════════════════
     // 5. SAVE MODEL
@@ -140,8 +169,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     match save_model_binary(classifier, acc, total, Some(norm_stats), model_path) {
         Ok(_) => {
             println!("   ✅ Model saved to {}", model_path);
+            println!("   📊 Accuracy: {:.2}%", acc * 100.0);
             println!("\n╔══════════════════════════════════════════════════════════════╗");
-            println!("║           ResNet-Micro Training Complete! 🎉                 ║");
+            println!("║              ResNet-MNIST Training Complete! 🎉              ║");
             println!("╚══════════════════════════════════════════════════════════════╝");
         }
         Err(e) => {
@@ -153,14 +183,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn extract_cnn_features(cnn: &Sequential, inputs: &[Array1<f64>]) -> Vec<Array1<f64>> {
-    inputs.iter().map(|flat_input| {
-        let pixels: Vec<f64> = flat_input.to_vec();
-        let tensor = Tensor4D::from_array(
-            ndarray::Array4::from_shape_vec((1, 1, 28, 28), pixels).expect("reshape failed"),
-        );
-        let features = cnn.forward(&tensor);
-        let flat = features.flatten();
-        Array1::from_vec(flat.row(0).to_vec())
-    }).collect()
+/// Extract ResNet features for all samples
+fn extract_resnet_features(resnet: &ResNet, inputs: &[Array1<f64>]) -> Vec<Array1<f64>> {
+    inputs
+        .iter()
+        .map(|flat_input| {
+            // Reshape flat 784 → [1, 1, 28, 28]
+            let pixels: Vec<f64> = flat_input.to_vec();
+            let tensor = Tensor4D::from_array(
+                ndarray::Array4::from_shape_vec((1, 1, 28, 28), pixels)
+                    .expect("Failed to reshape input"),
+            );
+
+            // Forward through ResNet (returns flattened 64-dim vector)
+            let features = resnet.forward(&tensor);
+
+            // Flatten to Array1
+            let flat = features.flatten();
+            Array1::from_vec(flat.row(0).to_vec())
+        })
+        .collect()
 }

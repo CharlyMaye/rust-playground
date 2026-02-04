@@ -75,7 +75,7 @@
     }
   </a>
 
-  <!-- ResNet-Micro CNN Demo -->
+  <!-- ResNet CNN Demo -->
   <a [routerLink]="['/mnist-resnet']" class="demo-card">
     @if (!mnistResNetIsLoading()) {
       <div class="demo-icon" aria-hidden="true">🔗</div>
@@ -89,7 +89,53 @@
         </span>
       </div>
     } @else {
-      <app-loader id="loading" [message]="'Loading ResNet-Micro CNN...'" />
+      <app-loader id="loading" [message]="'Loading ResNet CNN...'" />
+    }
+  </a>
+
+  <!-- AlexNet-Mini CNN Demo -->
+  <a [routerLink]="['/mnist-alexnet']" class="demo-card">
+    @if (!mnistAlexNetIsLoading()) {
+      <div class="demo-icon" aria-hidden="true">🔥</div>
+      <h3>{{ mnistAlexNetModelInfo()?.name ?? 'AlexNet-Mini' }}</h3>
+      <p>
+        {{ mnistAlexNetModelInfo()?.description ?? 'AlexNet-style CNN (Krizhevsky et al., 2012)' }}
+      </p>
+      <div class="demo-meta">
+        <span class="badge badge-info">28×28 image</span>
+        <span class="badge badge-info">10 classes</span>
+        @if (mnistAlexNetModelInfo()?.accuracy) {
+          <span class="badge badge-success" id="mnist-alexnet-accuracy">
+            {{ mnistAlexNetModelInfo()?.accuracy | number: '1.1-1' }}%
+          </span>
+        } @else {
+          <span class="badge badge-warning">Not trained</span>
+        }
+      </div>
+    } @else {
+      <app-loader id="loading" [message]="'Loading AlexNet-Mini CNN...'" />
+    }
+  </a>
+
+  <!-- VGG-Tiny CNN Demo -->
+  <a [routerLink]="['/mnist-vgg']" class="demo-card">
+    @if (!mnistVggIsLoading()) {
+      <div class="demo-icon" aria-hidden="true">📚</div>
+      <h3>{{ mnistVggModelInfo()?.name ?? 'VGG-Tiny' }}</h3>
+      <p>{{ mnistVggModelInfo()?.description ?? 'VGG-style CNN (Simonyan & Zisserman, 2014)' }}</p>
+      <div class="demo-meta">
+        <span class="badge badge-info">28×28 image</span>
+        <span class="badge badge-info">10 classes</span>
+        @if (mnistVggModelInfo()?.accuracy) {
+          <span class="badge badge-success" id="mnist-vgg-accuracy">
+            {{ mnistVggModelInfo()?.accuracy | number: '1.1-1' }}%
+          </span>
+        } @else {
+          <span class="badge badge-warning">Not trained</span>
+        }
+      </div>
+    } @else {
+      <app-loader id="loading" [message]="'Loading VGG-Tiny CNN...'" />
     }
   </a>
 

@@ -8,6 +8,10 @@ export class IrisClassifier {
      * Get layer-by-layer activations for visualization
      */
     get_activations(sepal_length: number, sepal_width: number, petal_length: number, petal_width: number): string;
+    /**
+     * Get architecture summary
+     */
+    get_architecture(): string;
     get_class_names(): string;
     /**
      * Get class probabilities for a prediction
@@ -33,6 +37,7 @@ export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_irisclassifier_free: (a: number, b: number) => void;
     readonly irisclassifier_get_activations: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+    readonly irisclassifier_get_architecture: (a: number) => [number, number];
     readonly irisclassifier_get_class_names: (a: number) => [number, number];
     readonly irisclassifier_get_probabilities: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly irisclassifier_get_weights: (a: number) => [number, number];

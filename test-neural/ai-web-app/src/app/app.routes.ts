@@ -26,6 +26,16 @@ export const routes: Routes = [
       import('./pages/mnist-resnet').then((m) => m.getRoutes({ showBackButton: true })),
   },
   {
+    path: 'mnist-alexnet',
+    loadChildren: () =>
+      import('./pages/mnist-alexnet').then((m) => m.getRoutes({ showBackButton: true })),
+  },
+  {
+    path: 'mnist-vgg',
+    loadChildren: () =>
+      import('./pages/mnist-vgg').then((m) => m.getRoutes({ showBackButton: true })),
+  },
+  {
     path: 'iris-classifier',
     loadChildren: () =>
       import('./pages/iris-classifier').then((m) => m.getRoutes({ showBackButton: true })),

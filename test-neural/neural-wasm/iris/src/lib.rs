@@ -2,7 +2,8 @@ use cma_neural_network::network::Network;
 use ndarray::array;
 use neural_wasm_shared::{
     build_prediction_result, build_test_result, load_model_from_bytes, ActivationsResponse,
-    LayerActivation, LayerInfo, ModelInfo, NormalizationStats, TestResult, WeightsInfo,
+    ArchitectureSummary, LayerActivation, LayerInfo, LayerSummary, ModelInfo, NormalizationStats,
+    TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
 
@@ -190,6 +191,33 @@ impl IrisClassifier {
 
         serde_json::to_string(&response)
             .unwrap_or_else(|_| r#"{"inputs":[],"layers":[],"output":[]}"#.to_string())
+    }
+
+    /// Get architecture summary
+    #[wasm_bindgen]
+    pub fn get_architecture(&self) -> String {
+        let layers_info = self.network.get_layers_info();
+        let layers: Vec<LayerSummary> = layers_info
+            .iter()
+            .enumerate()
+            .map(|(i, (weights, _, activation))| LayerSummary {
+                name: format!("FC{}", i + 1),
+                config: format!("{}→{} ({})", weights.ncols(), weights.nrows(), activation),
+            })
+            .collect();
+
+        let num_params: usize = layers_info.iter().map(|(w, b, _)| w.len() + b.len()).sum();
+
+        let summary = ArchitectureSummary {
+            name: "Iris Classifier".to_string(),
+            model_type: "fc".to_string(),
+            input_shape: vec![4],
+            output_features: 3,
+            num_parameters: num_params,
+            layers,
+        };
+
+        serde_json::to_string(&summary).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

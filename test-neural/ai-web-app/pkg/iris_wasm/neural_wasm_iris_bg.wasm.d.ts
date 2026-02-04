@@ -3,6 +3,7 @@
 export const memory: WebAssembly.Memory;
 export const __wbg_irisclassifier_free: (a: number, b: number) => void;
 export const irisclassifier_get_activations: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+export const irisclassifier_get_architecture: (a: number) => [number, number];
 export const irisclassifier_get_class_names: (a: number) => [number, number];
 export const irisclassifier_get_probabilities: (a: number, b: number, c: number, d: number, e: number) => [number, number];
 export const irisclassifier_get_weights: (a: number) => [number, number];

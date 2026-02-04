@@ -12,6 +12,10 @@ export class MnistNetwork {
      */
     get_activations(pixels: Float64Array): string;
     /**
+     * Get architecture summary
+     */
+    get_architecture(): string;
+    /**
      * Get class names (digits 0-9)
      */
     get_class_names(): string;
@@ -56,6 +60,7 @@ export interface InitOutput {
     readonly __wbg_mnistnetwork_free: (a: number, b: number) => void;
     readonly main: () => void;
     readonly mnistnetwork_get_activations: (a: number, b: number, c: number) => [number, number];
+    readonly mnistnetwork_get_architecture: (a: number) => [number, number];
     readonly mnistnetwork_get_class_names: (a: number) => [number, number];
     readonly mnistnetwork_get_probabilities: (a: number, b: number, c: number) => [number, number];
     readonly mnistnetwork_get_weights: (a: number) => [number, number];

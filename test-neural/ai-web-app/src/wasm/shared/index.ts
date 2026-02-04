@@ -1,7 +1,9 @@
 export type {
   Activation,
+  ArchitectureSummary,
   IrisPrediction,
   IrisTestResult,
+  LayerSummary,
   ModelInfo,
   NeuralNetworkLayers,
   PredictionResult,

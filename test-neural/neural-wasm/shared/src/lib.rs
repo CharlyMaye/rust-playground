@@ -68,6 +68,65 @@ pub struct WeightsInfo {
     pub layers: Vec<LayerInfo>,
 }
 
+/// Architecture summary for any model (FC, CNN, ResNet, etc.)
+#[derive(Serialize)]
+pub struct ArchitectureSummary {
+    pub name: String,
+    pub model_type: String, // "fc", "cnn", "resnet"
+    pub input_shape: Vec<usize>,
+    pub output_features: usize,
+    pub num_parameters: usize,
+    pub layers: Vec<LayerSummary>,
+}
+
+/// Layer summary for architecture display
+#[derive(Serialize)]
+pub struct LayerSummary {
+    pub name: String,
+    pub config: String,
+}
+
+impl ArchitectureSummary {
+    /// Create a summary for a fully-connected network
+    pub fn fc(name: &str, input_size: usize, architecture: &str, num_params: usize) -> Self {
+        Self {
+            name: name.to_string(),
+            model_type: "fc".to_string(),
+            input_shape: vec![input_size],
+            output_features: 0,
+            num_parameters: num_params,
+            layers: vec![LayerSummary {
+                name: "FC".to_string(),
+                config: architecture.to_string(),
+            }],
+        }
+    }
+
+    /// Create a summary for a CNN
+    pub fn cnn(
+        name: &str,
+        input_shape: Vec<usize>,
+        output_features: usize,
+        num_params: usize,
+        layers: Vec<(&str, &str)>,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            model_type: "cnn".to_string(),
+            input_shape,
+            output_features,
+            num_parameters: num_params,
+            layers: layers
+                .into_iter()
+                .map(|(n, c)| LayerSummary {
+                    name: n.to_string(),
+                    config: c.to_string(),
+                })
+                .collect(),
+        }
+    }
+}
+
 // ===== Common Response Structures =====
 
 /// Prediction result for any classifier

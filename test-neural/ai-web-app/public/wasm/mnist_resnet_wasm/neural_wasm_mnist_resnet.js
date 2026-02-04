@@ -14,11 +14,11 @@ export class MnistResNetNetwork {
     /**
      * @returns {string}
      */
-    get_class_names() {
+    get_architecture() {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.mnistresnetnetwork_get_class_names(this.__wbg_ptr);
+            const ret = wasm.mnistresnetnetwork_get_architecture(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);
@@ -29,11 +29,11 @@ export class MnistResNetNetwork {
     /**
      * @returns {string}
      */
-    get_cnn_summary() {
+    get_class_names() {
         let deferred1_0;
         let deferred1_1;
         try {
-            const ret = wasm.mnistresnetnetwork_get_cnn_summary(this.__wbg_ptr);
+            const ret = wasm.mnistresnetnetwork_get_class_names(this.__wbg_ptr);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);

@@ -1,5 +1,5 @@
 import { Component, computed, inject, signal } from '@angular/core';
-import { PredictionResult, WasmFacade } from '@cma/wasm/shared';
+import { ArchitectureSummary, PredictionResult, WasmFacade } from '@cma/wasm/shared';
 import { CanvasDraw } from 'src/app/ui/canvas-draw/canvas-draw';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
@@ -24,8 +24,8 @@ export class MnistLeNet {
   public readonly network = this.wasmService.mnistLeNetNetwork;
   /** Model metadata */
   public readonly modelInfo = this.wasmService.mnistLeNetModelInfo;
-  /** CNN architecture summary */
-  public readonly cnnSummary = this.wasmService.mnistLeNetCnnSummary;
+  /** Architecture summary (unified format) */
+  public readonly architectureSummary = this.wasmService.mnistLeNetArchitectureSummary;
   /** FC architecture */
   public readonly architecture = this.wasmService.mnistLeNetArchitecture;
   /** FC weights */
@@ -72,14 +72,27 @@ export class MnistLeNet {
     return (output.confidence * 100).toFixed(1) + '% confidence';
   });
 
-  /** Formatted CNN summary for display */
-  public readonly cnnSummaryDisplay = computed(() => {
-    const summary = this.cnnSummary();
+  /** Formatted architecture summary for display */
+  public readonly architectureSummaryDisplay = computed(() => {
+    const summary = this.architectureSummary();
     if (!summary) {
-      return 'Loading CNN architecture...';
+      return 'Loading architecture...';
     }
-    return summary;
+    return this.formatArchitectureSummary(summary);
   });
+
+  /** Format architecture summary for display */
+  private formatArchitectureSummary(summary: ArchitectureSummary): string {
+    const lines = [
+      `${summary.name} (${summary.model_type.toUpperCase()})`,
+      `Input: ${summary.input_shape.join('×')}`,
+      `Parameters: ${summary.num_parameters.toLocaleString()}`,
+      '',
+      'Layers:',
+      ...summary.layers.map((l) => `  ${l.name}: ${l.config}`),
+    ];
+    return lines.join('\n');
+  }
 
   /**
    * Handle drawing changes from the canvas

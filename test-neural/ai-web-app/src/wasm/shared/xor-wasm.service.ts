@@ -15,7 +15,7 @@ import init, {
   InitOutput as InitXorOutput,
   XorNetwork,
 } from '@cma/wasm/xor_wasm/neural_wasm_xor.js';
-import { ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
+import { ArchitectureSummary, ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
 
 /**
  * Service for loading and interacting with the XOR WASM neural network.
@@ -69,6 +69,16 @@ export class XorWasmService {
     const modelInfoJson: string = xorNetwork.model_info();
     const modelInfo: ModelInfo = JSON.parse(modelInfoJson);
     return modelInfo;
+  });
+
+  /** Architecture summary (unified format for all models) */
+  public readonly architectureSummary = computed(() => {
+    const network = this.network();
+    if (!network) {
+      return undefined;
+    }
+    const json: string = network.get_architecture();
+    return JSON.parse(json) as ArchitectureSummary;
   });
 
   /** Network architecture as an array of layer sizes */

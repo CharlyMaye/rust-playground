@@ -344,6 +344,7 @@ dependencies = [
  "bincode",
  "chrono",
  "cma-cnn",
+ "cma-models",
  "cma-neural-network",
  "console_error_panic_hook",
  "csv",

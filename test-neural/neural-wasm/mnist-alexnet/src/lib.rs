@@ -7,8 +7,8 @@ use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, MaxPool2D, Sequential, Tenso
 use cma_neural_network::network::Network;
 use ndarray::Array1;
 use neural_wasm_shared::{
-    build_prediction_result, build_test_result, load_model_from_bytes, LayerInfo, ModelInfo,
-    NormalizationStats, TestResult, WeightsInfo,
+    build_prediction_result, build_test_result, load_model_from_bytes, ArchitectureSummary,
+    LayerInfo, LayerSummary, ModelInfo, NormalizationStats, TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
 
@@ -210,36 +210,89 @@ impl MnistAlexNetNetwork {
         serde_json::to_string(&response).unwrap_or_else(|_| r#"{"layers":[]}"#.to_string())
     }
 
-    /// Get CNN architecture summary
+    /// Get architecture summary
     #[wasm_bindgen]
-    pub fn get_cnn_summary(&self) -> String {
+    pub fn get_architecture(&self) -> String {
         let input_shape = TensorShape::new(1, 1, 28, 28);
         let output_shape = self.cnn.output_shape(input_shape);
+        let output_features =
+            (output_shape.channels * output_shape.height * output_shape.width) as usize;
 
-        serde_json::json!({
-            "name": "AlexNet-Mini",
-            "input_shape": [1, 1, 28, 28],
-            "output_shape": [output_shape.batch, output_shape.channels, output_shape.height, output_shape.width],
-            "num_cnn_parameters": self.cnn.num_parameters(),
-            "layers": [
-                {"name": "Conv2D", "config": "1→64, 3x3, pad=1"},
-                {"name": "BatchNorm2D", "config": "64"},
-                {"name": "ReLU", "config": ""},
-                {"name": "MaxPool2D", "config": "2x2"},
-                {"name": "Conv2D", "config": "64→128, 3x3, pad=1"},
-                {"name": "BatchNorm2D", "config": "128"},
-                {"name": "ReLU", "config": ""},
-                {"name": "MaxPool2D", "config": "2x2"},
-                {"name": "Conv2D", "config": "128→256, 3x3, pad=1"},
-                {"name": "BatchNorm2D", "config": "256"},
-                {"name": "ReLU", "config": ""},
-                {"name": "Conv2D", "config": "256→256, 3x3, pad=1"},
-                {"name": "BatchNorm2D", "config": "256"},
-                {"name": "ReLU", "config": ""},
-                {"name": "MaxPool2D", "config": "2x2"},
-                {"name": "Flatten", "config": "→2304"}
-            ]
-        }).to_string()
+        let summary = ArchitectureSummary {
+            name: "AlexNet-Mini".to_string(),
+            model_type: "cnn".to_string(),
+            input_shape: vec![1, 1, 28, 28],
+            output_features,
+            num_parameters: self.cnn.num_parameters(),
+            layers: vec![
+                LayerSummary {
+                    name: "Conv2D".to_string(),
+                    config: "1→64, 3x3, pad=1".to_string(),
+                },
+                LayerSummary {
+                    name: "BatchNorm2D".to_string(),
+                    config: "64".to_string(),
+                },
+                LayerSummary {
+                    name: "ReLU".to_string(),
+                    config: "".to_string(),
+                },
+                LayerSummary {
+                    name: "MaxPool2D".to_string(),
+                    config: "2x2".to_string(),
+                },
+                LayerSummary {
+                    name: "Conv2D".to_string(),
+                    config: "64→128, 3x3, pad=1".to_string(),
+                },
+                LayerSummary {
+                    name: "BatchNorm2D".to_string(),
+                    config: "128".to_string(),
+                },
+                LayerSummary {
+                    name: "ReLU".to_string(),
+                    config: "".to_string(),
+                },
+                LayerSummary {
+                    name: "MaxPool2D".to_string(),
+                    config: "2x2".to_string(),
+                },
+                LayerSummary {
+                    name: "Conv2D".to_string(),
+                    config: "128→256, 3x3, pad=1".to_string(),
+                },
+                LayerSummary {
+                    name: "BatchNorm2D".to_string(),
+                    config: "256".to_string(),
+                },
+                LayerSummary {
+                    name: "ReLU".to_string(),
+                    config: "".to_string(),
+                },
+                LayerSummary {
+                    name: "Conv2D".to_string(),
+                    config: "256→256, 3x3, pad=1".to_string(),
+                },
+                LayerSummary {
+                    name: "BatchNorm2D".to_string(),
+                    config: "256".to_string(),
+                },
+                LayerSummary {
+                    name: "ReLU".to_string(),
+                    config: "".to_string(),
+                },
+                LayerSummary {
+                    name: "MaxPool2D".to_string(),
+                    config: "2x2".to_string(),
+                },
+                LayerSummary {
+                    name: "Flatten".to_string(),
+                    config: format!("→{}", output_features),
+                },
+            ],
+        };
+
+        serde_json::to_string(&summary).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

@@ -3,12 +3,12 @@
 //! This module exposes a LeNet-5 CNN trained on MNIST via WebAssembly.
 //! Architecture: Conv→Pool→Conv→Pool→Conv→Flatten→FC(84)→FC(10)
 
-use cma_cnn::{ActivationLayer, AvgPool2D, Conv2D, Sequential, Tensor4D, TensorShape};
+use cma_cnn::{ActivationLayer, AvgPool2D, Conv2D, Sequential, Tensor4D};
 use cma_neural_network::network::Network;
 use ndarray::Array1;
 use neural_wasm_shared::{
-    build_prediction_result, build_test_result, load_model_from_bytes, LayerInfo, ModelInfo,
-    NormalizationStats, TestResult, WeightsInfo,
+    build_prediction_result, build_test_result, load_model_from_bytes, ArchitectureSummary,
+    LayerInfo, LayerSummary, ModelInfo, NormalizationStats, TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
 
@@ -205,29 +205,56 @@ impl MnistLeNetNetwork {
         serde_json::to_string(&response).unwrap_or_else(|_| r#"{"layers":[]}"#.to_string())
     }
 
-    /// Get CNN architecture summary
+    /// Get architecture summary
     #[wasm_bindgen]
-    pub fn get_cnn_summary(&self) -> String {
-        let input_shape = TensorShape::new(1, 1, 28, 28);
-        let output_shape = self.cnn.output_shape(input_shape);
+    pub fn get_architecture(&self) -> String {
+        let summary = ArchitectureSummary {
+            name: "LeNet-5".to_string(),
+            model_type: "cnn".to_string(),
+            input_shape: vec![1, 1, 28, 28],
+            output_features: 120,
+            num_parameters: self.cnn.num_parameters(),
+            layers: vec![
+                LayerSummary {
+                    name: "Conv2D".to_string(),
+                    config: "1→6, 5x5, pad=2".to_string(),
+                },
+                LayerSummary {
+                    name: "ReLU".to_string(),
+                    config: "".to_string(),
+                },
+                LayerSummary {
+                    name: "AvgPool2D".to_string(),
+                    config: "2x2".to_string(),
+                },
+                LayerSummary {
+                    name: "Conv2D".to_string(),
+                    config: "6→16, 5x5".to_string(),
+                },
+                LayerSummary {
+                    name: "ReLU".to_string(),
+                    config: "".to_string(),
+                },
+                LayerSummary {
+                    name: "AvgPool2D".to_string(),
+                    config: "2x2".to_string(),
+                },
+                LayerSummary {
+                    name: "Conv2D".to_string(),
+                    config: "16→120, 5x5".to_string(),
+                },
+                LayerSummary {
+                    name: "ReLU".to_string(),
+                    config: "".to_string(),
+                },
+                LayerSummary {
+                    name: "Flatten".to_string(),
+                    config: "→120".to_string(),
+                },
+            ],
+        };
 
-        serde_json::json!({
-            "name": "LeNet-5",
-            "input_shape": [1, 1, 28, 28],
-            "output_shape": [output_shape.batch, output_shape.channels, output_shape.height, output_shape.width],
-            "num_cnn_parameters": self.cnn.num_parameters(),
-            "layers": [
-                {"name": "Conv2D", "config": "1→6, 5x5, pad=2"},
-                {"name": "ReLU", "config": ""},
-                {"name": "AvgPool2D", "config": "2x2"},
-                {"name": "Conv2D", "config": "6→16, 5x5"},
-                {"name": "ReLU", "config": ""},
-                {"name": "AvgPool2D", "config": "2x2"},
-                {"name": "Conv2D", "config": "16→120, 5x5"},
-                {"name": "ReLU", "config": ""},
-                {"name": "Flatten", "config": "→120"}
-            ]
-        }).to_string()
+        serde_json::to_string(&summary).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

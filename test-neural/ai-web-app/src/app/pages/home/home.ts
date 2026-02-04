@@ -7,7 +7,7 @@ import { Loader } from '../../ui/loader/loader';
 
 /**
  * Home page displaying available neural network demos.
- * Shows cards for XOR, Iris classifier, and upcoming MNIST demos.
+ * Shows cards for XOR, Iris classifier, and MNIST demos.
  */
 @Component({
   selector: 'app-home',
@@ -27,8 +27,12 @@ export class Home {
   public readonly mnistIsLoading = this.wasmService.mnistWasmResource.isLoading;
   /** Whether MNIST LeNet-5 WASM module is loading */
   public readonly mnistLeNetIsLoading = this.wasmService.mnistLeNetWasmResource.isLoading;
-  /** Whether MNIST ResNet-Micro WASM module is loading */
+  /** Whether MNIST ResNet WASM module is loading */
   public readonly mnistResNetIsLoading = this.wasmService.mnistResNetWasmResource.isLoading;
+  /** Whether MNIST AlexNet-Mini WASM module is loading */
+  public readonly mnistAlexNetIsLoading = this.wasmService.mnistAlexNetWasmResource.isLoading;
+  /** Whether MNIST VGG-Tiny WASM module is loading */
+  public readonly mnistVggIsLoading = this.wasmService.mnistVggWasmResource.isLoading;
 
   /** XOR model metadata */
   public readonly xorModelInfo = this.wasmService.xorModelInfo;
@@ -50,8 +54,18 @@ export class Home {
   /** MNIST LeNet-5 network architecture */
   public readonly mnistLeNetArchitecture = this.wasmService.mnistLeNetArchitecture;
 
-  /** MNIST ResNet-Micro model metadata */
+  /** MNIST ResNet model metadata */
   public readonly mnistResNetModelInfo = this.wasmService.mnistResNetModelInfo;
-  /** MNIST ResNet-Micro network architecture */
+  /** MNIST ResNet network architecture */
   public readonly mnistResNetArchitecture = this.wasmService.mnistResNetArchitecture;
+
+  /** MNIST AlexNet-Mini model metadata */
+  public readonly mnistAlexNetModelInfo = this.wasmService.mnistAlexNetModelInfo;
+  /** MNIST AlexNet-Mini network architecture */
+  public readonly mnistAlexNetArchitecture = this.wasmService.mnistAlexNetArchitecture;
+
+  /** MNIST VGG-Tiny model metadata */
+  public readonly mnistVggModelInfo = this.wasmService.mnistVggModelInfo;
+  /** MNIST VGG-Tiny network architecture */
+  public readonly mnistVggArchitecture = this.wasmService.mnistVggArchitecture;
 }

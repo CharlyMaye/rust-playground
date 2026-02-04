@@ -15,7 +15,7 @@ import init, {
   InitOutput as InitIraisOutput,
   IrisClassifier,
 } from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
-import { ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
+import { ArchitectureSummary, ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
 
 /**
  * Service for loading and interacting with the Iris WASM neural network classifier.
@@ -69,6 +69,16 @@ export class IrisWasmService {
     const modelInfoJson: string = network.model_info();
     const modelInfo: ModelInfo = JSON.parse(modelInfoJson);
     return modelInfo;
+  });
+
+  /** Architecture summary (unified format for all models) */
+  public readonly architectureSummary = computed(() => {
+    const network = this.network();
+    if (!network) {
+      return undefined;
+    }
+    const json: string = network.get_architecture();
+    return JSON.parse(json) as ArchitectureSummary;
   });
 
   /** Network architecture as an array of layer sizes */

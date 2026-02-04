@@ -15,15 +15,7 @@ import init, {
   InitOutput as InitMNISTLeNetOutput,
   MnistLeNetNetwork,
 } from '@cma/wasm/mnist_lenet_wasm/neural_wasm_mnist_lenet.js';
-import { ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
-
-/**
- * CNN Architecture info for visualization
- */
-export interface CNNArchitectureInfo {
-  cnn_summary: string;
-  fc_architecture: number[];
-}
+import { ArchitectureSummary, ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
 
 /**
  * Service for loading and interacting with the LeNet-5 CNN WASM neural network.
@@ -79,13 +71,14 @@ export class MNISTLeNetWasmService {
     return modelInfo;
   });
 
-  /** CNN architecture summary */
-  public readonly cnnSummary = computed(() => {
+  /** Architecture summary (unified format for all models) */
+  public readonly architectureSummary = computed(() => {
     const network = this.network();
     if (!network) {
       return undefined;
     }
-    return network.get_cnn_summary();
+    const json: string = network.get_architecture();
+    return JSON.parse(json) as ArchitectureSummary;
   });
 
   /** FC classifier architecture as an array of layer sizes */

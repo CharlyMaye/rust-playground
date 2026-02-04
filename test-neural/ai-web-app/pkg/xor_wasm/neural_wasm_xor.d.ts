@@ -12,6 +12,10 @@ export class XorNetwork {
      */
     get_activations(x1: number, x2: number): string;
     /**
+     * Get architecture summary
+     */
+    get_architecture(): string;
+    /**
      * Get class names
      */
     get_class_names(): string;
@@ -54,6 +58,7 @@ export interface InitOutput {
     readonly __wbg_xornetwork_free: (a: number, b: number) => void;
     readonly main: () => void;
     readonly xornetwork_get_activations: (a: number, b: number, c: number) => [number, number];
+    readonly xornetwork_get_architecture: (a: number) => [number, number];
     readonly xornetwork_get_class_names: (a: number) => [number, number];
     readonly xornetwork_get_probabilities: (a: number, b: number, c: number) => [number, number];
     readonly xornetwork_get_weights: (a: number) => [number, number];

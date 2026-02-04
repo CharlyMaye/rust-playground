@@ -15,7 +15,7 @@ import init, {
   InitOutput as InitMNISTResNetOutput,
   MnistResNetNetwork,
 } from '@cma/wasm/mnist_resnet_wasm/neural_wasm_mnist_resnet.js';
-import { ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
+import { ArchitectureSummary, ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
 
 /**
  * Service for loading and interacting with the ResNet-Micro CNN WASM neural network.
@@ -67,12 +67,14 @@ export class MNISTResNetWasmService {
     return modelInfo;
   });
 
-  public readonly cnnSummary = computed(() => {
+  /** Architecture summary (unified format for all models) */
+  public readonly architectureSummary = computed(() => {
     const network = this.network();
     if (!network) {
       return undefined;
     }
-    return network.get_cnn_summary();
+    const json: string = network.get_architecture();
+    return JSON.parse(json) as ArchitectureSummary;
   });
 
   public readonly architecture = computed(() => {

@@ -6,8 +6,8 @@
 use cma_neural_network::network::Network;
 use ndarray::array;
 use neural_wasm_shared::{
-    build_test_result, load_model_from_bytes, ActivationsResponse, LayerActivation, LayerInfo,
-    ModelInfo, PredictionResult, TestResult, WeightsInfo,
+    build_test_result, load_model_from_bytes, ActivationsResponse, ArchitectureSummary,
+    LayerActivation, LayerInfo, LayerSummary, ModelInfo, PredictionResult, TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
 
@@ -174,6 +174,33 @@ impl XorNetwork {
 
         serde_json::to_string(&response)
             .unwrap_or_else(|_| r#"{"inputs":[],"layers":[],"output":[]}"#.to_string())
+    }
+
+    /// Get architecture summary
+    #[wasm_bindgen]
+    pub fn get_architecture(&self) -> String {
+        let layers_info = self.network.get_layers_info();
+        let layers: Vec<LayerSummary> = layers_info
+            .iter()
+            .enumerate()
+            .map(|(i, (weights, _, activation))| LayerSummary {
+                name: format!("FC{}", i + 1),
+                config: format!("{}→{} ({})", weights.ncols(), weights.nrows(), activation),
+            })
+            .collect();
+
+        let num_params: usize = layers_info.iter().map(|(w, b, _)| w.len() + b.len()).sum();
+
+        let summary = ArchitectureSummary {
+            name: "XOR Network".to_string(),
+            model_type: "fc".to_string(),
+            input_shape: vec![2],
+            output_features: 1,
+            num_parameters: num_params,
+            layers,
+        };
+
+        serde_json::to_string(&summary).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

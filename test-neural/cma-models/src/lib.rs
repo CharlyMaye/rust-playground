@@ -44,23 +44,23 @@
 //! - He et al. (2015): "Deep Residual Learning for Image Recognition"
 //! - Tan & Le (2019): "EfficientNet: Rethinking Model Scaling"
 
-pub mod lenet;
 pub mod alexnet;
-pub mod vgg;
-pub mod resnet;
 pub mod efficientnet;
+pub mod lenet;
+pub mod resnet;
+pub mod vgg;
 
 // Re-exports
-pub use lenet::{LeNet5, LeNet5Config};
 pub use alexnet::{AlexNet, AlexNetConfig};
-pub use vgg::{VGG16, VGG19, VGGConfig};
-pub use resnet::{ResNet18, ResNet34, ResNet50, ResNetConfig, ResidualBlock};
 pub use efficientnet::{EfficientNetB0, EfficientNetConfig, MBConvBlock};
+pub use lenet::{LeNet5, LeNet5Config};
+pub use resnet::{
+    ResNet, ResNet18, ResNet34, ResNet50, ResNetBuilder, ResNetConfig, ResidualBlock,
+};
+pub use vgg::{VGG16, VGG19, VGGConfig};
 
 // Re-exports from cma-cnn
 pub use cma_cnn::{
-    Tensor4D, TensorShape,
-    Sequential, Conv2D, MaxPool2D, AvgPool2D, GlobalAvgPool2D,
-    BatchNorm2D, Dropout2D, Flatten, ActivationLayer,
-    Layer,
+    ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Dropout2D, Flatten, GlobalAvgPool2D, Layer,
+    MaxPool2D, Sequential, Tensor4D, TensorShape,
 };
