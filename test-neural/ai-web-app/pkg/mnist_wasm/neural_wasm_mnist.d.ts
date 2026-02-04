@@ -10,7 +10,7 @@ export class MnistNetwork {
     /**
      * Run inference and return all neuron activations for visualization
      */
-    get_activations(pixels: Float64Array): string;
+    get_activations(pixels: Float32Array): string;
     /**
      * Get architecture summary
      */
@@ -22,7 +22,7 @@ export class MnistNetwork {
     /**
      * Get class probabilities for 784 pixels
      */
-    get_probabilities(pixels: Float64Array): string;
+    get_probabilities(pixels: Float32Array): string;
     /**
      * Get all weights and biases as JSON
      */
@@ -40,7 +40,7 @@ export class MnistNetwork {
      * Accepts 784 pixels (28x28 image) or normalized values
      * Returns JSON with digit prediction (0-9), probabilities, and confidence
      */
-    predict(pixels: Float64Array): string;
+    predict(pixels: Float32Array): string;
     /**
      * Test with sample MNIST digits
      * Returns results with digit predictions (0-9)
