@@ -305,3 +305,118 @@ mod tests {
         assert_eq!(confidence_to_percentage(0.0), 0.0);
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MNIST Data Loading (shared across all MNIST variants)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Load the MNIST dataset from CSV file (OpenML format)
+/// Format: 784 pixel values (0-255), then label (0-9) as last column
+/// Dataset source: https://www.openml.org/d/554
+pub fn load_mnist_from_csv(
+    path: &str,
+) -> Result<Vec<(ndarray::Array1<f64>, ndarray::Array1<f64>)>, Box<dyn std::error::Error>> {
+    use csv::ReaderBuilder;
+
+    let mut data = Vec::new();
+    let mut rdr = ReaderBuilder::new().has_headers(false).from_path(path)?;
+
+    for result in rdr.records() {
+        let record = result?;
+
+        if record.len() != 785 {
+            return Err(format!(
+                "Expected 785 columns (784 pixels + 1 label), got {}",
+                record.len()
+            )
+            .into());
+        }
+
+        // Parse the 784 pixel values (columns 0-783)
+        let mut pixels = Vec::with_capacity(784);
+        for i in 0..784 {
+            let pixel: f64 = record[i].parse()?;
+            pixels.push(pixel);
+        }
+
+        // Parse label (last column, index 784) and convert to one-hot encoding (10 classes)
+        let label: usize = record[784].parse()?;
+        if label > 9 {
+            return Err(format!("Invalid label: {} (expected 0-9)", label).into());
+        }
+
+        let mut one_hot = vec![0.0; 10];
+        one_hot[label] = 1.0;
+
+        data.push((
+            ndarray::Array1::from_vec(pixels),
+            ndarray::Array1::from_vec(one_hot),
+        ));
+    }
+
+    Ok(data)
+}
+
+/// Normalize features using z-score normalization (mean=0, std=1)
+/// Returns normalized data AND the normalization statistics for inference
+pub fn normalize_features_with_stats(
+    inputs: &[ndarray::Array1<f64>],
+) -> (Vec<ndarray::Array1<f64>>, NormalizationStats) {
+    if inputs.is_empty() {
+        return (vec![], NormalizationStats::new(vec![], vec![]));
+    }
+
+    let n_features = inputs[0].len();
+    let n_samples = inputs.len() as f64;
+
+    // Calculate mean for each feature
+    let mut means = vec![0.0; n_features];
+    for input in inputs {
+        for (i, &val) in input.iter().enumerate() {
+            means[i] += val;
+        }
+    }
+    for mean in &mut means {
+        *mean /= n_samples;
+    }
+
+    // Calculate standard deviation for each feature
+    let mut stds = vec![0.0; n_features];
+    for input in inputs {
+        for (i, &val) in input.iter().enumerate() {
+            stds[i] += (val - means[i]).powi(2);
+        }
+    }
+    for std in &mut stds {
+        *std = (*std / n_samples).sqrt();
+        // Prevent division by zero
+        if *std < 1e-8 {
+            *std = 1.0;
+        }
+    }
+
+    // Normalize each input
+    let normalized = inputs
+        .iter()
+        .map(|input| {
+            ndarray::Array1::from_vec(
+                input
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &val)| (val - means[i]) / stds[i])
+                    .collect(),
+            )
+        })
+        .collect();
+
+    (normalized, NormalizationStats::new(means, stds))
+}
+
+/// Reshape flat MNIST pixels to 2D image format for CNN
+/// Input: 784 values (flattened 28x28)
+/// Output: [1, 28, 28] for single channel grayscale
+pub fn reshape_mnist_to_image(pixels: &[f64]) -> ndarray::Array3<f64> {
+    assert_eq!(pixels.len(), 784, "MNIST images must be 784 pixels");
+    ndarray::Array3::from_shape_vec((1, 28, 28), pixels.to_vec())
+        .expect("Failed to reshape MNIST pixels")
+}

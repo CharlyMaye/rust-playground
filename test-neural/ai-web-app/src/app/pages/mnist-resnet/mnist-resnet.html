@@ -1,0 +1,37 @@
+@if (isLoading()) {
+  <app-loader id="loading" [message]="'Loading ResNet-Micro CNN...'" />
+} @else {
+  <!-- Interactive Predictor -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">🔗 ResNet-Micro CNN - Draw a Digit (0-9)</h2>
+      <p class="card-subtitle">
+        ResNet-style architecture (He et al., 2015) - uses residual connections concept
+      </p>
+    </div>
+
+    <div class="predictor-container">
+      <app-canvas-draw
+        [gridSize]="{ rows: 28, cols: 28 }"
+        (dataChanged)="onDrawingChanged($event)"
+      />
+
+      <div class="prediction-result">
+        <div class="prediction-value">{{ predictionDisplay() }}</div>
+        <div class="prediction-confidence">{{ confidenceDisplay() }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CNN Architecture -->
+  <div class="card cnn-card">
+    <div class="card-header">
+      <h2 class="card-title">CNN Architecture (ResNet-Micro)</h2>
+      <p class="card-subtitle">Minimal ResNet-style for fast inference</p>
+    </div>
+    <pre class="cnn-summary">{{ cnnSummaryDisplay() }}</pre>
+  </div>
+
+  <!-- Model Info -->
+  <app-model-info [modelInfo]="modelInfo()" />
+}

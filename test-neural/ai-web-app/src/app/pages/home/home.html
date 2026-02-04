@@ -39,7 +39,7 @@
     }
   </a>
 
-  <!-- MNIST Demo (coming soon) -->
+  <!-- MNIST Demo -->
   <a [routerLink]="['/mnist-digit']" class="demo-card">
     @if (!mnistIsLoading()) {
       <div class="demo-icon" aria-hidden="true">✍️</div>
@@ -54,6 +54,42 @@
       </div>
     } @else {
       <app-loader id="loading" [message]="'Loading Neural Network...'" />
+    }
+  </a>
+
+  <!-- LeNet-5 CNN Demo -->
+  <a [routerLink]="['/mnist-lenet']" class="demo-card">
+    @if (!mnistLeNetIsLoading()) {
+      <div class="demo-icon" aria-hidden="true">🧠</div>
+      <h3>{{ mnistLeNetModelInfo()?.name }}</h3>
+      <p>{{ mnistLeNetModelInfo()?.description }}</p>
+      <div class="demo-meta">
+        <span class="badge badge-info">28×28 image</span>
+        <span class="badge badge-info">10 classes</span>
+        <span class="badge badge-success" id="mnist-lenet-accuracy">
+          {{ mnistLeNetModelInfo()?.accuracy | number: '1.1-1' }}%
+        </span>
+      </div>
+    } @else {
+      <app-loader id="loading" [message]="'Loading LeNet-5 CNN...'" />
+    }
+  </a>
+
+  <!-- ResNet-Micro CNN Demo -->
+  <a [routerLink]="['/mnist-resnet']" class="demo-card">
+    @if (!mnistResNetIsLoading()) {
+      <div class="demo-icon" aria-hidden="true">🔗</div>
+      <h3>{{ mnistResNetModelInfo()?.name }}</h3>
+      <p>{{ mnistResNetModelInfo()?.description }}</p>
+      <div class="demo-meta">
+        <span class="badge badge-info">28×28 image</span>
+        <span class="badge badge-info">10 classes</span>
+        <span class="badge badge-success" id="mnist-resnet-accuracy">
+          {{ mnistResNetModelInfo()?.accuracy | number: '1.1-1' }}%
+        </span>
+      </div>
+    } @else {
+      <app-loader id="loading" [message]="'Loading ResNet-Micro CNN...'" />
     }
   </a>
 

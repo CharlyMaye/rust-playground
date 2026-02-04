@@ -1,0 +1,37 @@
+[package]
+name = "neural-wasm-mnist-vgg"
+version = "0.1.0"
+edition = "2021"
+description = "VGG-Tiny CNN for MNIST - WebAssembly module"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "train_vgg"
+path = "src/train_vgg.rs"
+required-features = ["training"]
+
+[dependencies]
+wasm-bindgen = "0.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+neural-wasm-shared = { path = "../shared" }
+cma-neural-network = { path = "../../cma-neural-network" }
+cma-cnn = { path = "../../cma-cnn" }
+ndarray = { version = "0.17.1", features = ["serde"] }
+bincode = "1.3"
+console_error_panic_hook = { version = "0.1", optional = true }
+csv = { version = "1.3", optional = true }
+chrono = { version = "0.4", optional = true }
+
+# Required for WASM random number generation
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+[features]
+default = ["console_error_panic_hook"]
+training = ["csv", "chrono"]
+
+[profile.release]
+opt-level = "s"
+lto = true

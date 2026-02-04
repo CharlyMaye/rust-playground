@@ -300,12 +300,89 @@ dependencies = [
 ]
 
 [[package]]
+name = "neural-wasm-mnist-alexnet"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "chrono",
+ "cma-cnn",
+ "cma-models",
+ "cma-neural-network",
+ "console_error_panic_hook",
+ "csv",
+ "getrandom",
+ "ndarray",
+ "neural-wasm-shared",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "neural-wasm-mnist-lenet"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "chrono",
+ "cma-cnn",
+ "cma-models",
+ "cma-neural-network",
+ "console_error_panic_hook",
+ "csv",
+ "getrandom",
+ "ndarray",
+ "neural-wasm-shared",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "neural-wasm-mnist-resnet"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "chrono",
+ "cma-cnn",
+ "cma-neural-network",
+ "console_error_panic_hook",
+ "csv",
+ "getrandom",
+ "ndarray",
+ "neural-wasm-shared",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "neural-wasm-mnist-vgg"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "chrono",
+ "cma-cnn",
+ "cma-neural-network",
+ "console_error_panic_hook",
+ "csv",
+ "getrandom",
+ "ndarray",
+ "neural-wasm-shared",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "neural-wasm-shared"
 version = "0.1.0"
 dependencies = [
  "bincode",
  "chrono",
+ "cma-cnn",
+ "cma-models",
  "cma-neural-network",
+ "csv",
  "ndarray",
  "serde",
  "serde_json",

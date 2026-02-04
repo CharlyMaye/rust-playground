@@ -25,6 +25,10 @@ export class Home {
   public readonly irisIsLoading = this.wasmService.irisWasmResource.isLoading;
   /** Whether MNIST WASM module is loading */
   public readonly mnistIsLoading = this.wasmService.mnistWasmResource.isLoading;
+  /** Whether MNIST LeNet-5 WASM module is loading */
+  public readonly mnistLeNetIsLoading = this.wasmService.mnistLeNetWasmResource.isLoading;
+  /** Whether MNIST ResNet-Micro WASM module is loading */
+  public readonly mnistResNetIsLoading = this.wasmService.mnistResNetWasmResource.isLoading;
 
   /** XOR model metadata */
   public readonly xorModelInfo = this.wasmService.xorModelInfo;
@@ -40,4 +44,14 @@ export class Home {
   public readonly mnistModelInfo = this.wasmService.mnistModelInfo;
   /** MNIST network architecture */
   public readonly mnistArchitecture = this.wasmService.mnistArchitecture;
+
+  /** MNIST LeNet-5 model metadata */
+  public readonly mnistLeNetModelInfo = this.wasmService.mnistLeNetModelInfo;
+  /** MNIST LeNet-5 network architecture */
+  public readonly mnistLeNetArchitecture = this.wasmService.mnistLeNetArchitecture;
+
+  /** MNIST ResNet-Micro model metadata */
+  public readonly mnistResNetModelInfo = this.wasmService.mnistResNetModelInfo;
+  /** MNIST ResNet-Micro network architecture */
+  public readonly mnistResNetArchitecture = this.wasmService.mnistResNetArchitecture;
 }

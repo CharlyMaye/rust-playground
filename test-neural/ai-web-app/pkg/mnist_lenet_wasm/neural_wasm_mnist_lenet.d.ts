@@ -1,0 +1,95 @@
+/* tslint:disable */
+/* eslint-disable */
+
+/**
+ * LeNet-5 MNIST Neural Network exposed to JavaScript
+ */
+export class MnistLeNetNetwork {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Get class names (digits 0-9)
+     */
+    get_class_names(): string;
+    /**
+     * Get CNN architecture summary
+     */
+    get_cnn_summary(): string;
+    /**
+     * Get class probabilities for 784 pixels
+     */
+    get_probabilities(pixels: Float64Array): string;
+    /**
+     * Get FC classifier weights and biases as JSON
+     */
+    get_weights(): string;
+    /**
+     * Get model info with accuracy and metadata
+     */
+    model_info(): string;
+    /**
+     * Create a new LeNet-5 MNIST network by loading the embedded model
+     */
+    constructor();
+    /**
+     * Predict MNIST digit from pixel array using LeNet-5 CNN
+     * Accepts 784 pixels (28x28 image)
+     * Returns JSON with digit prediction (0-9), probabilities, and confidence
+     */
+    predict(pixels: Float64Array): string;
+    /**
+     * Test with sample MNIST digits
+     */
+    test_all(): string;
+}
+
+/**
+ * Initialize the module
+ */
+export function main(): void;
+
+export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
+
+export interface InitOutput {
+    readonly memory: WebAssembly.Memory;
+    readonly __wbg_mnistlenetnetwork_free: (a: number, b: number) => void;
+    readonly mnistlenetnetwork_get_class_names: (a: number) => [number, number];
+    readonly mnistlenetnetwork_get_cnn_summary: (a: number) => [number, number];
+    readonly mnistlenetnetwork_get_probabilities: (a: number, b: number, c: number) => [number, number];
+    readonly mnistlenetnetwork_get_weights: (a: number) => [number, number];
+    readonly mnistlenetnetwork_model_info: (a: number) => [number, number];
+    readonly mnistlenetnetwork_new: () => [number, number, number];
+    readonly mnistlenetnetwork_predict: (a: number, b: number, c: number) => [number, number];
+    readonly mnistlenetnetwork_test_all: (a: number) => [number, number];
+    readonly main: () => void;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __wbindgen_exn_store: (a: number) => void;
+    readonly __externref_table_alloc: () => number;
+    readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __wbindgen_malloc: (a: number, b: number) => number;
+    readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+    readonly __externref_table_dealloc: (a: number) => void;
+    readonly __wbindgen_start: () => void;
+}
+
+export type SyncInitInput = BufferSource | WebAssembly.Module;
+
+/**
+ * Instantiates the given `module`, which can either be bytes or
+ * a precompiled `WebAssembly.Module`.
+ *
+ * @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+ *
+ * @returns {InitOutput}
+ */
+export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
+
+/**
+ * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
+ * for everything else, calls `WebAssembly.instantiate` directly.
+ *
+ * @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+ *
+ * @returns {Promise<InitOutput>}
+ */
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;
