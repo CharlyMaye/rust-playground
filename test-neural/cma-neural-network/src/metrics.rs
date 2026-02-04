@@ -3,15 +3,16 @@
 //! This module provides various metrics to evaluate model performance,
 //! including metrics for binary and multi-class classification.
 
+use crate::Float;
 use ndarray::{Array1, Array2};
 
 /// Evaluation results for binary classification.
 #[derive(Debug, Clone)]
 pub struct BinaryMetrics {
-    pub accuracy: f64,
-    pub precision: f64,
-    pub recall: f64,
-    pub f1_score: f64,
+    pub accuracy: Float,
+    pub precision: Float,
+    pub recall: Float,
+    pub f1_score: Float,
     pub true_positives: usize,
     pub false_positives: usize,
     pub true_negatives: usize,
@@ -24,9 +25,14 @@ impl BinaryMetrics {
         format!(
             "Accuracy: {:.4} | Precision: {:.4} | Recall: {:.4} | F1: {:.4}\n\
              TP: {} | FP: {} | TN: {} | FN: {}",
-            self.accuracy, self.precision, self.recall, self.f1_score,
-            self.true_positives, self.false_positives,
-            self.true_negatives, self.false_negatives
+            self.accuracy,
+            self.precision,
+            self.recall,
+            self.f1_score,
+            self.true_positives,
+            self.false_positives,
+            self.true_negatives,
+            self.false_negatives
         )
     }
 }
@@ -49,46 +55,48 @@ impl BinaryMetrics {
 /// assert_eq!(acc, 1.0); // 100% correct
 /// ```
 pub fn accuracy(
-    predictions: &[Array1<f64>],
-    targets: &[Array1<f64>],
-    threshold: f64,
-) -> f64 {
+    predictions: &[Array1<Float>],
+    targets: &[Array1<Float>],
+    threshold: Float,
+) -> Float {
     if predictions.is_empty() || predictions.len() != targets.len() {
         return 0.0;
     }
 
     let mut correct = 0;
-    
+
     for (pred, target) in predictions.iter().zip(targets.iter()) {
         // Classification binaire simple
         if pred.len() == 1 && target.len() == 1 {
-            let pred_class: f64 = if pred[0] > threshold { 1.0 } else { 0.0 };
-            let target_class: f64 = if target[0] > threshold { 1.0 } else { 0.0 };
+            let pred_class: Float = if pred[0] > threshold { 1.0 } else { 0.0 };
+            let target_class: Float = if target[0] > threshold { 1.0 } else { 0.0 };
             if (pred_class - target_class).abs() < 1e-6 {
                 correct += 1;
             }
-        } 
+        }
         // Classification multi-classes (argmax)
         else {
-            let pred_class = pred.iter()
+            let pred_class = pred
+                .iter()
                 .enumerate()
                 .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
-            
-            let target_class = target.iter()
+
+            let target_class = target
+                .iter()
                 .enumerate()
                 .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
                 .map(|(idx, _)| idx)
                 .unwrap_or(0);
-            
+
             if pred_class == target_class {
                 correct += 1;
             }
         }
     }
-    
-    correct as f64 / predictions.len() as f64
+
+    correct as Float / predictions.len() as Float
 }
 
 /// Computes comprehensive metrics for binary classification.
@@ -117,23 +125,23 @@ pub fn accuracy(
 /// assert_eq!(metrics.accuracy, 1.0);
 /// ```
 pub fn binary_metrics(
-    predictions: &[Array1<f64>],
-    targets: &[Array1<f64>],
-    threshold: f64,
+    predictions: &[Array1<Float>],
+    targets: &[Array1<Float>],
+    threshold: Float,
 ) -> BinaryMetrics {
     let mut tp = 0; // True Positives
     let mut fp = 0; // False Positives
     let mut tn = 0; // True Negatives
     let mut fn_ = 0; // False Negatives
-    
+
     for (pred, target) in predictions.iter().zip(targets.iter()) {
         if pred.len() != 1 || target.len() != 1 {
             continue; // Skip multi-class (non supporté par cette fonction)
         }
-        
+
         let pred_class = pred[0] > threshold;
         let target_class = target[0] > threshold;
-        
+
         match (pred_class, target_class) {
             (true, true) => tp += 1,
             (true, false) => fp += 1,
@@ -141,27 +149,27 @@ pub fn binary_metrics(
             (false, true) => fn_ += 1,
         }
     }
-    
-    let accuracy = (tp + tn) as f64 / (tp + fp + tn + fn_) as f64;
-    
+
+    let accuracy = (tp + tn) as Float / (tp + fp + tn + fn_) as Float;
+
     let precision = if tp + fp > 0 {
-        tp as f64 / (tp + fp) as f64
+        tp as Float / (tp + fp) as Float
     } else {
         0.0
     };
-    
+
     let recall = if tp + fn_ > 0 {
-        tp as f64 / (tp + fn_) as f64
+        tp as Float / (tp + fn_) as Float
     } else {
         0.0
     };
-    
+
     let f1_score = if precision + recall > 0.0 {
         2.0 * (precision * recall) / (precision + recall)
     } else {
         0.0
     };
-    
+
     BinaryMetrics {
         accuracy,
         precision,
@@ -189,23 +197,23 @@ pub fn binary_metrics(
 /// * `targets` - Vector of actual values
 /// * `threshold` - Classification threshold
 pub fn confusion_matrix_binary(
-    predictions: &[Array1<f64>],
-    targets: &[Array1<f64>],
-    threshold: f64,
+    predictions: &[Array1<Float>],
+    targets: &[Array1<Float>],
+    threshold: Float,
 ) -> Array2<usize> {
     let mut matrix = Array2::zeros((2, 2));
-    
+
     for (pred, target) in predictions.iter().zip(targets.iter()) {
         if pred.len() != 1 || target.len() != 1 {
             continue;
         }
-        
+
         let pred_class = if pred[0] > threshold { 1 } else { 0 };
         let target_class = if target[0] > threshold { 1 } else { 0 };
-        
+
         matrix[[target_class, pred_class]] += 1;
     }
-    
+
     matrix
 }
 
@@ -219,32 +227,34 @@ pub fn confusion_matrix_binary(
 /// * `targets` - Vector of actual values (one-hot or probabilities)
 /// * `num_classes` - Number of classes
 pub fn confusion_matrix_multiclass(
-    predictions: &[Array1<f64>],
-    targets: &[Array1<f64>],
+    predictions: &[Array1<Float>],
+    targets: &[Array1<Float>],
     num_classes: usize,
 ) -> Array2<usize> {
     let mut matrix = Array2::zeros((num_classes, num_classes));
-    
+
     for (pred, target) in predictions.iter().zip(targets.iter()) {
         // Trouver la classe prédite (argmax)
-        let pred_class = pred.iter()
+        let pred_class = pred
+            .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
             .unwrap_or(0);
-        
+
         // Trouver la classe réelle (argmax)
-        let target_class = target.iter()
+        let target_class = target
+            .iter()
             .enumerate()
             .max_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap())
             .map(|(idx, _)| idx)
             .unwrap_or(0);
-        
+
         if pred_class < num_classes && target_class < num_classes {
             matrix[[target_class, pred_class]] += 1;
         }
     }
-    
+
     matrix
 }
 
@@ -252,10 +262,10 @@ pub fn confusion_matrix_multiclass(
 pub fn format_confusion_matrix(matrix: &Array2<usize>, class_names: Option<&[&str]>) -> String {
     let size = matrix.nrows();
     let mut result = String::new();
-    
+
     result.push_str("\nConfusion Matrix:\n");
     result.push_str("                Predicted\n");
-    
+
     // Header avec noms de classes
     result.push_str("         ");
     for i in 0..size {
@@ -270,7 +280,7 @@ pub fn format_confusion_matrix(matrix: &Array2<usize>, class_names: Option<&[&st
         }
     }
     result.push('\n');
-    
+
     // Lignes avec données
     for i in 0..size {
         if i == 0 {
@@ -278,7 +288,7 @@ pub fn format_confusion_matrix(matrix: &Array2<usize>, class_names: Option<&[&st
         } else {
             result.push_str("       ");
         }
-        
+
         if let Some(names) = class_names {
             if i < names.len() {
                 result.push_str(&format!("{:>5} ", names[i]));
@@ -288,13 +298,13 @@ pub fn format_confusion_matrix(matrix: &Array2<usize>, class_names: Option<&[&st
         } else {
             result.push_str(&format!("{:>5} ", i));
         }
-        
+
         for j in 0..size {
             result.push_str(&format!("{:>8} ", matrix[[i, j]]));
         }
         result.push('\n');
     }
-    
+
     result
 }
 
@@ -308,31 +318,31 @@ pub fn format_confusion_matrix(matrix: &Array2<usize>, class_names: Option<&[&st
 /// * `targets` - Actual values (0 or 1)
 /// * `num_thresholds` - Number of thresholds to test
 pub fn roc_curve(
-    predictions: &[Array1<f64>],
-    targets: &[Array1<f64>],
+    predictions: &[Array1<Float>],
+    targets: &[Array1<Float>],
     num_thresholds: usize,
-) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+) -> (Vec<Float>, Vec<Float>, Vec<Float>) {
     let mut fpr_values = Vec::new();
     let mut tpr_values = Vec::new();
     let mut thresholds = Vec::new();
-    
+
     for i in 0..=num_thresholds {
-        let threshold = i as f64 / num_thresholds as f64;
+        let threshold = i as Float / num_thresholds as Float;
         thresholds.push(threshold);
-        
+
         let mut tp = 0;
         let mut fp = 0;
         let mut tn = 0;
         let mut fn_ = 0;
-        
+
         for (pred, target) in predictions.iter().zip(targets.iter()) {
             if pred.len() != 1 || target.len() != 1 {
                 continue;
             }
-            
+
             let pred_class = pred[0] > threshold;
             let target_class = target[0] > 0.5;
-            
+
             match (pred_class, target_class) {
                 (true, true) => tp += 1,
                 (true, false) => fp += 1,
@@ -340,25 +350,25 @@ pub fn roc_curve(
                 (false, true) => fn_ += 1,
             }
         }
-        
+
         // TPR (True Positive Rate) = Recall = Sensitivity
         let tpr = if tp + fn_ > 0 {
-            tp as f64 / (tp + fn_) as f64
+            tp as Float / (tp + fn_) as Float
         } else {
             0.0
         };
-        
+
         // FPR (False Positive Rate) = 1 - Specificity
         let fpr = if fp + tn > 0 {
-            fp as f64 / (fp + tn) as f64
+            fp as Float / (fp + tn) as Float
         } else {
             0.0
         };
-        
+
         fpr_values.push(fpr);
         tpr_values.push(tpr);
     }
-    
+
     (fpr_values, tpr_values, thresholds)
 }
 
@@ -366,21 +376,17 @@ pub fn roc_curve(
 ///
 /// Uses the trapezoidal method for approximation.
 /// Perfect value = 1.0, random value = 0.5
-pub fn auc_roc(
-    predictions: &[Array1<f64>],
-    targets: &[Array1<f64>],
-) -> f64 {
+pub fn auc_roc(predictions: &[Array1<Float>], targets: &[Array1<Float>]) -> Float {
     let (mut fpr, mut tpr, _) = roc_curve(predictions, targets, 100);
-    
+
     // Trier par FPR croissant (nécessaire pour l'intégration)
-    let mut points: Vec<(f64, f64)> = fpr.iter().zip(tpr.iter())
-        .map(|(&f, &t)| (f, t))
-        .collect();
+    let mut points: Vec<(Float, Float)> =
+        fpr.iter().zip(tpr.iter()).map(|(&f, &t)| (f, t)).collect();
     points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
-    
+
     fpr = points.iter().map(|(f, _)| *f).collect();
     tpr = points.iter().map(|(_, t)| *t).collect();
-    
+
     // Méthode des trapèzes
     let mut area = 0.0;
     for i in 1..fpr.len() {
@@ -388,7 +394,7 @@ pub fn auc_roc(
         let height = (tpr[i] + tpr[i - 1]) / 2.0;
         area += width * height;
     }
-    
+
     area
 }
 
@@ -399,26 +405,18 @@ mod tests {
 
     #[test]
     fn test_accuracy_perfect() {
-        let predictions = vec![
-            array![0.1], array![0.9], array![0.8], array![0.2]
-        ];
-        let targets = vec![
-            array![0.0], array![1.0], array![1.0], array![0.0]
-        ];
-        
+        let predictions = vec![array![0.1], array![0.9], array![0.8], array![0.2]];
+        let targets = vec![array![0.0], array![1.0], array![1.0], array![0.0]];
+
         let acc = accuracy(&predictions, &targets, 0.5);
         assert_eq!(acc, 1.0);
     }
 
     #[test]
     fn test_accuracy_half() {
-        let predictions = vec![
-            array![0.1], array![0.1], array![0.8], array![0.8]
-        ];
-        let targets = vec![
-            array![0.0], array![1.0], array![1.0], array![0.0]
-        ];
-        
+        let predictions = vec![array![0.1], array![0.1], array![0.8], array![0.8]];
+        let targets = vec![array![0.0], array![1.0], array![1.0], array![0.0]];
+
         let acc = accuracy(&predictions, &targets, 0.5);
         assert_eq!(acc, 0.5);
     }
@@ -426,14 +424,24 @@ mod tests {
     #[test]
     fn test_binary_metrics() {
         let predictions = vec![
-            array![0.9], array![0.8], array![0.3], array![0.2], array![0.7], array![0.4]
+            array![0.9],
+            array![0.8],
+            array![0.3],
+            array![0.2],
+            array![0.7],
+            array![0.4],
         ];
         let targets = vec![
-            array![1.0], array![1.0], array![0.0], array![0.0], array![1.0], array![0.0]
+            array![1.0],
+            array![1.0],
+            array![0.0],
+            array![0.0],
+            array![1.0],
+            array![0.0],
         ];
-        
+
         let metrics = binary_metrics(&predictions, &targets, 0.5);
-        
+
         assert_eq!(metrics.true_positives, 3);
         assert_eq!(metrics.false_positives, 0);
         assert_eq!(metrics.true_negatives, 3);
@@ -446,15 +454,11 @@ mod tests {
 
     #[test]
     fn test_confusion_matrix_binary() {
-        let predictions = vec![
-            array![0.9], array![0.8], array![0.3], array![0.2]
-        ];
-        let targets = vec![
-            array![1.0], array![1.0], array![1.0], array![0.0]
-        ];
-        
+        let predictions = vec![array![0.9], array![0.8], array![0.3], array![0.2]];
+        let targets = vec![array![1.0], array![1.0], array![1.0], array![0.0]];
+
         let matrix = confusion_matrix_binary(&predictions, &targets, 0.5);
-        
+
         // TN=1, FP=0, FN=1, TP=2
         assert_eq!(matrix[[0, 0]], 1); // TN
         assert_eq!(matrix[[0, 1]], 0); // FP
@@ -474,20 +478,16 @@ mod tests {
             array![0.0, 1.0, 0.0], // Classe 1
             array![0.0, 0.0, 1.0], // Classe 2
         ];
-        
+
         let acc = accuracy(&predictions, &targets, 0.5);
         assert_eq!(acc, 1.0);
     }
 
     #[test]
     fn test_auc_roc_perfect() {
-        let predictions = vec![
-            array![0.9], array![0.8], array![0.3], array![0.2]
-        ];
-        let targets = vec![
-            array![1.0], array![1.0], array![0.0], array![0.0]
-        ];
-        
+        let predictions = vec![array![0.9], array![0.8], array![0.3], array![0.2]];
+        let targets = vec![array![1.0], array![1.0], array![0.0], array![0.0]];
+
         let auc = auc_roc(&predictions, &targets);
         // AUC doit être > 0.5 (mieux que random)
         // Avec un petit dataset, l'AUC peut ne pas atteindre 1.0

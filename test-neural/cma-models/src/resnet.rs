@@ -49,6 +49,7 @@
 //! - **BasicBlock** (ResNet-18/34): 2 conv 3×3
 //! - **Bottleneck** (ResNet-50+): 1×1 → 3×3 → 1×1 (réduction de dimension)
 
+use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{

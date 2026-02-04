@@ -63,6 +63,7 @@
 //! 3. **Uniformité**: Architecture très régulière, facile à comprendre
 //! 4. **Pre-training**: Poids transférables pour d'autres tâches
 
+use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{

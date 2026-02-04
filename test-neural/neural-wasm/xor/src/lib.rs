@@ -4,6 +4,7 @@
 //! Uses cma_neural_network for all neural network operations.
 
 use cma_neural_network::network::Network;
+use cma_neural_network::Float;
 use ndarray::array;
 use neural_wasm_shared::{
     build_test_result, load_model_from_bytes, ActivationsResponse, ArchitectureSummary,
@@ -23,7 +24,7 @@ const CLASS_NAMES: [&str; 2] = ["0", "1"];
 #[wasm_bindgen]
 pub struct XorNetwork {
     network: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     trained_at: String,
 }
@@ -47,7 +48,7 @@ impl XorNetwork {
     /// Predict XOR result for two binary inputs
     /// Returns JSON with prediction details
     #[wasm_bindgen]
-    pub fn predict(&self, x1: f64, x2: f64) -> String {
+    pub fn predict(&self, x1: Float, x2: Float) -> String {
         let input = array![x1, x2];
         let output = self.network.predict(&input);
         let raw = output[0];
@@ -69,7 +70,7 @@ impl XorNetwork {
 
     /// Get class probabilities
     #[wasm_bindgen]
-    pub fn get_probabilities(&self, x1: f64, x2: f64) -> String {
+    pub fn get_probabilities(&self, x1: Float, x2: Float) -> String {
         let input = array![x1, x2];
         let output = self.network.predict(&input);
         let raw = output[0];
@@ -84,7 +85,7 @@ impl XorNetwork {
     }
 
     // Private helper methods
-    fn predict_probs(&self, x1: f64, x2: f64) -> Vec<f64> {
+    fn predict_probs(&self, x1: Float, x2: Float) -> Vec<Float> {
         let input = array![x1, x2];
         let output = self.network.predict(&input);
         let raw = output[0];
@@ -131,7 +132,7 @@ impl XorNetwork {
             layers: layers
                 .iter()
                 .map(|(weights, biases, activation_name)| {
-                    let weights_2d: Vec<Vec<f64>> =
+                    let weights_2d: Vec<Vec<Float>> =
                         weights.rows().into_iter().map(|row| row.to_vec()).collect();
 
                     LayerInfo {
@@ -149,7 +150,7 @@ impl XorNetwork {
 
     /// Run inference and return all neuron activations for visualization
     #[wasm_bindgen]
-    pub fn get_activations(&self, x1: f64, x2: f64) -> String {
+    pub fn get_activations(&self, x1: Float, x2: Float) -> String {
         let input = array![x1, x2];
         let activations = self.network.get_all_activations(&input);
 

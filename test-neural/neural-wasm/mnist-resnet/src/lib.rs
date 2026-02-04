@@ -3,6 +3,7 @@
 //! Proper ResNet (He et al., 2015) with residual blocks and skip connections.
 //! Uses the flexible ResNet/ResNetBuilder from cma_models library.
 
+use cma_cnn::Float;
 use cma_cnn::Tensor4D;
 use cma_models::resnet::{ResNet, ResNetBuilder};
 use cma_neural_network::network::Network;
@@ -25,7 +26,7 @@ const CLASS_NAMES: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9
 pub struct MnistResNetNetwork {
     resnet: ResNet,
     classifier: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     trained_at: String,
     normalization: Option<NormalizationStats>,
@@ -51,7 +52,7 @@ impl MnistResNetNetwork {
     }
 
     #[wasm_bindgen]
-    pub fn predict(&self, pixels: &[f64]) -> String {
+    pub fn predict(&self, pixels: &[Float]) -> String {
         if pixels.len() != 784 {
             return serde_json::json!({"error": format!("Expected 784 pixels, got {}", pixels.len())}).to_string();
         }
@@ -61,7 +62,7 @@ impl MnistResNetNetwork {
         serde_json::to_string(&result).unwrap_or_else(|_| "{}".to_string())
     }
 
-    fn forward(&self, pixels: &[f64]) -> Vec<f64> {
+    fn forward(&self, pixels: &[Float]) -> Vec<Float> {
         let normalized = self.normalize_input(pixels);
         let tensor = Tensor4D::from_array(
             ndarray::Array4::from_shape_vec((1, 1, 28, 28), normalized).expect("reshape failed"),
@@ -72,7 +73,7 @@ impl MnistResNetNetwork {
         self.classifier.predict(&fc_input).to_vec()
     }
 
-    fn normalize_input(&self, pixels: &[f64]) -> Vec<f64> {
+    fn normalize_input(&self, pixels: &[Float]) -> Vec<Float> {
         if let Some(ref norm) = self.normalization {
             norm.normalize(pixels)
         } else {
@@ -81,7 +82,7 @@ impl MnistResNetNetwork {
     }
 
     #[wasm_bindgen]
-    pub fn get_probabilities(&self, pixels: &[f64]) -> String {
+    pub fn get_probabilities(&self, pixels: &[Float]) -> String {
         if pixels.len() != 784 {
             return serde_json::json!({"error": "Expected 784 pixels"}).to_string();
         }
@@ -131,7 +132,7 @@ impl MnistResNetNetwork {
             layers: layers
                 .iter()
                 .map(|(weights, biases, activation_name)| {
-                    let weights_2d: Vec<Vec<f64>> =
+                    let weights_2d: Vec<Vec<Float>> =
                         weights.rows().into_iter().map(|row| row.to_vec()).collect();
                     LayerInfo {
                         weights: weights_2d,
@@ -189,7 +190,7 @@ pub fn main() {
     console_error_panic_hook::set_once();
 }
 
-fn get_mnist_test_samples() -> Vec<(Vec<f64>, u8)> {
+fn get_mnist_test_samples() -> Vec<(Vec<Float>, u8)> {
     vec![
         (vec![0.0; 784], 0),
         (vec![0.0; 784], 1),

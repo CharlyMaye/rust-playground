@@ -61,6 +61,7 @@
 //! });
 //! ```
 
+use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{

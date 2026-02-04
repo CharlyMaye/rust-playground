@@ -1,4 +1,5 @@
 use cma_neural_network::network::Network;
+use cma_neural_network::Float;
 use ndarray::array;
 use neural_wasm_shared::{
     build_prediction_result, build_test_result, load_model_from_bytes, ActivationsResponse,
@@ -14,7 +15,7 @@ const MODEL_BIN: &[u8] = include_bytes!("iris_model.bin");
 pub struct IrisClassifier {
     network: Network,
     classes: Vec<String>,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     trained_at: String,
     normalization: Option<NormalizationStats>,
@@ -49,11 +50,11 @@ impl IrisClassifier {
     /// Normalize input features using stored statistics
     fn normalize_input(
         &self,
-        sepal_length: f64,
-        sepal_width: f64,
-        petal_length: f64,
-        petal_width: f64,
-    ) -> [f64; 4] {
+        sepal_length: Float,
+        sepal_width: Float,
+        petal_length: Float,
+        petal_width: Float,
+    ) -> [Float; 4] {
         if let Some(ref norm) = self.normalization {
             let raw = [sepal_length, sepal_width, petal_length, petal_width];
             let normalized = norm.normalize(&raw);
@@ -69,10 +70,10 @@ impl IrisClassifier {
     #[wasm_bindgen]
     pub fn predict(
         &self,
-        sepal_length: f64,
-        sepal_width: f64,
-        petal_length: f64,
-        petal_width: f64,
+        sepal_length: Float,
+        sepal_width: Float,
+        petal_length: Float,
+        petal_width: Float,
     ) -> String {
         let normalized = self.normalize_input(sepal_length, sepal_width, petal_length, petal_width);
         let input = array![normalized[0], normalized[1], normalized[2], normalized[3]];
@@ -89,10 +90,10 @@ impl IrisClassifier {
     #[wasm_bindgen]
     pub fn get_probabilities(
         &self,
-        sepal_length: f64,
-        sepal_width: f64,
-        petal_length: f64,
-        petal_width: f64,
+        sepal_length: Float,
+        sepal_width: Float,
+        petal_length: Float,
+        petal_width: Float,
     ) -> String {
         let normalized = self.normalize_input(sepal_length, sepal_width, petal_length, petal_width);
         let input = array![normalized[0], normalized[1], normalized[2], normalized[3]];
@@ -139,7 +140,7 @@ impl IrisClassifier {
         let layers: Vec<LayerInfo> = layers_info
             .iter()
             .map(|(weights, biases, activation_name)| {
-                let weights_2d: Vec<Vec<f64>> =
+                let weights_2d: Vec<Vec<Float>> =
                     weights.rows().into_iter().map(|row| row.to_vec()).collect();
 
                 LayerInfo {
@@ -165,10 +166,10 @@ impl IrisClassifier {
     #[wasm_bindgen]
     pub fn get_activations(
         &self,
-        sepal_length: f64,
-        sepal_width: f64,
-        petal_length: f64,
-        petal_width: f64,
+        sepal_length: Float,
+        sepal_width: Float,
+        petal_length: Float,
+        petal_width: Float,
     ) -> String {
         let input = array![sepal_length, sepal_width, petal_length, petal_width];
         let activations = self.network.get_all_activations(&input);
@@ -222,7 +223,7 @@ impl IrisClassifier {
 }
 
 /// Sample iris data for testing
-fn get_iris_test_samples() -> Vec<([f64; 4], usize)> {
+fn get_iris_test_samples() -> Vec<([Float; 4], usize)> {
     vec![
         // Setosa samples (class 0)
         ([5.1, 3.5, 1.4, 0.2], 0),

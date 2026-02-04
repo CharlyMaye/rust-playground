@@ -68,6 +68,7 @@
 //!
 //! Cette implémentation propose aussi une version réduite pour CIFAR-10 (32x32).
 
+use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{
@@ -87,7 +88,7 @@ pub struct AlexNetConfig {
     /// Utiliser BatchNorm au lieu de LRN
     pub use_batch_norm: bool,
     /// Taux de dropout
-    pub dropout_rate: f64,
+    pub dropout_rate: Float,
 }
 
 impl Default for AlexNetConfig {
@@ -339,7 +340,7 @@ impl AlexNet {
 }
 
 /// Crée le classifieur FC pour AlexNet
-pub fn create_alexnet_classifier(input_size: usize, num_classes: usize, dropout: f64) -> String {
+pub fn create_alexnet_classifier(input_size: usize, num_classes: usize, dropout: Float) -> String {
     format!(
         r#"// Classifieur FC pour AlexNet
 // Input: {} features

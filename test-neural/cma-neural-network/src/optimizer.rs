@@ -3,6 +3,7 @@
 //! This module provides different optimization algorithms to update
 //! network weights during training.
 
+use crate::Float;
 use ndarray::{Array1, Array2};
 use serde::{Deserialize, Serialize};
 
@@ -10,47 +11,47 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub enum OptimizerType {
     /// Stochastic Gradient Descent (SGD) - Simple and fast
-    SGD { learning_rate: f64 },
+    SGD { learning_rate: Float },
     
     /// SGD with momentum - Accelerates in the right directions
     Momentum { 
-        learning_rate: f64, 
-        beta: f64  // Typically 0.9
+        learning_rate: Float, 
+        beta: Float  // Typically 0.9
     },
     
     /// RMSprop - Adapts learning rate per parameter
     RMSprop { 
-        learning_rate: f64, 
-        beta: f64,      // Typically 0.9
-        epsilon: f64    // Typically 1e-8
+        learning_rate: Float, 
+        beta: Float,      // Typically 0.9
+        epsilon: Float    // Typically 1e-8
     },
     
     /// Adam - Adaptive Moment Estimation (modern standard)
     Adam { 
-        learning_rate: f64,
-        beta1: f64,     // Typically 0.9 (momentum)
-        beta2: f64,     // Typically 0.999 (variance)
-        epsilon: f64    // Typically 1e-8
+        learning_rate: Float,
+        beta1: Float,     // Typically 0.9 (momentum)
+        beta2: Float,     // Typically 0.999 (variance)
+        epsilon: Float    // Typically 1e-8
     },
     
     /// AdamW - Adam with decoupled Weight Decay
     AdamW { 
-        learning_rate: f64,
-        beta1: f64,
-        beta2: f64,
-        epsilon: f64,
-        weight_decay: f64  // Typically 0.01
+        learning_rate: Float,
+        beta1: Float,
+        beta2: Float,
+        epsilon: Float,
+        weight_decay: Float  // Typically 0.01
     },
 }
 
 impl OptimizerType {
     /// Creates an SGD optimizer with the specified learning rate.
-    pub fn sgd(learning_rate: f64) -> Self {
+    pub fn sgd(learning_rate: Float) -> Self {
         OptimizerType::SGD { learning_rate }
     }
     
     /// Creates a Momentum optimizer with default parameters.
-    pub fn momentum(learning_rate: f64) -> Self {
+    pub fn momentum(learning_rate: Float) -> Self {
         OptimizerType::Momentum { 
             learning_rate, 
             beta: 0.9 
@@ -58,7 +59,7 @@ impl OptimizerType {
     }
     
     /// Creates an RMSprop optimizer with default parameters.
-    pub fn rmsprop(learning_rate: f64) -> Self {
+    pub fn rmsprop(learning_rate: Float) -> Self {
         OptimizerType::RMSprop { 
             learning_rate, 
             beta: 0.9, 
@@ -67,7 +68,7 @@ impl OptimizerType {
     }
     
     /// Creates an Adam optimizer with default parameters (recommended).
-    pub fn adam(learning_rate: f64) -> Self {
+    pub fn adam(learning_rate: Float) -> Self {
         OptimizerType::Adam { 
             learning_rate,
             beta1: 0.9,
@@ -77,7 +78,7 @@ impl OptimizerType {
     }
     
     /// Creates an AdamW optimizer with default parameters.
-    pub fn adamw(learning_rate: f64, weight_decay: f64) -> Self {
+    pub fn adamw(learning_rate: Float, weight_decay: Float) -> Self {
         OptimizerType::AdamW { 
             learning_rate,
             beta1: 0.9,
@@ -92,10 +93,10 @@ impl OptimizerType {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptimizerState2D {
     /// First moment (momentum) - used by Momentum, Adam, AdamW
-    pub m: Option<Array2<f64>>,
+    pub m: Option<Array2<Float>>,
     
     /// Second moment (variance) - used by RMSprop, Adam, AdamW
-    pub v: Option<Array2<f64>>,
+    pub v: Option<Array2<Float>>,
     
     /// Number of iterations (for bias correction in Adam)
     pub t: usize,
@@ -126,8 +127,8 @@ impl OptimizerState2D {
     /// Updates weights with the computed gradient.
     pub fn step(
         &mut self,
-        weights: &mut Array2<f64>,
-        gradient: &Array2<f64>,
+        weights: &mut Array2<Float>,
+        gradient: &Array2<Float>,
         optimizer: &OptimizerType,
     ) {
         self.t += 1;
@@ -242,10 +243,10 @@ impl OptimizerState2D {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptimizerState1D {
     /// First moment (momentum)
-    pub m: Option<Array1<f64>>,
+    pub m: Option<Array1<Float>>,
     
     /// Second moment (variance)
-    pub v: Option<Array1<f64>>,
+    pub v: Option<Array1<Float>>,
     
     /// Number of iterations
     pub t: usize,
@@ -276,8 +277,8 @@ impl OptimizerState1D {
     /// Updates biases with the computed gradient.
     pub fn step(
         &mut self,
-        biases: &mut Array1<f64>,
-        gradient: &Array1<f64>,
+        biases: &mut Array1<Float>,
+        gradient: &Array1<Float>,
         optimizer: &OptimizerType,
     ) {
         self.t += 1;

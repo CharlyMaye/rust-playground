@@ -9,6 +9,7 @@ use cma_neural_network::dataset::Dataset;
 use cma_neural_network::metrics::accuracy;
 use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
+use cma_neural_network::Float;
 use ndarray::array;
 use neural_wasm_shared::save_model_binary;
 

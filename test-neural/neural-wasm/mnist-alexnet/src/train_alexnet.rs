@@ -12,6 +12,7 @@
 //! - Flatten → 2304
 //! - FC: 2304 → 512 → 10
 
+use cma_cnn::Float;
 use cma_cnn::{
     ActivationLayer, BatchNorm2D, Conv2D, Layer, MaxPool2D, Sequential, Tensor4D, TensorShape,
 };
@@ -46,8 +47,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mnist_data = load_mnist_from_csv("../mnist/data/mnist.csv")?;
     println!("   ✅ Loaded {} samples from CSV", mnist_data.len());
 
-    let inputs: Vec<Array1<f64>> = mnist_data.iter().map(|(i, _)| i.clone()).collect();
-    let targets: Vec<Array1<f64>> = mnist_data.iter().map(|(_, t)| t.clone()).collect();
+    let inputs: Vec<Array1<Float>> = mnist_data.iter().map(|(i, _)| i.clone()).collect();
+    let targets: Vec<Array1<Float>> = mnist_data.iter().map(|(_, t)| t.clone()).collect();
 
     // Normalize inputs (z-score normalization per feature)
     let (inputs, norm_stats) = normalize_features_with_stats(&inputs);
@@ -182,7 +183,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let acc = correct as f64 / total as f64;
+    let acc = correct as Float / total as Float;
 
     println!("   AlexNet-Mini MNIST Classification Results:");
     println!("   ┌─────────────────────────────────┐");
@@ -217,12 +218,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 /// Extract CNN features for all samples
-fn extract_cnn_features(cnn: &Sequential, inputs: &[Array1<f64>]) -> Vec<Array1<f64>> {
+fn extract_cnn_features(cnn: &Sequential, inputs: &[Array1<Float>]) -> Vec<Array1<Float>> {
     inputs
         .iter()
         .map(|flat_input| {
             // Reshape flat 784 → [1, 1, 28, 28]
-            let pixels: Vec<f64> = flat_input.to_vec();
+            let pixels: Vec<Float> = flat_input.to_vec();
             let tensor = Tensor4D::from_array(
                 ndarray::Array4::from_shape_vec((1, 1, 28, 28), pixels)
                     .expect("Failed to reshape input"),

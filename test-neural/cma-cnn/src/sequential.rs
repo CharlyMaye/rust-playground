@@ -14,6 +14,7 @@
 //!     .add_flatten(Flatten::new());
 //! ```
 
+use crate::Float;
 use serde::{Deserialize, Serialize};
 
 use crate::layers::{

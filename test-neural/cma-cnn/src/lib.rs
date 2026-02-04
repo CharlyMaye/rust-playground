@@ -45,6 +45,9 @@ pub mod ops;
 pub mod sequential;
 pub mod tensor;
 
+// Re-export Float type from cma-neural-network for consistency
+pub use cma_neural_network::Float;
+
 // Re-exports
 pub use layers::{
     ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Dropout2D, Flatten, GlobalAvgPool2D, Layer,

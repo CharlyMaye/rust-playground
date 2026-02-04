@@ -4,6 +4,7 @@
 //! - im2col / col2im pour convolution efficace
 //! - Padding modes
 
+use crate::Float;
 use ndarray::{Array2, Array4};
 use serde::{Deserialize, Serialize};
 
@@ -68,7 +69,7 @@ pub fn im2col_single(
     stride: usize,
     padding: usize,
     batch_idx: usize,
-) -> Array2<f64> {
+) -> Array2<Float> {
     let shape = input.shape();
     let data = input.data();
 
@@ -124,7 +125,7 @@ pub fn im2col(
     kernel_size: usize,
     stride: usize,
     padding: usize,
-) -> Vec<Array2<f64>> {
+) -> Vec<Array2<Float>> {
     let shape = input.shape();
     (0..shape.batch)
         .map(|b| im2col_single(input, kernel_size, stride, padding, b))
@@ -135,7 +136,7 @@ pub fn im2col(
 ///
 /// Reconstruit le gradient sur l'input à partir du gradient sur les colonnes.
 pub fn col2im(
-    cols: &Array2<f64>,
+    cols: &Array2<Float>,
     original_shape: TensorShape,
     kernel_size: usize,
     stride: usize,
@@ -212,8 +213,8 @@ pub fn col2im(
 #[cfg(test)]
 pub fn conv2d_naive(
     input: &Tensor4D,
-    weights: &Array4<f64>, // [out_channels, in_channels, kH, kW]
-    bias: Option<&ndarray::Array1<f64>>,
+    weights: &Array4<Float>, // [out_channels, in_channels, kH, kW]
+    bias: Option<&ndarray::Array1<Float>>,
     stride: usize,
     padding: usize,
 ) -> Tensor4D {
@@ -279,8 +280,8 @@ pub fn conv2d_naive(
 /// 4. Reshape le résultat en [Batch, Out_C, H', W']
 pub fn conv2d_im2col(
     input: &Tensor4D,
-    weights: &Array4<f64>, // [out_channels, in_channels, kH, kW]
-    bias: Option<&ndarray::Array1<f64>>,
+    weights: &Array4<Float>, // [out_channels, in_channels, kH, kW]
+    bias: Option<&ndarray::Array1<Float>>,
     stride: usize,
     padding: usize,
 ) -> Tensor4D {
@@ -295,8 +296,8 @@ pub fn conv2d_im2col(
 #[allow(dead_code)]
 fn conv2d_im2col_sequential(
     input: &Tensor4D,
-    weights: &Array4<f64>,
-    bias: Option<&ndarray::Array1<f64>>,
+    weights: &Array4<Float>,
+    bias: Option<&ndarray::Array1<Float>>,
     stride: usize,
     padding: usize,
 ) -> Tensor4D {
@@ -345,8 +346,8 @@ fn conv2d_im2col_sequential(
 #[cfg(feature = "parallel")]
 fn conv2d_im2col_parallel(
     input: &Tensor4D,
-    weights: &Array4<f64>,
-    bias: Option<&ndarray::Array1<f64>>,
+    weights: &Array4<Float>,
+    bias: Option<&ndarray::Array1<Float>>,
     stride: usize,
     padding: usize,
 ) -> Tensor4D {
@@ -368,7 +369,7 @@ fn conv2d_im2col_parallel(
         .expect("Failed to reshape weights");
 
     // Traiter chaque image du batch en parallèle
-    let batch_results: Vec<Array4<f64>> = (0..in_shape.batch)
+    let batch_results: Vec<Array4<Float>> = (0..in_shape.batch)
         .into_par_iter()
         .map(|b| {
             let cols = im2col_single(input, kernel_h, stride, padding, b);
@@ -412,7 +413,7 @@ pub fn maxpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> (Tensor4D
         for c in 0..shape.channels {
             for oh in 0..out_h {
                 for ow in 0..out_w {
-                    let mut max_val = f64::NEG_INFINITY;
+                    let mut max_val = Float::NEG_INFINITY;
                     let mut max_idx = 0;
 
                     for ph in 0..pool_size {
@@ -445,7 +446,7 @@ pub fn avgpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> Tensor4D 
 
     let out_h = (shape.height - pool_size) / stride + 1;
     let out_w = (shape.width - pool_size) / stride + 1;
-    let pool_area = (pool_size * pool_size) as f64;
+    let pool_area = (pool_size * pool_size) as Float;
 
     let mut output = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
 
@@ -479,7 +480,7 @@ pub fn avgpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> Tensor4D 
 pub fn global_avgpool2d(input: &Tensor4D) -> Tensor4D {
     let shape = input.shape();
     let data = input.data();
-    let spatial_size = (shape.height * shape.width) as f64;
+    let spatial_size = (shape.height * shape.width) as Float;
 
     let mut output = Array4::zeros((shape.batch, shape.channels, 1, 1));
 

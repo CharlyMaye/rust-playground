@@ -12,6 +12,7 @@
 //! - Ioffe & Szegedy (2015): Batch Normalization
 //! - He et al. (2015): Initialisation pour ReLU
 
+use crate::Float;
 use ndarray::{Array1, Array4};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -80,9 +81,9 @@ pub struct Conv2D {
     /// Padding
     pub padding: usize,
     /// Poids [out_channels, in_channels, kernel_h, kernel_w]
-    pub weights: Array4<f64>,
+    pub weights: Array4<Float>,
     /// Biais [out_channels]
-    pub bias: Array1<f64>,
+    pub bias: Array1<Float>,
     /// Utiliser le biais?
     pub use_bias: bool,
 }
@@ -109,15 +110,15 @@ impl Conv2D {
         // Variance = 2 / (fan_in)
         // fan_in = in_channels * kernel_size * kernel_size
         let fan_in = in_channels * kernel_size * kernel_size;
-        let std = (2.0 / fan_in as f64).sqrt();
+        let std = (2.0 / fan_in as Float).sqrt();
 
         // Génère les poids avec distribution normale
-        let weights_vec: Vec<f64> = (0..out_channels * in_channels * kernel_size * kernel_size)
+        let weights_vec: Vec<Float> = (0..out_channels * in_channels * kernel_size * kernel_size)
             .map(|_| {
                 // Box-Muller transform
-                let u1: f64 = rng.random();
-                let u2: f64 = rng.random();
-                let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+                let u1: Float = rng.random();
+                let u2: Float = rng.random();
+                let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
                 z * std
             })
             .collect();
@@ -371,17 +372,17 @@ impl Layer for GlobalAvgPool2D {
 pub struct BatchNorm2D {
     pub num_features: usize,
     /// Paramètres appris: scale (γ)
-    pub gamma: Array1<f64>,
+    pub gamma: Array1<Float>,
     /// Paramètres appris: shift (β)
-    pub beta: Array1<f64>,
+    pub beta: Array1<Float>,
     /// Moyenne courante (pour inference)
-    pub running_mean: Array1<f64>,
+    pub running_mean: Array1<Float>,
     /// Variance courante (pour inference)
-    pub running_var: Array1<f64>,
+    pub running_var: Array1<Float>,
     /// Momentum pour running stats
-    pub momentum: f64,
+    pub momentum: Float,
     /// Epsilon pour stabilité numérique
-    pub eps: f64,
+    pub eps: Float,
     /// Mode training (true) ou eval (false)
     pub training: bool,
 }
@@ -417,7 +418,7 @@ impl Layer for BatchNorm2D {
         let mut output =
             ndarray::Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
 
-        let n = (shape.batch * shape.height * shape.width) as f64;
+        let n = (shape.batch * shape.height * shape.width) as Float;
 
         for c in 0..shape.channels {
             // Extraction du canal avec slicing ndarray (vectorisé)
@@ -425,11 +426,11 @@ impl Layer for BatchNorm2D {
 
             let (mean, var) = if self.training {
                 // Opérations vectorisées avec ndarray
-                let sum: f64 = channel_data.sum();
+                let sum: Float = channel_data.sum();
                 let mean = sum / n;
 
                 // Variance: E[X²] - E[X]²
-                let sum_sq: f64 = channel_data.iter().map(|&x| x * x).sum();
+                let sum_sq: Float = channel_data.iter().map(|&x| x * x).sum();
                 let var = sum_sq / n - mean * mean;
                 (mean, var)
             } else {
@@ -482,12 +483,12 @@ impl Layer for BatchNorm2D {
 /// Plus efficace pour les CNN car les pixels adjacents sont corrélés.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dropout2D {
-    pub rate: f64,
+    pub rate: Float,
     pub training: bool,
 }
 
 impl Dropout2D {
-    pub fn new(rate: f64) -> Self {
+    pub fn new(rate: Float) -> Self {
         Self {
             rate,
             training: true,
@@ -519,7 +520,7 @@ impl Layer for Dropout2D {
         // Dropout par canal (spatial dropout)
         for b in 0..shape.batch {
             for c in 0..shape.channels {
-                let drop: bool = rng.random::<f64>() < self.rate;
+                let drop: bool = rng.random::<Float>() < self.rate;
                 if drop {
                     for h in 0..shape.height {
                         for w in 0..shape.width {
@@ -706,7 +707,7 @@ impl Layer for ActivationLayer {
 
 /// Applique une activation sur un scalaire
 /// Réplique la logique de cma_neural_network::Activation::apply pour un seul élément
-fn apply_activation_scalar(activation: cma_neural_network::Activation, x: f64) -> f64 {
+fn apply_activation_scalar(activation: cma_neural_network::Activation, x: Float) -> Float {
     use cma_neural_network::Activation;
     match activation {
         Activation::Sigmoid => 1.0 / (1.0 + (-x).exp()),
@@ -734,7 +735,7 @@ fn apply_activation_scalar(activation: cma_neural_network::Activation, x: f64) -
         Activation::Swish => x / (1.0 + (-x).exp()),
         Activation::GELU => {
             0.5 * x
-                * (1.0 + ((2.0 / std::f64::consts::PI).sqrt() * (x + 0.044715 * x.powi(3))).tanh())
+                * (1.0 + ((2.0 / std::f32::consts::PI).sqrt() * (x + 0.044715 * x.powi(3))).tanh())
         }
         Activation::Mish => x * ((1.0 + x.exp()).ln()).tanh(),
         Activation::Softplus => (1.0 + x.exp()).ln(),

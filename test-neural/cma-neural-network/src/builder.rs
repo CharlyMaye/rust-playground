@@ -1,3 +1,4 @@
+use crate::Float;
 use crate::callbacks::{Callback, LearningRateScheduler};
 use crate::compute::{ComputeDevice, ComputeDeviceError};
 use crate::dataset::Dataset;
@@ -29,10 +30,10 @@ pub struct NetworkBuilder {
     loss_function: LossFunction,
     optimizer: OptimizerType,
     weight_init: Option<WeightInit>,
-    dropout_rate: Option<f64>,
-    l1_lambda: Option<f64>,
-    l2_lambda: Option<f64>,
-    elastic_net: Option<(f64, f64)>, // (l1_ratio, lambda)
+    dropout_rate: Option<Float>,
+    l1_lambda: Option<Float>,
+    l2_lambda: Option<Float>,
+    elastic_net: Option<(Float, Float)>, // (l1_ratio, lambda)
 }
 
 impl NetworkBuilder {
@@ -89,25 +90,25 @@ impl NetworkBuilder {
     }
 
     /// Configures dropout for all hidden layers.
-    pub fn dropout(mut self, rate: f64) -> Self {
+    pub fn dropout(mut self, rate: Float) -> Self {
         self.dropout_rate = Some(rate);
         self
     }
 
     /// Configures L1 regularization.
-    pub fn l1(mut self, lambda: f64) -> Self {
+    pub fn l1(mut self, lambda: Float) -> Self {
         self.l1_lambda = Some(lambda);
         self
     }
 
     /// Configures L2 regularization.
-    pub fn l2(mut self, lambda: f64) -> Self {
+    pub fn l2(mut self, lambda: Float) -> Self {
         self.l2_lambda = Some(lambda);
         self
     }
 
     /// Configures Elastic Net regularization.
-    pub fn elastic_net(mut self, l1_ratio: f64, lambda: f64) -> Self {
+    pub fn elastic_net(mut self, l1_ratio: Float, lambda: Float) -> Self {
         self.elastic_net = Some((l1_ratio, lambda));
         self
     }
@@ -364,7 +365,7 @@ impl<'a> TrainingBuilder<'a> {
     ///
     /// # Panics
     /// Panics if train_data has not been configured.
-    pub fn try_fit(mut self) -> Result<Vec<(f64, Option<f64>)>, ComputeDeviceError> {
+    pub fn try_fit(mut self) -> Result<Vec<(Float, Option<Float>)>, ComputeDeviceError> {
         // Validate device is available
         self.device.validate()?;
 
@@ -392,7 +393,7 @@ impl<'a> TrainingBuilder<'a> {
     /// - Panics if train_data has not been configured.
     /// - Panics if GPU device is selected (GPU not yet available).
     ///   Use `try_fit()` to handle GPU errors gracefully.
-    pub fn fit(self) -> Vec<(f64, Option<f64>)> {
+    pub fn fit(self) -> Vec<(Float, Option<Float>)> {
         self.try_fit()
             .expect("Compute device not available. Use try_fit() to handle errors gracefully.")
     }

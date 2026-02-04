@@ -80,6 +80,7 @@
 //!  └────────────────── (skip if stride=1) ────────────────────┘
 //! ```
 
+use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{
@@ -97,11 +98,11 @@ pub struct EfficientNetConfig {
     /// Canaux d'entrée
     pub in_channels: usize,
     /// Coefficient de largeur (width multiplier)
-    pub width_mult: f64,
+    pub width_mult: Float,
     /// Coefficient de profondeur (depth multiplier)
-    pub depth_mult: f64,
+    pub depth_mult: Float,
     /// Dropout rate
-    pub dropout_rate: f64,
+    pub dropout_rate: Float,
 }
 
 impl EfficientNetConfig {
@@ -155,12 +156,12 @@ impl EfficientNetConfig {
 
     /// Applique le width multiplier
     fn scale_width(&self, channels: usize) -> usize {
-        ((channels as f64 * self.width_mult).ceil() as usize).max(1)
+        ((channels as Float * self.width_mult).ceil() as usize).max(1)
     }
 
     /// Applique le depth multiplier
     fn scale_depth(&self, num_layers: usize) -> usize {
-        ((num_layers as f64 * self.depth_mult).ceil() as usize).max(1)
+        ((num_layers as Float * self.depth_mult).ceil() as usize).max(1)
     }
 }
 

@@ -9,6 +9,7 @@
 //! - **H**: Height (hauteur en pixels)
 //! - **W**: Width (largeur en pixels)
 
+use crate::Float;
 use ndarray::{Array2, Array4, s};
 use serde::{Deserialize, Serialize};
 
@@ -82,12 +83,12 @@ impl std::fmt::Display for TensorShape {
 /// Layout mémoire: [batch, channels, height, width] (NCHW)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tensor4D {
-    data: Array4<f64>,
+    data: Array4<Float>,
 }
 
 impl Tensor4D {
     /// Crée un tenseur à partir d'un Array4
-    pub fn from_array(data: Array4<f64>) -> Self {
+    pub fn from_array(data: Array4<Float>) -> Self {
         Self { data }
     }
 
@@ -109,8 +110,8 @@ impl Tensor4D {
     pub fn random(shape: TensorShape) -> Self {
         use rand::Rng;
         let mut rng = rand::rng();
-        let data: Vec<f64> = (0..shape.size())
-            .map(|_| rng.random::<f64>() * 2.0 - 1.0)
+        let data: Vec<Float> = (0..shape.size())
+            .map(|_| rng.random::<Float>() * 2.0 - 1.0)
             .collect();
         Self {
             data: Array4::from_shape_vec(
@@ -128,22 +129,22 @@ impl Tensor4D {
     }
 
     /// Accès aux données brutes
-    pub fn data(&self) -> &Array4<f64> {
+    pub fn data(&self) -> &Array4<Float> {
         &self.data
     }
 
     /// Accès mutable aux données
-    pub fn data_mut(&mut self) -> &mut Array4<f64> {
+    pub fn data_mut(&mut self) -> &mut Array4<Float> {
         &mut self.data
     }
 
     /// Convertit en Array4
-    pub fn into_array(self) -> Array4<f64> {
+    pub fn into_array(self) -> Array4<Float> {
         self.data
     }
 
     /// Flatten: [batch, channels, height, width] → [batch, channels * height * width]
-    pub fn flatten(&self) -> Array2<f64> {
+    pub fn flatten(&self) -> Array2<Float> {
         let shape = self.shape();
         let flat_size = shape.channels * shape.height * shape.width;
 
@@ -160,7 +161,7 @@ impl Tensor4D {
     }
 
     /// Unflatten: [batch, flat] → [batch, channels, height, width]
-    pub fn unflatten(flat: &Array2<f64>, shape: TensorShape) -> Self {
+    pub fn unflatten(flat: &Array2<Float>, shape: TensorShape) -> Self {
         let mut data = Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
 
         for b in 0..shape.batch {
@@ -181,7 +182,7 @@ impl Tensor4D {
     /// Applique une fonction élément par élément
     pub fn map<F>(&self, f: F) -> Self
     where
-        F: Fn(f64) -> f64,
+        F: Fn(Float) -> Float,
     {
         Self {
             data: self.data.mapv(|x| f(x)),
@@ -194,17 +195,17 @@ impl Tensor4D {
     }
 
     /// Somme sur tous les éléments
-    pub fn sum(&self) -> f64 {
+    pub fn sum(&self) -> Float {
         self.data.sum()
     }
 
     /// Moyenne sur tous les éléments
-    pub fn mean(&self) -> f64 {
-        self.sum() / (self.shape().size() as f64)
+    pub fn mean(&self) -> Float {
+        self.sum() / (self.shape().size() as Float)
     }
 
     /// Extrait une image du batch
-    pub fn get_image(&self, batch_idx: usize) -> Array4<f64> {
+    pub fn get_image(&self, batch_idx: usize) -> Array4<Float> {
         let image = self.data.slice(s![batch_idx..batch_idx + 1, .., .., ..]);
         image.to_owned()
     }
@@ -256,10 +257,10 @@ impl std::ops::Sub for &Tensor4D {
     }
 }
 
-impl std::ops::Mul<f64> for &Tensor4D {
+impl std::ops::Mul<Float> for &Tensor4D {
     type Output = Tensor4D;
 
-    fn mul(self, scalar: f64) -> Tensor4D {
+    fn mul(self, scalar: Float) -> Tensor4D {
         Tensor4D {
             data: &self.data * scalar,
         }

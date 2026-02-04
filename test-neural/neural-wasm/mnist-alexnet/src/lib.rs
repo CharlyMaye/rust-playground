@@ -3,6 +3,7 @@
 //! This module exposes an AlexNet-Mini CNN trained on MNIST via WebAssembly.
 //! Architecture adapted from Krizhevsky et al., 2012 for 28x28 grayscale images.
 
+use cma_cnn::Float;
 use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, MaxPool2D, Sequential, Tensor4D, TensorShape};
 use cma_neural_network::network::Network;
 use ndarray::Array1;
@@ -57,7 +58,7 @@ fn build_alexnet_cnn() -> Sequential {
 pub struct MnistAlexNetNetwork {
     cnn: Sequential,
     classifier: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     trained_at: String,
     normalization: Option<NormalizationStats>,
@@ -87,7 +88,7 @@ impl MnistAlexNetNetwork {
     /// Accepts 784 pixels (28x28 image)
     /// Returns JSON with digit prediction (0-9), probabilities, and confidence
     #[wasm_bindgen]
-    pub fn predict(&self, pixels: &[f64]) -> String {
+    pub fn predict(&self, pixels: &[Float]) -> String {
         if pixels.len() != 784 {
             return serde_json::json!({
                 "error": format!("Expected 784 pixels, got {}", pixels.len())
@@ -103,7 +104,7 @@ impl MnistAlexNetNetwork {
     }
 
     /// Full forward pass: normalize → CNN → FC classifier
-    fn forward(&self, pixels: &[f64]) -> Vec<f64> {
+    fn forward(&self, pixels: &[Float]) -> Vec<Float> {
         // Normalize input
         let normalized = self.normalize_input(pixels);
 
@@ -126,7 +127,7 @@ impl MnistAlexNetNetwork {
     }
 
     /// Normalize input pixels using stored normalization statistics
-    fn normalize_input(&self, pixels: &[f64]) -> Vec<f64> {
+    fn normalize_input(&self, pixels: &[Float]) -> Vec<Float> {
         if let Some(ref norm) = self.normalization {
             norm.normalize(pixels)
         } else {
@@ -136,7 +137,7 @@ impl MnistAlexNetNetwork {
 
     /// Get class probabilities for 784 pixels
     #[wasm_bindgen]
-    pub fn get_probabilities(&self, pixels: &[f64]) -> String {
+    pub fn get_probabilities(&self, pixels: &[Float]) -> String {
         if pixels.len() != 784 {
             return serde_json::json!({"error": "Expected 784 pixels"}).to_string();
         }
@@ -194,7 +195,7 @@ impl MnistAlexNetNetwork {
             layers: layers
                 .iter()
                 .map(|(weights, biases, activation_name)| {
-                    let weights_2d: Vec<Vec<f64>> =
+                    let weights_2d: Vec<Vec<Float>> =
                         weights.rows().into_iter().map(|row| row.to_vec()).collect();
 
                     LayerInfo {
@@ -304,7 +305,7 @@ pub fn main() {
 }
 
 /// Sample MNIST test data
-fn get_mnist_test_samples() -> Vec<(Vec<f64>, u8)> {
+fn get_mnist_test_samples() -> Vec<(Vec<Float>, u8)> {
     vec![
         (vec![0.0; 784], 0),
         (vec![0.0; 784], 1),

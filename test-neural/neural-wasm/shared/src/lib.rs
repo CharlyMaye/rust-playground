@@ -1,22 +1,23 @@
 use chrono;
 use cma_neural_network::network::Network;
+use cma_neural_network::Float;
 use ndarray;
 use serde::{Deserialize, Serialize};
 
 /// Normalization statistics for input features
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NormalizationStats {
-    pub means: Vec<f64>,
-    pub stds: Vec<f64>,
+    pub means: Vec<Float>,
+    pub stds: Vec<Float>,
 }
 
 impl NormalizationStats {
-    pub fn new(means: Vec<f64>, stds: Vec<f64>) -> Self {
+    pub fn new(means: Vec<Float>, stds: Vec<Float>) -> Self {
         Self { means, stds }
     }
 
     /// Normalize a single input using these statistics
-    pub fn normalize(&self, input: &[f64]) -> Vec<f64> {
+    pub fn normalize(&self, input: &[Float]) -> Vec<Float> {
         input
             .iter()
             .enumerate()
@@ -28,7 +29,7 @@ impl NormalizationStats {
 /// Model metadata saved during training
 #[derive(Serialize, Deserialize)]
 pub struct ModelMetadata {
-    pub accuracy: f64,
+    pub accuracy: Float,
     pub test_samples: usize,
     pub trained_at: String,
     #[serde(default)]
@@ -47,7 +48,7 @@ pub struct ModelWithMetadata {
 pub struct ModelInfo {
     pub name: String,
     pub architecture: String,
-    pub accuracy: f64,
+    pub accuracy: Float,
     pub description: String,
     pub test_samples: usize,
     pub trained_at: String,
@@ -56,8 +57,8 @@ pub struct ModelInfo {
 /// Information about a network layer
 #[derive(Serialize)]
 pub struct LayerInfo {
-    pub weights: Vec<Vec<f64>>,
-    pub biases: Vec<f64>,
+    pub weights: Vec<Vec<Float>>,
+    pub biases: Vec<Float>,
     pub activation: String,
     pub shape: [usize; 2],
 }
@@ -134,43 +135,43 @@ impl ArchitectureSummary {
 pub struct PredictionResult {
     pub class_name: String,
     pub class_index: usize,
-    pub probabilities: Vec<f64>,
-    pub confidence: f64,
+    pub probabilities: Vec<Float>,
+    pub confidence: Float,
 }
 
 /// Layer activation data for visualization
 #[derive(Serialize)]
 pub struct LayerActivation {
-    pub pre_activation: Vec<f64>,
-    pub activation: Vec<f64>,
+    pub pre_activation: Vec<Float>,
+    pub activation: Vec<Float>,
     pub function: String,
 }
 
 /// Full activation response for network visualization
 #[derive(Serialize)]
 pub struct ActivationsResponse {
-    pub inputs: Vec<f64>,
+    pub inputs: Vec<Float>,
     pub layers: Vec<LayerActivation>,
-    pub output: Vec<f64>,
+    pub output: Vec<Float>,
 }
 
 /// Generic test result for any classifier
 #[derive(Serialize)]
 pub struct TestResult {
-    pub inputs: Vec<f64>,
+    pub inputs: Vec<Float>,
     pub expected_class: String,
     pub expected_index: usize,
     pub predicted_class: String,
     pub predicted_index: usize,
-    pub probabilities: Vec<f64>,
-    pub confidence: f64,
+    pub probabilities: Vec<Float>,
+    pub confidence: Float,
     pub is_correct: bool,
 }
 
 // ===== Utility Functions =====
 
 /// Find the class with highest probability
-pub fn find_max_class(probs: &[f64]) -> (usize, f64) {
+pub fn find_max_class(probs: &[Float]) -> (usize, Float) {
     probs
         .iter()
         .enumerate()
@@ -180,7 +181,7 @@ pub fn find_max_class(probs: &[f64]) -> (usize, f64) {
 }
 
 /// Validate input size
-pub fn validate_input_size(input: &[f64], expected: usize) -> Result<(), String> {
+pub fn validate_input_size(input: &[Float], expected: usize) -> Result<(), String> {
     if input.len() != expected {
         Err(format!("Expected {} inputs, got {}", expected, input.len()))
     } else {
@@ -189,7 +190,7 @@ pub fn validate_input_size(input: &[f64], expected: usize) -> Result<(), String>
 }
 
 /// Build a prediction result from probabilities
-pub fn build_prediction_result(probs: &[f64], class_names: &[String]) -> PredictionResult {
+pub fn build_prediction_result(probs: &[Float], class_names: &[String]) -> PredictionResult {
     let (class_index, confidence) = find_max_class(probs);
     let class_name = class_names
         .get(class_index)
@@ -206,9 +207,9 @@ pub fn build_prediction_result(probs: &[f64], class_names: &[String]) -> Predict
 
 /// Build a test result from prediction
 pub fn build_test_result(
-    inputs: Vec<f64>,
+    inputs: Vec<Float>,
     expected_index: usize,
-    probs: &[f64],
+    probs: &[Float],
     class_names: &[String],
 ) -> TestResult {
     let (predicted_index, confidence) = find_max_class(probs);
@@ -235,23 +236,23 @@ pub fn build_test_result(
 }
 
 /// Convert confidence to percentage
-pub fn confidence_to_percentage(value: f64) -> f64 {
+pub fn confidence_to_percentage(value: Float) -> Float {
     (value * 100.0).max(0.0).min(100.0)
 }
 
 /// Softmax function for multi-class probability
-pub fn softmax(values: &[f64]) -> Vec<f64> {
-    let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let exp_values: Vec<f64> = values.iter().map(|&v| (v - max).exp()).collect();
-    let sum: f64 = exp_values.iter().sum();
+pub fn softmax(values: &[Float]) -> Vec<Float> {
+    let max = values.iter().cloned().fold(Float::NEG_INFINITY, Float::max);
+    let exp_values: Vec<Float> = values.iter().map(|&v| (v - max).exp()).collect();
+    let sum: Float = exp_values.iter().sum();
     exp_values.iter().map(|&v| v / sum).collect()
 }
 
 /// Calculate accuracy for multi-class classification
 pub fn calculate_multiclass_accuracy(
     network: &Network,
-    inputs: &[ndarray::Array1<f64>],
-    targets: &[ndarray::Array1<f64>],
+    inputs: &[ndarray::Array1<Float>],
+    targets: &[ndarray::Array1<Float>],
 ) -> (usize, usize) {
     let mut correct = 0;
     let total = inputs.len();
@@ -283,7 +284,7 @@ pub fn calculate_multiclass_accuracy(
 /// Save model with metadata to JSON file
 pub fn save_model_with_metadata(
     network: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -293,7 +294,7 @@ pub fn save_model_with_metadata(
 /// Save model with metadata and normalization statistics to JSON file
 pub fn save_model_with_normalization(
     network: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     normalization: Option<NormalizationStats>,
     path: &str,
@@ -316,7 +317,7 @@ pub fn save_model_with_normalization(
 /// Save model with metadata to binary file (compact format for WASM)
 pub fn save_model_binary(
     network: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     normalization: Option<NormalizationStats>,
     path: &str,
@@ -353,7 +354,7 @@ mod tests {
     fn test_softmax() {
         let values = vec![1.0, 2.0, 3.0];
         let result = softmax(&values);
-        let sum: f64 = result.iter().sum();
+        let sum: Float = result.iter().sum();
         assert!((sum - 1.0).abs() < 1e-6);
     }
 
@@ -374,7 +375,7 @@ mod tests {
 /// Dataset source: https://www.openml.org/d/554
 pub fn load_mnist_from_csv(
     path: &str,
-) -> Result<Vec<(ndarray::Array1<f64>, ndarray::Array1<f64>)>, Box<dyn std::error::Error>> {
+) -> Result<Vec<(ndarray::Array1<Float>, ndarray::Array1<Float>)>, Box<dyn std::error::Error>> {
     use csv::ReaderBuilder;
 
     let mut data = Vec::new();
@@ -394,7 +395,7 @@ pub fn load_mnist_from_csv(
         // Parse the 784 pixel values (columns 0-783)
         let mut pixels = Vec::with_capacity(784);
         for i in 0..784 {
-            let pixel: f64 = record[i].parse()?;
+            let pixel: Float = record[i].parse()?;
             pixels.push(pixel);
         }
 
@@ -419,14 +420,14 @@ pub fn load_mnist_from_csv(
 /// Normalize features using z-score normalization (mean=0, std=1)
 /// Returns normalized data AND the normalization statistics for inference
 pub fn normalize_features_with_stats(
-    inputs: &[ndarray::Array1<f64>],
-) -> (Vec<ndarray::Array1<f64>>, NormalizationStats) {
+    inputs: &[ndarray::Array1<Float>],
+) -> (Vec<ndarray::Array1<Float>>, NormalizationStats) {
     if inputs.is_empty() {
         return (vec![], NormalizationStats::new(vec![], vec![]));
     }
 
     let n_features = inputs[0].len();
-    let n_samples = inputs.len() as f64;
+    let n_samples = inputs.len() as Float;
 
     // Calculate mean for each feature
     let mut means = vec![0.0; n_features];
@@ -474,7 +475,7 @@ pub fn normalize_features_with_stats(
 /// Reshape flat MNIST pixels to 2D image format for CNN
 /// Input: 784 values (flattened 28x28)
 /// Output: [1, 28, 28] for single channel grayscale
-pub fn reshape_mnist_to_image(pixels: &[f64]) -> ndarray::Array3<f64> {
+pub fn reshape_mnist_to_image(pixels: &[Float]) -> ndarray::Array3<Float> {
     assert_eq!(pixels.len(), 784, "MNIST images must be 784 pixels");
     ndarray::Array3::from_shape_vec((1, 28, 28), pixels.to_vec())
         .expect("Failed to reshape MNIST pixels")

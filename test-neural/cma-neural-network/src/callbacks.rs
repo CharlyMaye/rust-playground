@@ -9,6 +9,7 @@
 //! - **LearningRateScheduler**: Dynamically adjusts the learning rate
 //! - **ProgressBar**: Displays real-time training progress
 
+use crate::Float;
 use crate::network::Network;
 use crate::optimizer::OptimizerType;
 use std::path::PathBuf;
@@ -41,7 +42,7 @@ pub trait Callback {
     ///
     /// # Returns
     /// `true` to continue training, `false` to stop
-    fn on_epoch_end(&mut self, _epoch: usize, _network: &Network, _train_loss: f64, _val_loss: Option<f64>) -> bool {
+    fn on_epoch_end(&mut self, _epoch: usize, _network: &Network, _train_loss: Float, _val_loss: Option<Float>) -> bool {
         true
     }
 }
@@ -85,13 +86,13 @@ pub struct EarlyStopping {
     patience: usize,
 
     /// Minimum improvement required to count as improvement
-    min_delta: f64,
+    min_delta: Float,
 
     /// Comparison mode (absolute or relative)
     delta_mode: DeltaMode,
 
     /// Best loss observed
-    best_loss: f64,
+    best_loss: Float,
 
     /// Number of epochs without improvement
     wait: usize,
@@ -111,12 +112,12 @@ impl EarlyStopping {
     /// - `min_delta`: Minimum required improvement
     ///   - In Absolute mode (default): absolute value (e.g., 0.0001)
     ///   - In Relative mode: percentage (e.g., 0.01 for 1%)
-    pub fn new(patience: usize, min_delta: f64) -> Self {
+    pub fn new(patience: usize, min_delta: Float) -> Self {
         EarlyStopping {
             patience,
             min_delta,
             delta_mode: DeltaMode::default(),
-            best_loss: f64::INFINITY,
+            best_loss: Float::INFINITY,
             wait: 0,
             stopped: false,
             best_epoch: 0,
@@ -152,20 +153,20 @@ impl EarlyStopping {
     }
     
     /// Returns the best loss.
-    pub fn best_loss(&self) -> f64 {
+    pub fn best_loss(&self) -> Float {
         self.best_loss
     }
 }
 
 impl Callback for EarlyStopping {
     fn on_train_begin(&mut self, _network: &Network) {
-        self.best_loss = f64::INFINITY;
+        self.best_loss = Float::INFINITY;
         self.wait = 0;
         self.stopped = false;
         self.best_epoch = 0;
     }
     
-    fn on_epoch_end(&mut self, epoch: usize, _network: &Network, _train_loss: f64, val_loss: Option<f64>) -> bool {
+    fn on_epoch_end(&mut self, epoch: usize, _network: &Network, _train_loss: Float, val_loss: Option<Float>) -> bool {
         if let Some(loss) = val_loss {
             // Check improvement based on delta mode
             let improved = match self.delta_mode {
@@ -217,7 +218,7 @@ pub struct ModelCheckpoint {
     save_best_only: bool,
     
     /// Best loss observed
-    best_loss: f64,
+    best_loss: Float,
     
     /// Save format (true = JSON, false = Binary)
     use_json: bool,
@@ -239,23 +240,23 @@ impl ModelCheckpoint {
         ModelCheckpoint {
             filepath: path,
             save_best_only,
-            best_loss: f64::INFINITY,
+            best_loss: Float::INFINITY,
             use_json,
         }
     }
     
     /// Returns the best loss.
-    pub fn best_loss(&self) -> f64 {
+    pub fn best_loss(&self) -> Float {
         self.best_loss
     }
 }
 
 impl Callback for ModelCheckpoint {
     fn on_train_begin(&mut self, _network: &Network) {
-        self.best_loss = f64::INFINITY;
+        self.best_loss = Float::INFINITY;
     }
     
-    fn on_epoch_end(&mut self, epoch: usize, network: &Network, _train_loss: f64, val_loss: Option<f64>) -> bool {
+    fn on_epoch_end(&mut self, epoch: usize, network: &Network, _train_loss: Float, val_loss: Option<Float>) -> bool {
         if let Some(loss) = val_loss {
             let should_save = if self.save_best_only {
                 loss < self.best_loss
@@ -287,15 +288,15 @@ impl Callback for ModelCheckpoint {
 pub enum LRSchedule {
     /// Reduces LR by a factor at fixed epochs.
     /// Example: StepLR { step_size: 10, gamma: 0.5 } divides LR by 2 every 10 epochs
-    StepLR { step_size: usize, gamma: f64 },
+    StepLR { step_size: usize, gamma: Float },
     
     /// Reduces LR when loss plateaus.
     /// Example: ReduceOnPlateau { patience: 5, factor: 0.5 } divides LR by 2 after 5 epochs without improvement
-    ReduceOnPlateau { patience: usize, factor: f64, min_delta: f64 },
+    ReduceOnPlateau { patience: usize, factor: Float, min_delta: Float },
     
     /// Exponential decay of LR.
     /// Example: ExponentialLR { gamma: 0.95 } multiplies LR by 0.95 each epoch
-    ExponentialLR { gamma: f64 },
+    ExponentialLR { gamma: Float },
 }
 
 /// LearningRateScheduler - Dynamically adjusts the learning rate.
@@ -322,11 +323,11 @@ pub struct LearningRateScheduler {
     schedule: LRSchedule,
     
     // State for ReduceOnPlateau
-    best_loss: f64,
+    best_loss: Float,
     wait: usize,
     
     // Current LR (pub to allow access from fit())
-    pub current_lr: f64,
+    pub current_lr: Float,
 }
 
 impl LearningRateScheduler {
@@ -334,14 +335,14 @@ impl LearningRateScheduler {
     pub fn new(schedule: LRSchedule) -> Self {
         LearningRateScheduler {
             schedule,
-            best_loss: f64::INFINITY,
+            best_loss: Float::INFINITY,
             wait: 0,
             current_lr: 0.0,
         }
     }
     
     /// Returns the current learning rate.
-    pub fn current_lr(&self) -> f64 {
+    pub fn current_lr(&self) -> Float {
         self.current_lr
     }
     
@@ -360,11 +361,11 @@ impl LearningRateScheduler {
 impl Callback for LearningRateScheduler {
     fn on_train_begin(&mut self, _network: &Network) {
         // Note: Le LR sera géré par la méthode fit() qui a accès à l'optimizer
-        self.best_loss = f64::INFINITY;
+        self.best_loss = Float::INFINITY;
         self.wait = 0;
     }
     
-    fn on_epoch_end(&mut self, epoch: usize, _network: &Network, _train_loss: f64, val_loss: Option<f64>) -> bool {
+    fn on_epoch_end(&mut self, epoch: usize, _network: &Network, _train_loss: Float, val_loss: Option<Float>) -> bool {
         // Note: On ne peut pas modifier network ici car c'est une référence immutable
         // Le LR sera mis à jour dans la méthode d'entraînement
         
@@ -461,18 +462,18 @@ impl Callback for ProgressBar {
         if let Some(start) = self.start_time {
             let duration = start.elapsed();
             if self.verbose {
-                println!("✅ Entraînement terminé en {:.2}s", duration.as_secs_f64());
+                println!("✅ Entraînement terminé en {:.2}s", duration.as_secs_f32());
             }
         }
     }
     
-    fn on_epoch_end(&mut self, epoch: usize, _network: &Network, train_loss: f64, val_loss: Option<f64>) -> bool {
+    fn on_epoch_end(&mut self, epoch: usize, _network: &Network, train_loss: Float, val_loss: Option<Float>) -> bool {
         if self.verbose {
-            let progress = (epoch + 1) as f64 / self.total_epochs as f64 * 100.0;
+            let progress = (epoch + 1) as Float / self.total_epochs as Float * 100.0;
             
             if let (Some(start), Some(val)) = (self.start_time, val_loss) {
-                let elapsed = start.elapsed().as_secs_f64();
-                let eta = elapsed / (epoch + 1) as f64 * (self.total_epochs - epoch - 1) as f64;
+                let elapsed = start.elapsed().as_secs_f32();
+                let eta = elapsed / (epoch + 1) as Float * (self.total_epochs - epoch - 1) as Float;
                 
                 print!("\rEpoch {}/{} [{:.1}%] - train_loss: {:.6} - val_loss: {:.6} - ETA: {:.0}s   ",
                        epoch + 1, self.total_epochs, progress, train_loss, val, eta);

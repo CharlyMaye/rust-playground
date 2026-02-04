@@ -12,6 +12,7 @@
 //! - Global Average Pooling → 64
 //! - FC: 64 → 10
 
+use cma_cnn::Float;
 use cma_cnn::Tensor4D;
 use cma_models::resnet::{ResNet, ResNetBuilder};
 use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
@@ -44,8 +45,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mnist_data = load_mnist_from_csv("../mnist/data/mnist.csv")?;
     println!("   ✅ Loaded {} samples from CSV", mnist_data.len());
 
-    let inputs: Vec<Array1<f64>> = mnist_data.iter().map(|(i, _)| i.clone()).collect();
-    let targets: Vec<Array1<f64>> = mnist_data.iter().map(|(_, t)| t.clone()).collect();
+    let inputs: Vec<Array1<Float>> = mnist_data.iter().map(|(i, _)| i.clone()).collect();
+    let targets: Vec<Array1<Float>> = mnist_data.iter().map(|(_, t)| t.clone()).collect();
 
     let (inputs, norm_stats) = normalize_features_with_stats(&inputs);
     println!("   ✅ Features normalized (z-score)");
@@ -149,7 +150,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     }
 
-    let acc = correct as f64 / total as f64;
+    let acc = correct as Float / total as Float;
 
     println!("   ResNet-MNIST Classification Results:");
     println!("   ┌─────────────────────────────────────┐");
@@ -184,12 +185,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 /// Extract ResNet features for all samples
-fn extract_resnet_features(resnet: &ResNet, inputs: &[Array1<f64>]) -> Vec<Array1<f64>> {
+fn extract_resnet_features(resnet: &ResNet, inputs: &[Array1<Float>]) -> Vec<Array1<Float>> {
     inputs
         .iter()
         .map(|flat_input| {
             // Reshape flat 784 → [1, 1, 28, 28]
-            let pixels: Vec<f64> = flat_input.to_vec();
+            let pixels: Vec<Float> = flat_input.to_vec();
             let tensor = Tensor4D::from_array(
                 ndarray::Array4::from_shape_vec((1, 1, 28, 28), pixels)
                     .expect("Failed to reshape input"),
