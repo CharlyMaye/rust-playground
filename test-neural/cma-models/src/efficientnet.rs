@@ -83,10 +83,7 @@
 use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
-use cma_cnn::{
-    ActivationLayer, BatchNorm2D, Conv2D, Flatten, GlobalAvgPool2D, Layer, MaxPool2D, Sequential,
-    Tensor4D, TensorShape,
-};
+use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, GlobalAvgPool2D, Layer, Sequential, Tensor4D};
 
 /// Configuration EfficientNet
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -533,6 +530,7 @@ impl EfficientNetB0 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cma_cnn::TensorShape;
 
     #[test]
     fn test_se_block() {

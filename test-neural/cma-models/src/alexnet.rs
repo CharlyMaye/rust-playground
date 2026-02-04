@@ -71,10 +71,7 @@
 use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
-use cma_cnn::{
-    ActivationLayer, BatchNorm2D, Conv2D, Dropout2D, Flatten, MaxPool2D, Sequential, Tensor4D,
-    TensorShape,
-};
+use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, MaxPool2D, Sequential, Tensor4D, TensorShape};
 
 /// Configuration d'AlexNet
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -150,8 +147,7 @@ impl AlexNetConfig {
 /// | Pool5 | MaxPool 3×3/2 | 256×6×6 | 0 |
 /// | **Total Conv** | | | **~3.7M** |
 ///
-/// + FC layers: ~58M paramètres
-/// = **~62M paramètres total**
+/// + FC layers: ~58M paramètres = **~62M paramètres total**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlexNet {
     /// Couches convolutionnelles (feature extractor)

@@ -49,12 +49,10 @@
 //! - **BasicBlock** (ResNet-18/34): 2 conv 3×3
 //! - **Bottleneck** (ResNet-50+): 1×1 → 3×3 → 1×1 (réduction de dimension)
 
-use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{
-    ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Flatten, GlobalAvgPool2D, MaxPool2D,
-    Sequential, Tensor4D, TensorShape,
+    ActivationLayer, BatchNorm2D, Conv2D, Flatten, GlobalAvgPool2D, MaxPool2D, Sequential, Tensor4D,
 };
 
 /// Configuration ResNet
@@ -871,6 +869,7 @@ impl ResNet50 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use cma_cnn::TensorShape;
 
     #[test]
     fn test_residual_block() {

@@ -61,13 +61,9 @@
 //! });
 //! ```
 
-use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
-use cma_cnn::{
-    ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Flatten, MaxPool2D, Sequential, Tensor4D,
-    TensorShape,
-};
+use cma_cnn::{ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Sequential, Tensor4D, TensorShape};
 
 /// Configuration de LeNet-5
 #[derive(Debug, Clone, Serialize, Deserialize)]

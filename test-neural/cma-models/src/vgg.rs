@@ -63,12 +63,9 @@
 //! 3. **Uniformité**: Architecture très régulière, facile à comprendre
 //! 4. **Pre-training**: Poids transférables pour d'autres tâches
 
-use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
-use cma_cnn::{
-    ActivationLayer, BatchNorm2D, Conv2D, Flatten, MaxPool2D, Sequential, Tensor4D, TensorShape,
-};
+use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, MaxPool2D, Sequential, Tensor4D, TensorShape};
 
 /// Configuration VGG
 #[derive(Debug, Clone, Serialize, Deserialize)]

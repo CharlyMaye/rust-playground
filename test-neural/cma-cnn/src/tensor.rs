@@ -182,10 +182,10 @@ impl Tensor4D {
     /// Applique une fonction élément par élément
     pub fn map<F>(&self, f: F) -> Self
     where
-        F: Fn(Float) -> Float,
+        F: Fn(Float) -> Float + Copy,
     {
         Self {
-            data: self.data.mapv(|x| f(x)),
+            data: self.data.mapv(f),
         }
     }
 
