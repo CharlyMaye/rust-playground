@@ -17,7 +17,7 @@ use cma_cnn::{
     ActivationLayer, BatchNorm2D, Conv2D, Layer, MaxPool2D, Sequential, Tensor4D, TensorShape,
 };
 use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
-use cma_neural_network::callbacks::{DeltaMode, EarlyStopping, ProgressBar};
+use cma_neural_network::callbacks::{DeltaMode, EarlyStopping, LRSchedule, LearningRateScheduler, ProgressBar};
 use cma_neural_network::dataset::Dataset;
 use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
@@ -132,10 +132,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     let epochs = 500;
     let history = classifier
         .trainer()
+        .parallel() // Enable multi-threaded training
         .train_data(&mut train_fc)
         .validation_data(&val_fc)
         .epochs(epochs)
         .batch_size(128)
+        .max_grad_norm(5.0) // Prevent gradient explosion
+        .scheduler(LearningRateScheduler::new(
+            LRSchedule::ReduceOnPlateau {
+                patience: 10,
+                factor: 0.5,
+                min_delta: 0.0001,
+            },
+        ))
         .callback(Box::new(
             EarlyStopping::new(50, 0.001).mode(DeltaMode::Relative),
         ))

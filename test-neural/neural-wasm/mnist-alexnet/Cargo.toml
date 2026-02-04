@@ -31,7 +31,8 @@ getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [features]
 default = ["console_error_panic_hook"]
-training = ["csv", "chrono"]
+# Training feature enables CSV loading, chrono, and parallel processing
+training = ["csv", "chrono", "cma-cnn/parallel", "cma-neural-network/parallel"]
 
 [profile.release]
 opt-level = "s"

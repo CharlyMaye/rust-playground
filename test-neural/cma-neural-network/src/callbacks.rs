@@ -319,6 +319,43 @@ pub enum LRSchedule {
     /// Exponential decay of LR.
     /// Example: ExponentialLR { gamma: 0.95 } multiplies LR by 0.95 each epoch
     ExponentialLR { gamma: Float },
+
+    /// Cosine Annealing with Warm Restarts (state-of-the-art for CNNs/Transformers).
+    /// LR follows a cosine curve from initial_lr to eta_min over T_max epochs,
+    /// then optionally restarts.
+    /// Formula: lr = eta_min + 0.5 * (initial_lr - eta_min) * (1 + cos(π * epoch / T_max))
+    /// Example: CosineAnnealing { t_max: 50, eta_min: 1e-6 } for 50-epoch cosine decay
+    CosineAnnealing {
+        /// Number of epochs until restart (or total if no restart)
+        t_max: usize,
+        /// Minimum learning rate at the end of the cycle
+        eta_min: Float,
+    },
+
+    /// Linear warmup followed by another scheduler.
+    /// Gradually increases LR from 0 to initial_lr over warmup_epochs.
+    /// Essential for training Transformers and large models.
+    /// Example: Warmup { warmup_epochs: 5, after: Box::new(CosineAnnealing { ... }) }
+    Warmup {
+        /// Number of warmup epochs
+        warmup_epochs: usize,
+        /// Scheduler to use after warmup completes
+        after: Box<LRSchedule>,
+    },
+
+    /// One Cycle Policy (super-convergence).
+    /// LR increases from initial_lr/div_factor to max_lr, then decreases to initial_lr/final_div.
+    /// Achieves faster convergence (Smith & Topin, 2018).
+    OneCycle {
+        /// Maximum learning rate at the peak
+        max_lr: Float,
+        /// Division factor for initial LR (initial = max_lr / div_factor)
+        div_factor: Float,
+        /// Division factor for final LR (final = initial / final_div)
+        final_div: Float,
+        /// Fraction of training for the ascending phase (typically 0.3)
+        pct_start: Float,
+    },
 }
 
 /// LearningRateScheduler - Dynamically adjusts the learning rate.
@@ -350,6 +387,12 @@ pub struct LearningRateScheduler {
 
     // Current LR (pub to allow access from fit())
     pub current_lr: Float,
+
+    // Initial LR (saved for schedulers that need it)
+    initial_lr: Float,
+
+    // Total epochs (for OneCycle)
+    total_epochs: usize,
 }
 
 impl LearningRateScheduler {
@@ -360,7 +403,15 @@ impl LearningRateScheduler {
             best_loss: Float::INFINITY,
             wait: 0,
             current_lr: 0.0,
+            initial_lr: 0.0,
+            total_epochs: 0,
         }
+    }
+
+    /// Sets the total number of epochs (required for OneCycle).
+    pub fn with_epochs(mut self, epochs: usize) -> Self {
+        self.total_epochs = epochs;
+        self
     }
 
     /// Returns the current learning rate.
@@ -378,11 +429,46 @@ impl LearningRateScheduler {
             OptimizerType::AdamW { learning_rate, .. } => *learning_rate = self.current_lr,
         }
     }
+
+    /// Computes the learning rate for CosineAnnealing at a given epoch.
+    fn cosine_annealing_lr(&self, epoch: usize, t_max: usize, eta_min: Float) -> Float {
+        let t = (epoch % t_max) as Float;
+        let t_max_f = t_max as Float;
+        let pi = std::f32::consts::PI;
+        eta_min + 0.5 * (self.initial_lr - eta_min) * (1.0 + (pi * t / t_max_f).cos())
+    }
+
+    /// Computes the learning rate for OneCycle at a given epoch.
+    fn one_cycle_lr(
+        &self,
+        epoch: usize,
+        max_lr: Float,
+        div_factor: Float,
+        final_div: Float,
+        pct_start: Float,
+    ) -> Float {
+        let total = self.total_epochs.max(1) as Float;
+        let pct = epoch as Float / total;
+        let initial_lr = max_lr / div_factor;
+        let final_lr = initial_lr / final_div;
+        let pi = std::f32::consts::PI;
+
+        if pct < pct_start {
+            // Ascending phase: linear increase from initial_lr to max_lr
+            let scale = pct / pct_start;
+            initial_lr + scale * (max_lr - initial_lr)
+        } else {
+            // Descending phase: cosine from max_lr to final_lr
+            let pct_descent = (pct - pct_start) / (1.0 - pct_start);
+            final_lr + 0.5 * (max_lr - final_lr) * (1.0 + (pi * pct_descent).cos())
+        }
+    }
 }
 
 impl Callback for LearningRateScheduler {
     fn on_train_begin(&mut self, _network: &Network) {
-        // Note: Le LR sera géré par la méthode fit() qui a accès à l'optimizer
+        // Store initial LR for schedulers that need it (Cosine, Warmup, OneCycle)
+        self.initial_lr = self.current_lr;
         self.best_loss = Float::INFINITY;
         self.wait = 0;
     }
@@ -437,6 +523,75 @@ impl Callback for LearningRateScheduler {
                 let new_lr = self.current_lr * gamma;
                 if epoch > 0 && epoch.is_multiple_of(10) {
                     println!("📉 LR Scheduler: Epoch {} - LR = {:.6}", epoch, new_lr);
+                }
+                self.current_lr = new_lr;
+            }
+
+            LRSchedule::CosineAnnealing { t_max, eta_min } => {
+                let new_lr = self.cosine_annealing_lr(epoch + 1, *t_max, *eta_min);
+                if epoch.is_multiple_of(10) || epoch == 0 {
+                    println!(
+                        "📉 LR Scheduler (Cosine): Epoch {} - LR = {:.6}",
+                        epoch, new_lr
+                    );
+                }
+                self.current_lr = new_lr;
+            }
+
+            LRSchedule::Warmup {
+                warmup_epochs,
+                after,
+            } => {
+                if epoch < *warmup_epochs {
+                    // Linear warmup phase
+                    let warmup_factor = (epoch + 1) as Float / *warmup_epochs as Float;
+                    self.current_lr = self.initial_lr * warmup_factor;
+                    if epoch == 0 || epoch == *warmup_epochs - 1 {
+                        println!(
+                            "🔥 LR Warmup: Epoch {} - LR = {:.6}",
+                            epoch, self.current_lr
+                        );
+                    }
+                } else {
+                    // Apply the after schedule
+                    let adjusted_epoch = epoch - warmup_epochs;
+                    match after.as_ref() {
+                        LRSchedule::CosineAnnealing { t_max, eta_min } => {
+                            self.current_lr =
+                                self.cosine_annealing_lr(adjusted_epoch, *t_max, *eta_min);
+                        }
+                        LRSchedule::ExponentialLR { gamma } => {
+                            if adjusted_epoch == 0 {
+                                self.current_lr = self.initial_lr;
+                            } else {
+                                self.current_lr *= gamma;
+                            }
+                        }
+                        LRSchedule::StepLR { step_size, gamma } => {
+                            if (adjusted_epoch + 1).is_multiple_of(*step_size) {
+                                self.current_lr *= gamma;
+                            }
+                        }
+                        _ => {} // Other schedules keep current behavior
+                    }
+                    if adjusted_epoch.is_multiple_of(10) || adjusted_epoch == 0 {
+                        println!(
+                            "📉 LR Scheduler (post-warmup): Epoch {} - LR = {:.6}",
+                            epoch, self.current_lr
+                        );
+                    }
+                }
+            }
+
+            LRSchedule::OneCycle {
+                max_lr,
+                div_factor,
+                final_div,
+                pct_start,
+            } => {
+                let new_lr = self.one_cycle_lr(epoch, *max_lr, *div_factor, *final_div, *pct_start);
+                if epoch.is_multiple_of(10) || epoch == 0 {
+                    println!("🔄 LR OneCycle: Epoch {} - LR = {:.6}", epoch, new_lr);
                 }
                 self.current_lr = new_lr;
             }

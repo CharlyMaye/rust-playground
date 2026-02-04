@@ -207,6 +207,10 @@ pub struct TrainingBuilder<'a> {
     device: ComputeDevice,
     /// Evaluate every N epochs (1 = every epoch, 5 = every 5 epochs, etc.)
     eval_every: usize,
+    /// Maximum gradient norm for gradient clipping (None = disabled)
+    max_grad_norm: Option<Float>,
+    /// Verbosity level (0 = silent, 1 = normal, 2 = verbose)
+    verbose: u8,
 }
 
 impl<'a> TrainingBuilder<'a> {
@@ -217,6 +221,8 @@ impl<'a> TrainingBuilder<'a> {
     /// - batch_size: 32
     /// - device: CPU
     /// - eval_every: 1 (evaluate every epoch)
+    /// - max_grad_norm: None (no clipping)
+    /// - verbose: 1 (normal output)
     pub fn new(network: &'a mut Network) -> Self {
         Self {
             network,
@@ -228,6 +234,8 @@ impl<'a> TrainingBuilder<'a> {
             scheduler: None,
             device: ComputeDevice::Cpu,
             eval_every: 1,
+            max_grad_norm: None,
+            verbose: 1,
         }
     }
 
@@ -353,6 +361,52 @@ impl<'a> TrainingBuilder<'a> {
     /// Configures a learning rate scheduler.
     pub fn scheduler(mut self, scheduler: LearningRateScheduler) -> Self {
         self.scheduler = Some(scheduler);
+        self
+    }
+
+    /// Enables gradient clipping to prevent gradient explosion (state-of-the-art for deep networks).
+    ///
+    /// Clips gradients to have a maximum L2 norm of `max_norm`.
+    /// Essential for training deep networks, RNNs, and Transformers.
+    ///
+    /// # Arguments
+    /// - `max_norm`: Maximum L2 norm for gradients (typical values: 1.0, 5.0, 10.0)
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Clip gradients to max norm of 1.0 (aggressive clipping for stable training)
+    /// network.trainer()
+    ///     .train_data(&dataset)
+    ///     .max_grad_norm(1.0)
+    ///     .fit();
+    /// ```
+    pub fn max_grad_norm(mut self, max_norm: Float) -> Self {
+        assert!(max_norm > 0.0, "max_grad_norm must be positive");
+        self.max_grad_norm = Some(max_norm);
+        self
+    }
+
+    /// Sets the verbosity level.
+    ///
+    /// # Arguments
+    /// - `level`: 0 = silent, 1 = normal (default), 2 = verbose
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Silent training (no output)
+    /// network.trainer()
+    ///     .train_data(&dataset)
+    ///     .verbose(0)
+    ///     .fit();
+    ///
+    /// // Verbose training (detailed output)
+    /// network.trainer()
+    ///     .train_data(&dataset)
+    ///     .verbose(2)
+    ///     .fit();
+    /// ```
+    pub fn verbose(mut self, level: u8) -> Self {
+        self.verbose = level.min(2);
         self
     }
 
