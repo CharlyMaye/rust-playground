@@ -46,13 +46,17 @@
 
 ### 🔵 Faibles (Améliorations futures)
 
-- [ ] **9. Considérer f32 au lieu de f64**
-  - Impact: Divise par 2 l'utilisation mémoire
-  - Nécessite changement dans tout le codebase
+- [x] **9. Migrer f64 → Float (f32)**
+  - ✅ Type alias `Float = f32` dans `cma-neural-network/src/lib.rs`
+  - ✅ Tous les crates migrés : cma-neural-network, cma-cnn, cma-models, neural-wasm
+  - ✅ Impact: -50% mémoire, +SIMD performance
+  - ✅ Changement réversible : modifier `pub type Float = f32;` en `f64` si nécessaire
 
-- [ ] **10. Ajouter ndarray-blas pour GEMM optimisé**
-  - Dépendance: `ndarray = { features = ["blas"] }` + OpenBLAS
-  - Gain: Multiplication matricielle 10-50x plus rapide
+- [x] **10. ~~Ajouter ndarray-blas pour GEMM optimisé~~** → Non nécessaire
+  - ✅ `matrixmultiply v0.3.10` déjà inclus via ndarray
+  - ✅ SIMD automatique (SSE, AVX, AVX2) en Rust pur
+  - ✅ Compatible WASM (fallback sans SIMD)
+  - ℹ️ OpenBLAS donnerait +20-30% mais complexité d'installation inutile
 
 ---
 
@@ -66,6 +70,8 @@
 - [x] Tous les tests passent (24/24)
 - [x] Nettoyage: `conv2d_naive` → `#[cfg(test)]` only
 - [x] Export API publique: `conv2d_im2col`, `im2col_single`
+- [x] Migration f64 → Float (f32) sur tout le codebase
+- [x] Instructions Copilot ajoutées (`.github/copilot-instructions.md`)
 
 ---
 
