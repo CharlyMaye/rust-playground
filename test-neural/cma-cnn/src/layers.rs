@@ -17,6 +17,9 @@ use ndarray::{Array1, Array4};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "parallel")]
+use rayon::prelude::*;
+
 use crate::ops::{avgpool2d, conv2d_im2col, global_avgpool2d, maxpool2d};
 use crate::tensor::{Tensor4D, TensorShape};
 
@@ -412,47 +415,11 @@ impl BatchNorm2D {
 
 impl Layer for BatchNorm2D {
     fn forward(&self, input: &Tensor4D) -> Tensor4D {
-        let shape = input.shape();
-        let data = input.data();
+        #[cfg(feature = "parallel")]
+        return self.forward_parallel(input);
 
-        let mut output =
-            ndarray::Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
-
-        let n = (shape.batch * shape.height * shape.width) as Float;
-
-        for c in 0..shape.channels {
-            // Extraction du canal avec slicing ndarray (vectorisé)
-            let channel_data = data.slice(ndarray::s![.., c, .., ..]);
-
-            let (mean, var) = if self.training {
-                // Opérations vectorisées avec ndarray
-                let sum: Float = channel_data.sum();
-                let mean = sum / n;
-
-                // Variance: E[X²] - E[X]²
-                let sum_sq: Float = channel_data.iter().map(|&x| x * x).sum();
-                let var = sum_sq / n - mean * mean;
-                (mean, var)
-            } else {
-                (self.running_mean[c], self.running_var[c])
-            };
-
-            let std_inv = 1.0 / (var + self.eps).sqrt();
-            let gamma = self.gamma[c];
-            let beta = self.beta[c];
-
-            // Normalisation vectorisée par canal
-            for b in 0..shape.batch {
-                for h in 0..shape.height {
-                    for w in 0..shape.width {
-                        let val = data[[b, c, h, w]];
-                        output[[b, c, h, w]] = gamma * (val - mean) * std_inv + beta;
-                    }
-                }
-            }
-        }
-
-        Tensor4D::from_array(output)
+        #[cfg(not(feature = "parallel"))]
+        self.forward_sequential(input)
     }
 
     fn layer_type(&self) -> LayerType {
@@ -470,6 +437,118 @@ impl Layer for BatchNorm2D {
 
     fn summary(&self) -> String {
         format!("BatchNorm2D({})", self.num_features)
+    }
+}
+
+impl BatchNorm2D {
+    /// Version séquentielle du forward pass
+    #[allow(dead_code)]
+    fn forward_sequential(&self, input: &Tensor4D) -> Tensor4D {
+        let shape = input.shape();
+        let data = input.data();
+
+        let mut output =
+            ndarray::Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
+
+        let n = (shape.batch * shape.height * shape.width) as Float;
+        let n_inv = 1.0 / n;
+
+        for c in 0..shape.channels {
+            // Extraction du canal avec slicing ndarray (vectorisé)
+            let channel_data = data.slice(ndarray::s![.., c, .., ..]);
+
+            let (mean, var) = if self.training {
+                // Optimisation: utilise iter().sum() et iter().map() vectorisés
+                let sum: Float = channel_data.iter().copied().sum();
+                let mean = sum * n_inv;
+
+                // Variance optimisée: un seul parcours
+                let var: Float = channel_data
+                    .iter()
+                    .map(|&x| {
+                        let diff = x - mean;
+                        diff * diff
+                    })
+                    .sum::<Float>()
+                    * n_inv;
+                (mean, var)
+            } else {
+                (self.running_mean[c], self.running_var[c])
+            };
+
+            let std_inv = 1.0 / (var + self.eps).sqrt();
+            let gamma = self.gamma[c];
+            let beta = self.beta[c];
+
+            // Précalcul des constantes pour éviter les calculs répétés
+            let scale = gamma * std_inv;
+            let shift = beta - mean * scale;
+
+            // Normalisation optimisée: appliquée par slice
+            let mut out_channel = output.slice_mut(ndarray::s![.., c, .., ..]);
+            for (out_val, &in_val) in out_channel.iter_mut().zip(channel_data.iter()) {
+                *out_val = in_val * scale + shift;
+            }
+        }
+
+        Tensor4D::from_array(output)
+    }
+
+    /// Version parallèle du forward pass - parallélise sur les canaux
+    #[cfg(feature = "parallel")]
+    fn forward_parallel(&self, input: &Tensor4D) -> Tensor4D {
+        let shape = input.shape();
+        let data = input.data();
+
+        let n = (shape.batch * shape.height * shape.width) as Float;
+        let n_inv = 1.0 / n;
+
+        // Calcule (scale, shift, channel_data) pour chaque canal en parallèle
+        let channel_params: Vec<(usize, Float, Float, Vec<Float>)> = (0..shape.channels)
+            .into_par_iter()
+            .map(|c| {
+                let channel_data = data.slice(ndarray::s![.., c, .., ..]);
+
+                let (mean, var) = if self.training {
+                    let sum: Float = channel_data.iter().copied().sum();
+                    let mean = sum * n_inv;
+                    let var: Float = channel_data
+                        .iter()
+                        .map(|&x| {
+                            let diff = x - mean;
+                            diff * diff
+                        })
+                        .sum::<Float>()
+                        * n_inv;
+                    (mean, var)
+                } else {
+                    (self.running_mean[c], self.running_var[c])
+                };
+
+                let std_inv = 1.0 / (var + self.eps).sqrt();
+                let scale = self.gamma[c] * std_inv;
+                let shift = self.beta[c] - mean * scale;
+
+                // Applique la transformation
+                let transformed: Vec<Float> =
+                    channel_data.iter().map(|&x| x * scale + shift).collect();
+
+                (c, scale, shift, transformed)
+            })
+            .collect();
+
+        // Reconstruit l'output
+        let mut output =
+            ndarray::Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
+
+        for (c, _scale, _shift, transformed) in channel_params {
+            let mut out_channel = output.slice_mut(ndarray::s![.., c, .., ..]);
+            for (out_val, &in_val) in out_channel.iter_mut().zip(transformed.iter()) {
+                *out_val = in_val;
+            }
+        }
+
+        Tensor4D::from_array(output)
     }
 }
 
@@ -517,22 +596,18 @@ impl Layer for Dropout2D {
 
         let mut output = data.clone();
 
-        // Dropout par canal (spatial dropout)
+        // Dropout par canal (spatial dropout) - optimisé avec slices
         for b in 0..shape.batch {
             for c in 0..shape.channels {
                 let drop: bool = rng.random::<Float>() < self.rate;
+                let mut channel_slice = output.slice_mut(ndarray::s![b, c, .., ..]);
+
                 if drop {
-                    for h in 0..shape.height {
-                        for w in 0..shape.width {
-                            output[[b, c, h, w]] = 0.0;
-                        }
-                    }
+                    // Optimisation: fill(0.0) au lieu de boucles
+                    channel_slice.fill(0.0);
                 } else {
-                    for h in 0..shape.height {
-                        for w in 0..shape.width {
-                            output[[b, c, h, w]] *= scale;
-                        }
-                    }
+                    // Optimisation: mapv_inplace au lieu de boucles
+                    channel_slice.mapv_inplace(|x| x * scale);
                 }
             }
         }
@@ -587,19 +662,28 @@ impl Layer for Flatten {
         // Note: Flatten retourne techniquement un Array2, pas Tensor4D
         // Mais pour l'interface unifiée, on garde Tensor4D avec H=1, W=flat_size
         let shape = input.shape();
-        let flat = input.flatten();
-
-        // Convertit Array2 [batch, flat] → Tensor4D [batch, 1, 1, flat]
         let flat_size = shape.channels * shape.height * shape.width;
-        let mut data = ndarray::Array4::zeros((shape.batch, 1, 1, flat_size));
 
-        for b in 0..shape.batch {
-            for i in 0..flat_size {
-                data[[b, 0, 0, i]] = flat[[b, i]];
+        // Optimisation: reshape direct si les données sont contiguës
+        // Évite la double copie (flatten puis reshape)
+        if let Some(slice) = input.data().as_slice() {
+            // Données contiguës: reshape direct en une seule allocation
+            let data =
+                ndarray::Array4::from_shape_vec((shape.batch, 1, 1, flat_size), slice.to_vec())
+                    .unwrap();
+            Tensor4D::from_array(data)
+        } else {
+            // Fallback: données non contiguës
+            let mut data = ndarray::Array4::zeros((shape.batch, 1, 1, flat_size));
+            for b in 0..shape.batch {
+                let image = input.data().slice(ndarray::s![b, .., .., ..]);
+                let out_slice = data.slice_mut(ndarray::s![b, 0, 0, ..]);
+                for (dest, &src) in out_slice.into_iter().zip(image.iter()) {
+                    *dest = src;
+                }
             }
+            Tensor4D::from_array(data)
         }
-
-        Tensor4D::from_array(data)
     }
 
     fn layer_type(&self) -> LayerType {

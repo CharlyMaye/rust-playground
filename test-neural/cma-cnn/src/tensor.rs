@@ -138,6 +138,43 @@ impl Tensor4D {
         &mut self.data
     }
 
+    /// Réinitialise le tenseur à zéro (réutilise la mémoire allouée)
+    ///
+    /// Plus efficace que de créer un nouveau tenseur zeros() car
+    /// évite l'allocation mémoire.
+    #[inline]
+    pub fn reset_to_zero(&mut self) {
+        self.data.fill(0.0);
+    }
+
+    /// Copie les données d'un autre tenseur dans celui-ci
+    ///
+    /// Les shapes doivent correspondre. Réutilise la mémoire existante.
+    #[inline]
+    pub fn copy_from(&mut self, other: &Tensor4D) {
+        debug_assert_eq!(
+            self.shape(),
+            other.shape(),
+            "Shapes must match for copy_from"
+        );
+        self.data.assign(&other.data);
+    }
+
+    /// Vérifie si les données sont contiguës en mémoire
+    ///
+    /// Les données contiguës permettent des opérations vectorisées plus rapides.
+    #[inline]
+    pub fn is_contiguous(&self) -> bool {
+        self.data.is_standard_layout()
+    }
+
+    /// Force les données à être contiguës (crée une copie si nécessaire)
+    pub fn make_contiguous(&mut self) {
+        if !self.is_contiguous() {
+            self.data = self.data.as_standard_layout().into_owned();
+        }
+    }
+
     /// Convertit en Array4
     pub fn into_array(self) -> Array4<Float> {
         self.data
@@ -148,35 +185,49 @@ impl Tensor4D {
         let shape = self.shape();
         let flat_size = shape.channels * shape.height * shape.width;
 
-        // Reshape chaque image du batch en vecteur - optimisé sans allocation intermédiaire
-        let mut result = Array2::zeros((shape.batch, flat_size));
-        for b in 0..shape.batch {
-            let image = self.data.slice(s![b, .., .., ..]);
-            // Itère directement sans Vec intermédiaire
-            for (i, &val) in image.iter().enumerate() {
-                result[[b, i]] = val;
+        // Optimisation: utilise une vue contiguë et reshape direct si possible
+        // Évite les itérations scalaires
+        if let Some(slice) = self.data.as_slice() {
+            // Données contiguës en mémoire: reshape direct sans copie
+            Array2::from_shape_vec((shape.batch, flat_size), slice.to_vec()).unwrap()
+        } else {
+            // Fallback: données non contiguës, copie nécessaire
+            let mut result = Array2::zeros((shape.batch, flat_size));
+            for b in 0..shape.batch {
+                let image = self.data.slice(s![b, .., .., ..]);
+                // Copie directe dans le slice de destination
+                let mut dest_slice = result.row_mut(b);
+                for (dest, &src) in dest_slice.iter_mut().zip(image.iter()) {
+                    *dest = src;
+                }
             }
+            result
         }
-        result
     }
 
     /// Unflatten: [batch, flat] → [batch, channels, height, width]
     pub fn unflatten(flat: &Array2<Float>, shape: TensorShape) -> Self {
-        let mut data = Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
-
-        for b in 0..shape.batch {
-            let mut idx = 0;
-            for c in 0..shape.channels {
-                for h in 0..shape.height {
-                    for w in 0..shape.width {
-                        data[[b, c, h, w]] = flat[[b, idx]];
-                        idx += 1;
-                    }
+        // Optimisation: reshape direct si les données sont contiguës
+        if let Some(slice) = flat.as_slice() {
+            let data = Array4::from_shape_vec(
+                (shape.batch, shape.channels, shape.height, shape.width),
+                slice.to_vec(),
+            )
+            .unwrap();
+            Self { data }
+        } else {
+            // Fallback pour données non contiguës
+            let mut data = Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
+            let chw = shape.channels * shape.height * shape.width;
+            for b in 0..shape.batch {
+                let row = flat.row(b);
+                let mut slice = data.slice_mut(s![b, .., .., ..]);
+                for (i, dest) in slice.iter_mut().enumerate() {
+                    *dest = row[i % chw];
                 }
             }
+            Self { data }
         }
-
-        Self { data }
     }
 
     /// Applique une fonction élément par élément
@@ -222,16 +273,12 @@ impl Tensor4D {
 
         let mut padded = Array4::zeros((shape.batch, shape.channels, new_h, new_w));
 
-        // Copie les données au centre
-        for b in 0..shape.batch {
-            for c in 0..shape.channels {
-                for h in 0..shape.height {
-                    for w in 0..shape.width {
-                        padded[[b, c, h + padding, w + padding]] = self.data[[b, c, h, w]];
-                    }
-                }
-            }
-        }
+        // Optimisation: copie par slice au lieu de boucles scalaires
+        // Copie le bloc central en une seule opération par batch/channel
+        let p = padding;
+        padded
+            .slice_mut(s![.., .., p..p + shape.height, p..p + shape.width])
+            .assign(&self.data);
 
         Self { data: padded }
     }

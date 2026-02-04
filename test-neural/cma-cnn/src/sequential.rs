@@ -188,6 +188,44 @@ impl Sequential {
         x
     }
 
+    /// Propagation avant par batch avec réutilisation mémoire
+    ///
+    /// Optimisé pour l'inférence sur plusieurs batches consécutifs.
+    /// Évite les allocations répétées en traitant les données in-place.
+    ///
+    /// # Arguments
+    /// * `inputs` - Itérateur sur les tenseurs d'entrée
+    /// * `callback` - Fonction appelée avec chaque résultat (évite de stocker tous les résultats)
+    ///
+    /// # Exemple
+    /// ```rust,ignore
+    /// model.forward_batches(test_data.iter(), |batch_idx, output| {
+    ///     // Traite chaque sortie sans stocker toutes en mémoire
+    ///     predictions.extend(output.data().iter().copied());
+    /// });
+    /// ```
+    pub fn forward_batches<I, F>(&self, inputs: I, mut callback: F)
+    where
+        I: Iterator<Item = Tensor4D>,
+        F: FnMut(usize, Tensor4D),
+    {
+        for (idx, input) in inputs.enumerate() {
+            let output = self.forward_owned(input);
+            callback(idx, output);
+        }
+    }
+
+    /// Propagation avant avec collecte des résultats
+    ///
+    /// Version pratique qui retourne tous les résultats.
+    /// Pour de très grands datasets, préférer `forward_batches` avec callback.
+    pub fn forward_all<I>(&self, inputs: I) -> Vec<Tensor4D>
+    where
+        I: Iterator<Item = Tensor4D>,
+    {
+        inputs.map(|input| self.forward_owned(input)).collect()
+    }
+
     /// Nombre total de paramètres
     pub fn num_parameters(&self) -> usize {
         self.layers

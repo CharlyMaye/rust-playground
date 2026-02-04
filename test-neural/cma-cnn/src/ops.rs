@@ -82,36 +82,69 @@ pub fn im2col_single(
     // Nombre de colonnes = positions spatiales
     let num_cols = out_h * out_w;
 
+    // Pré-alloue avec capacité exacte
     let mut cols = Array2::zeros((col_size, num_cols));
-    let mut col_idx = 0;
-
-    for oh in 0..out_h {
-        for ow in 0..out_w {
-            let mut row_idx = 0;
-
-            for c in 0..shape.channels {
-                for kh in 0..kernel_size {
-                    for kw in 0..kernel_size {
+    
+    // Optimisation cache-aware: réorganise les boucles pour accès mémoire contigus
+    // L'ordre channel -> kh -> kw est fixé par le format de sortie
+    // Mais on optimise les accès à data en parcourant par ligne de l'image
+    
+    if padding == 0 {
+        // Cas sans padding - accès direct optimisé
+        // Parcours par (channel, kernel_row) pour meilleure localité cache
+        for c in 0..shape.channels {
+            let c_offset = c * kernel_size * kernel_size;
+            for kh in 0..kernel_size {
+                let row_base = c_offset + kh * kernel_size;
+                for kw in 0..kernel_size {
+                    let row_idx = row_base + kw;
+                    
+                    // Parcours des positions de sortie
+                    let mut col_idx = 0;
+                    for oh in 0..out_h {
                         let ih = oh * stride + kh;
-                        let iw = ow * stride + kw;
-
-                        // Gestion du padding
-                        let val = if ih >= padding
-                            && ih < shape.height + padding
-                            && iw >= padding
-                            && iw < shape.width + padding
-                        {
-                            data[[batch_idx, c, ih - padding, iw - padding]]
-                        } else {
-                            0.0 // Zero-padding
-                        };
-
-                        cols[[row_idx, col_idx]] = val;
-                        row_idx += 1;
+                        for ow in 0..out_w {
+                            let iw = ow * stride + kw;
+                            cols[[row_idx, col_idx]] = data[[batch_idx, c, ih, iw]];
+                            col_idx += 1;
+                        }
                     }
                 }
             }
-            col_idx += 1;
+        }
+    } else {
+        // Cas avec padding - vérification des bornes nécessaire
+        let h_max = shape.height + padding;
+        let w_max = shape.width + padding;
+        
+        for c in 0..shape.channels {
+            let c_offset = c * kernel_size * kernel_size;
+            for kh in 0..kernel_size {
+                let row_base = c_offset + kh * kernel_size;
+                for kw in 0..kernel_size {
+                    let row_idx = row_base + kw;
+                    
+                    let mut col_idx = 0;
+                    for oh in 0..out_h {
+                        let ih = oh * stride + kh;
+                        let ih_valid = ih >= padding && ih < h_max;
+                        let ih_real = ih.wrapping_sub(padding); // Safe car on check ih_valid
+                        
+                        for ow in 0..out_w {
+                            let iw = ow * stride + kw;
+                            
+                            let val = if ih_valid && iw >= padding && iw < w_max {
+                                data[[batch_idx, c, ih_real, iw - padding]]
+                            } else {
+                                0.0
+                            };
+                            
+                            cols[[row_idx, col_idx]] = val;
+                            col_idx += 1;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -328,13 +361,15 @@ fn conv2d_im2col_sequential(
         // GEMM: [out_channels, K²×C] × [K²×C, H'×W'] = [out_channels, H'×W']
         let conv_result = weights_2d.dot(&cols);
 
-        // Reshape et copie dans output
+        // Optimisation: copie vectorisée avec reshape direct
         for oc in 0..out_channels {
-            let bias_val = bias.map_or(0.0, |b| b[oc]);
-            for oh in 0..out_h {
-                for ow in 0..out_w {
-                    output[[b, oc, oh, ow]] = conv_result[[oc, oh * out_w + ow]] + bias_val;
-                }
+            let bias_val = bias.map_or(0.0, |b_arr| b_arr[oc]);
+            let row = conv_result.row(oc);
+            let mut out_slice = output.slice_mut(ndarray::s![b, oc, .., ..]);
+            
+            // Copie directe avec ajout du biais
+            for (i, out_val) in out_slice.iter_mut().enumerate() {
+                *out_val = row[i] + bias_val;
             }
         }
     }
@@ -376,13 +411,15 @@ fn conv2d_im2col_parallel(
             let conv_result = weights_2d.dot(&cols);
 
             let mut batch_output = Array4::zeros((1, out_channels, out_h, out_w));
+            
+            // Optimisation: copie vectorisée par canal
             for oc in 0..out_channels {
                 let bias_val = bias.map_or(0.0, |bias_arr| bias_arr[oc]);
-                for oh in 0..out_h {
-                    for ow in 0..out_w {
-                        batch_output[[0, oc, oh, ow]] =
-                            conv_result[[oc, oh * out_w + ow]] + bias_val;
-                    }
+                let row = conv_result.row(oc);
+                let mut out_slice = batch_output.slice_mut(ndarray::s![0, oc, .., ..]);
+                
+                for (i, out_val) in out_slice.iter_mut().enumerate() {
+                    *out_val = row[i] + bias_val;
                 }
             }
             batch_output
@@ -399,6 +436,16 @@ fn conv2d_im2col_parallel(
 
 /// Max Pooling 2D
 pub fn maxpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> (Tensor4D, Array4<usize>) {
+    #[cfg(feature = "parallel")]
+    return maxpool2d_parallel(input, pool_size, stride);
+    
+    #[cfg(not(feature = "parallel"))]
+    maxpool2d_sequential(input, pool_size, stride)
+}
+
+/// Version séquentielle de maxpool2d
+#[allow(dead_code)]
+fn maxpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> (Tensor4D, Array4<usize>) {
     let shape = input.shape();
     let data = input.data();
 
@@ -408,18 +455,23 @@ pub fn maxpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> (Tensor4D
     let mut output = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
     // Stocke les indices des max pour le backward
     let mut indices = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
-
+    
     for b in 0..shape.batch {
         for c in 0..shape.channels {
             for oh in 0..out_h {
+                let ih_base = oh * stride;
                 for ow in 0..out_w {
-                    let mut max_val = Float::NEG_INFINITY;
-                    let mut max_idx = 0;
+                    let iw_base = ow * stride;
+                    
+                    // Optimisation: première valeur comme initial
+                    let mut max_val = data[[b, c, ih_base, iw_base]];
+                    let mut max_idx = 0usize;
 
+                    // Parcours linéaire de la fenêtre
                     for ph in 0..pool_size {
+                        let ih = ih_base + ph;
                         for pw in 0..pool_size {
-                            let ih = oh * stride + ph;
-                            let iw = ow * stride + pw;
+                            let iw = iw_base + pw;
                             let val = data[[b, c, ih, iw]];
 
                             if val > max_val {
@@ -439,34 +491,161 @@ pub fn maxpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> (Tensor4D
     (Tensor4D::from_array(output), indices)
 }
 
-/// Average Pooling 2D
-pub fn avgpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> Tensor4D {
+/// Version parallèle de maxpool2d - parallélise sur batch × channels
+#[cfg(feature = "parallel")]
+fn maxpool2d_parallel(input: &Tensor4D, pool_size: usize, stride: usize) -> (Tensor4D, Array4<usize>) {
     let shape = input.shape();
     let data = input.data();
 
     let out_h = (shape.height - pool_size) / stride + 1;
     let out_w = (shape.width - pool_size) / stride + 1;
-    let pool_area = (pool_size * pool_size) as Float;
+
+    // Parallélise sur les paires (batch, channel)
+    let results: Vec<(usize, usize, Vec<Float>, Vec<usize>)> = (0..shape.batch)
+        .into_par_iter()
+        .flat_map(|b| {
+            (0..shape.channels).into_par_iter().map(move |c| {
+                let mut out_vals = Vec::with_capacity(out_h * out_w);
+                let mut out_idxs = Vec::with_capacity(out_h * out_w);
+                
+                for oh in 0..out_h {
+                    let ih_base = oh * stride;
+                    for ow in 0..out_w {
+                        let iw_base = ow * stride;
+                        
+                        let mut max_val = data[[b, c, ih_base, iw_base]];
+                        let mut max_idx = 0usize;
+
+                        for ph in 0..pool_size {
+                            let ih = ih_base + ph;
+                            for pw in 0..pool_size {
+                                let iw = iw_base + pw;
+                                let val = data[[b, c, ih, iw]];
+                                if val > max_val {
+                                    max_val = val;
+                                    max_idx = ph * pool_size + pw;
+                                }
+                            }
+                        }
+                        out_vals.push(max_val);
+                        out_idxs.push(max_idx);
+                    }
+                }
+                (b, c, out_vals, out_idxs)
+            })
+        })
+        .collect();
+
+    // Reconstruit les arrays
+    let mut output = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
+    let mut indices = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
+    
+    for (b, c, vals, idxs) in results {
+        for (i, (val, idx)) in vals.into_iter().zip(idxs.into_iter()).enumerate() {
+            let oh = i / out_w;
+            let ow = i % out_w;
+            output[[b, c, oh, ow]] = val;
+            indices[[b, c, oh, ow]] = idx;
+        }
+    }
+
+    (Tensor4D::from_array(output), indices)
+}
+
+/// Average Pooling 2D
+pub fn avgpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> Tensor4D {
+    #[cfg(feature = "parallel")]
+    return avgpool2d_parallel(input, pool_size, stride);
+    
+    #[cfg(not(feature = "parallel"))]
+    avgpool2d_sequential(input, pool_size, stride)
+}
+
+/// Version séquentielle de avgpool2d
+#[allow(dead_code)]
+fn avgpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> Tensor4D {
+    let shape = input.shape();
+    let data = input.data();
+
+    let out_h = (shape.height - pool_size) / stride + 1;
+    let out_w = (shape.width - pool_size) / stride + 1;
+    // Précalcul du diviseur (une seule fois)
+    let pool_area_inv = 1.0 / (pool_size * pool_size) as Float;
 
     let mut output = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
 
     for b in 0..shape.batch {
         for c in 0..shape.channels {
             for oh in 0..out_h {
+                let ih_base = oh * stride;
                 for ow in 0..out_w {
+                    let iw_base = ow * stride;
                     let mut sum = 0.0;
 
+                    // Boucle optimisée avec base précalculée
                     for ph in 0..pool_size {
+                        let ih = ih_base + ph;
                         for pw in 0..pool_size {
-                            let ih = oh * stride + ph;
-                            let iw = ow * stride + pw;
+                            let iw = iw_base + pw;
                             sum += data[[b, c, ih, iw]];
                         }
                     }
 
-                    output[[b, c, oh, ow]] = sum / pool_area;
+                    // Multiplication au lieu de division (plus rapide)
+                    output[[b, c, oh, ow]] = sum * pool_area_inv;
                 }
             }
+        }
+    }
+
+    Tensor4D::from_array(output)
+}
+
+/// Version parallèle de avgpool2d
+#[cfg(feature = "parallel")]
+fn avgpool2d_parallel(input: &Tensor4D, pool_size: usize, stride: usize) -> Tensor4D {
+    let shape = input.shape();
+    let data = input.data();
+
+    let out_h = (shape.height - pool_size) / stride + 1;
+    let out_w = (shape.width - pool_size) / stride + 1;
+    let pool_area_inv = 1.0 / (pool_size * pool_size) as Float;
+
+    // Parallélise sur les paires (batch, channel)
+    let results: Vec<(usize, usize, Vec<Float>)> = (0..shape.batch)
+        .into_par_iter()
+        .flat_map(|b| {
+            (0..shape.channels).into_par_iter().map(move |c| {
+                let mut out_vals = Vec::with_capacity(out_h * out_w);
+                
+                for oh in 0..out_h {
+                    let ih_base = oh * stride;
+                    for ow in 0..out_w {
+                        let iw_base = ow * stride;
+                        let mut sum = 0.0;
+
+                        for ph in 0..pool_size {
+                            let ih = ih_base + ph;
+                            for pw in 0..pool_size {
+                                let iw = iw_base + pw;
+                                sum += data[[b, c, ih, iw]];
+                            }
+                        }
+                        out_vals.push(sum * pool_area_inv);
+                    }
+                }
+                (b, c, out_vals)
+            })
+        })
+        .collect();
+
+    // Reconstruit l'array
+    let mut output = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
+    for (b, c, vals) in results {
+        for (i, val) in vals.into_iter().enumerate() {
+            let oh = i / out_w;
+            let ow = i % out_w;
+            output[[b, c, oh, ow]] = val;
         }
     }
 
@@ -478,22 +657,57 @@ pub fn avgpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> Tensor4D 
 /// Réduit [batch, channels, H, W] → [batch, channels, 1, 1]
 /// Utilisé dans les architectures modernes (ResNet, EfficientNet)
 pub fn global_avgpool2d(input: &Tensor4D) -> Tensor4D {
+    #[cfg(feature = "parallel")]
+    return global_avgpool2d_parallel(input);
+    
+    #[cfg(not(feature = "parallel"))]
+    global_avgpool2d_sequential(input)
+}
+
+/// Version séquentielle de global_avgpool2d
+#[allow(dead_code)]
+fn global_avgpool2d_sequential(input: &Tensor4D) -> Tensor4D {
     let shape = input.shape();
     let data = input.data();
-    let spatial_size = (shape.height * shape.width) as Float;
+    // Précalcul: multiplication au lieu de division
+    let spatial_size_inv = 1.0 / (shape.height * shape.width) as Float;
 
     let mut output = Array4::zeros((shape.batch, shape.channels, 1, 1));
 
     for b in 0..shape.batch {
         for c in 0..shape.channels {
-            let mut sum = 0.0;
-            for h in 0..shape.height {
-                for w in 0..shape.width {
-                    sum += data[[b, c, h, w]];
-                }
-            }
-            output[[b, c, 0, 0]] = sum / spatial_size;
+            // Optimisation: utilise le slicing ndarray + iter().sum()
+            let channel_slice = data.slice(ndarray::s![b, c, .., ..]);
+            let sum: Float = channel_slice.iter().sum();
+            output[[b, c, 0, 0]] = sum * spatial_size_inv;
         }
+    }
+
+    Tensor4D::from_array(output)
+}
+
+/// Version parallèle de global_avgpool2d
+#[cfg(feature = "parallel")]
+fn global_avgpool2d_parallel(input: &Tensor4D) -> Tensor4D {
+    let shape = input.shape();
+    let data = input.data();
+    let spatial_size_inv = 1.0 / (shape.height * shape.width) as Float;
+
+    // Parallélise sur (batch, channel)
+    let results: Vec<(usize, usize, Float)> = (0..shape.batch)
+        .into_par_iter()
+        .flat_map(|b| {
+            (0..shape.channels).into_par_iter().map(move |c| {
+                let channel_slice = data.slice(ndarray::s![b, c, .., ..]);
+                let sum: Float = channel_slice.iter().sum();
+                (b, c, sum * spatial_size_inv)
+            })
+        })
+        .collect();
+
+    let mut output = Array4::zeros((shape.batch, shape.channels, 1, 1));
+    for (b, c, val) in results {
+        output[[b, c, 0, 0]] = val;
     }
 
     Tensor4D::from_array(output)
@@ -502,7 +716,6 @@ pub fn global_avgpool2d(input: &Tensor4D) -> Tensor4D {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ndarray::array;
 
     #[test]
     fn test_padding_modes() {
