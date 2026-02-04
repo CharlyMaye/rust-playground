@@ -8,7 +8,7 @@ echo "🔧 Building LeNet-5 MNIST WASM..."
 # First train the model if needed
 if [ ! -f "src/lenet_model.bin" ]; then
     echo "📦 Training LeNet-5 model first..."
-    cargo run --bin train_lenet --release
+    cargo run --bin train_lenet --release --features training
 fi
 
 # Build WASM

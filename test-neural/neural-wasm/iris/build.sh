@@ -23,7 +23,7 @@ else
     echo ""
     
     # Build and run the training script
-    cargo run --bin train_iris --release
+    cargo run --bin train_iris --release --features training
     
     if [ -f "$MODEL_BIN_PATH" ]; then
         echo "   ✅ Model trained and saved successfully!"
