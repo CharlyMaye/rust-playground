@@ -1,0 +1,83 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/xor/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/mnist/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/mnist-lenet/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/mnist-alexnet/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/mnist-vgg/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/mnist-resnet/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/iris/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+   Compiling neural-wasm-iris v0.1.0 (/workspace/test-neural/neural-wasm/iris)
+    Finished `release` profile [optimized] target(s) in 0.28s
+     Running `/workspace/test-neural/target/release/train_iris`
+╔══════════════════════════════════════════════════════════════╗
+║         Iris Classification Neural Network Training          ║
+╚══════════════════════════════════════════════════════════════╝
+
+📦 Preparing Iris dataset...
+
+   ✅ Loaded 150 samples from CSV
+   ✅ Features normalized (z-score)
+   📊 Stats: means=[5.8433347, 3.0573332, 3.7580001, 1.1993335]
+   📊 Stats: stds=[0.82530105, 0.434411, 1.7594048, 0.7596927]
+   ✅ Dataset shuffled
+   Training samples: 105 (70%)
+   Test samples: 45 (30%)
+
+🔧 Building network...
+
+   Architecture: 4 → [12, 8] → 3
+   Activation: Tanh → Tanh → Softmax
+   Optimizer: Adam (lr=0.01)
+
+🏋️  Training...
+
+🚀 Début de l'entraînement (2000 epochs)
+Epoch 1/2000 [0.1%] - train_loss: 0.483202 - val_loss: 0.643076 - ETA: 1s   Epoch 2/2000 [0.1%] - train_loss: 0.375777 - val_loss: 0.570953 - ETA: 1s   Epoch 3/2000 [0.2%] - train_loss: 0.306587 - val_loss: 0.508957 - ETA: 1s   Epoch 4/2000 [0.2%] - train_loss: 0.265738 - val_loss: 0.478002 - ETA: 1s   Epoch 5/2000 [0.2%] - train_loss: 0.236752 - val_loss: 0.458565 - ETA: 1s   Epoch 6/2000 [0.3%] - train_loss: 0.212653 - val_loss: 0.437457 - ETA: 1s   Epoch 7/2000 [0.4%] - train_loss: 0.191871 - val_loss: 0.414036 - ETA: 1s   Epoch 8/2000 [0.4%] - train_loss: 0.173599 - val_loss: 0.381057 - ETA: 1s   Epoch 9/2000 [0.4%] - train_loss: 0.155425 - val_loss: 0.346914 - ETA: 1s   Epoch 10/2000 [0.5%] - train_loss: 0.140367 - val_loss: 0.318664 - ETA: 1s   
+Epoch 11/2000 [0.6%] - train_loss: 0.126140 - val_loss: 0.289547 - ETA: 1s   Epoch 12/2000 [0.6%] - train_loss: 0.113491 - val_loss: 0.265179 - ETA: 1s   Epoch 13/2000 [0.7%] - train_loss: 0.104064 - val_loss: 0.244668 - ETA: 1s   Epoch 14/2000 [0.7%] - train_loss: 0.094478 - val_loss: 0.219296 - ETA: 1s   Epoch 15/2000 [0.8%] - train_loss: 0.085493 - val_loss: 0.197184 - ETA: 1s   Epoch 16/2000 [0.8%] - train_loss: 0.077292 - val_loss: 0.180584 - ETA: 1s   Epoch 17/2000 [0.9%] - train_loss: 0.071515 - val_loss: 0.170744 - ETA: 1s   Epoch 18/2000 [0.9%] - train_loss: 0.068335 - val_loss: 0.168023 - ETA: 1s   Epoch 19/2000 [0.9%] - train_loss: 0.063530 - val_loss: 0.160114 - ETA: 1s   Epoch 20/2000 [1.0%] - train_loss: 0.058317 - val_loss: 0.151503 - ETA: 1s   
+Epoch 21/2000 [1.0%] - train_loss: 0.054954 - val_loss: 0.147674 - ETA: 1s   Epoch 22/2000 [1.1%] - train_loss: 0.052434 - val_loss: 0.145611 - ETA: 1s   Epoch 23/2000 [1.1%] - train_loss: 0.048962 - val_loss: 0.141912 - ETA: 1s   Epoch 24/2000 [1.2%] - train_loss: 0.048764 - val_loss: 0.137758 - ETA: 1s   Epoch 25/2000 [1.2%] - train_loss: 0.046067 - val_loss: 0.133690 - ETA: 1s   Epoch 26/2000 [1.3%] - train_loss: 0.042305 - val_loss: 0.132946 - ETA: 1s   Epoch 27/2000 [1.4%] - train_loss: 0.043550 - val_loss: 0.144463 - ETA: 1s   Epoch 28/2000 [1.4%] - train_loss: 0.052383 - val_loss: 0.167454 - ETA: 1s   Epoch 29/2000 [1.4%] - train_loss: 0.042390 - val_loss: 0.153804 - ETA: 1s   Epoch 30/2000 [1.5%] - train_loss: 0.035732 - val_loss: 0.142002 - ETA: 1s   
+Epoch 31/2000 [1.5%] - train_loss: 0.037031 - val_loss: 0.144042 - ETA: 1s   Epoch 32/2000 [1.6%] - train_loss: 0.035022 - val_loss: 0.144340 - ETA: 1s   Epoch 33/2000 [1.6%] - train_loss: 0.032541 - val_loss: 0.148258 - ETA: 1s   Epoch 34/2000 [1.7%] - train_loss: 0.031739 - val_loss: 0.151067 - ETA: 1s   Epoch 35/2000 [1.8%] - train_loss: 0.030634 - val_loss: 0.150238 - ETA: 1s   Epoch 36/2000 [1.8%] - train_loss: 0.030699 - val_loss: 0.152085 - ETA: 1s   Epoch 37/2000 [1.9%] - train_loss: 0.028881 - val_loss: 0.154256 - ETA: 1s   Epoch 38/2000 [1.9%] - train_loss: 0.027936 - val_loss: 0.147401 - ETA: 1s   Epoch 39/2000 [2.0%] - train_loss: 0.028584 - val_loss: 0.146077 - ETA: 1s   Epoch 40/2000 [2.0%] - train_loss: 0.026091 - val_loss: 0.144618 - ETA: 1s   
+Epoch 41/2000 [2.0%] - train_loss: 0.025751 - val_loss: 0.146641 - ETA: 1s   Epoch 42/2000 [2.1%] - train_loss: 0.025218 - val_loss: 0.146144 - ETA: 1s   Epoch 43/2000 [2.2%] - train_loss: 0.023921 - val_loss: 0.140432 - ETA: 1s   Epoch 44/2000 [2.2%] - train_loss: 0.023793 - val_loss: 0.138168 - ETA: 1s   Epoch 45/2000 [2.2%] - train_loss: 0.025124 - val_loss: 0.136336 - ETA: 1s   Epoch 46/2000 [2.3%] - train_loss: 0.023228 - val_loss: 0.137805 - ETA: 1s   Epoch 47/2000 [2.3%] - train_loss: 0.021680 - val_loss: 0.145027 - ETA: 1s   Epoch 48/2000 [2.4%] - train_loss: 0.021656 - val_loss: 0.149339 - ETA: 1s   Epoch 49/2000 [2.5%] - train_loss: 0.020717 - val_loss: 0.147226 - ETA: 1s   Epoch 50/2000 [2.5%] - train_loss: 0.029026 - val_loss: 0.141154 - ETA: 1s   
+Epoch 51/2000 [2.5%] - train_loss: 0.026347 - val_loss: 0.140936 - ETA: 1s   Epoch 52/2000 [2.6%] - train_loss: 0.019324 - val_loss: 0.147891 - ETA: 1s   Epoch 53/2000 [2.6%] - train_loss: 0.022179 - val_loss: 0.167157 - ETA: 1s   Epoch 54/2000 [2.7%] - train_loss: 0.019182 - val_loss: 0.160218 - ETA: 1s   Epoch 55/2000 [2.8%] - train_loss: 0.018622 - val_loss: 0.150985 - ETA: 1s   Epoch 56/2000 [2.8%] - train_loss: 0.020158 - val_loss: 0.151688 - ETA: 1s   Epoch 57/2000 [2.8%] - train_loss: 0.016955 - val_loss: 0.158630 - ETA: 1s   Epoch 58/2000 [2.9%] - train_loss: 0.017351 - val_loss: 0.163685 - ETA: 1s   Epoch 59/2000 [3.0%] - train_loss: 0.016678 - val_loss: 0.162115 - ETA: 1s   Epoch 60/2000 [3.0%] - train_loss: 0.016349 - val_loss: 0.155151 - ETA: 1s   
+Epoch 61/2000 [3.0%] - train_loss: 0.016036 - val_loss: 0.153878 - ETA: 1s   Epoch 62/2000 [3.1%] - train_loss: 0.015129 - val_loss: 0.152283 - ETA: 1s   Epoch 63/2000 [3.2%] - train_loss: 0.014852 - val_loss: 0.147910 - ETA: 1s   Epoch 64/2000 [3.2%] - train_loss: 0.014706 - val_loss: 0.142492 - ETA: 1s   Epoch 65/2000 [3.2%] - train_loss: 0.014571 - val_loss: 0.139152 - ETA: 1s   Epoch 66/2000 [3.3%] - train_loss: 0.014197 - val_loss: 0.141802 - ETA: 1s   Epoch 67/2000 [3.4%] - train_loss: 0.014041 - val_loss: 0.138725 - ETA: 1s   Epoch 68/2000 [3.4%] - train_loss: 0.013347 - val_loss: 0.143215 - ETA: 1s   Epoch 69/2000 [3.4%] - train_loss: 0.012962 - val_loss: 0.149634 - ETA: 1s   Epoch 70/2000 [3.5%] - train_loss: 0.012653 - val_loss: 0.153431 - ETA: 1s   
+Epoch 71/2000 [3.6%] - train_loss: 0.012383 - val_loss: 0.158835 - ETA: 1s   Epoch 72/2000 [3.6%] - train_loss: 0.012228 - val_loss: 0.156528 - ETA: 1s   Epoch 73/2000 [3.6%] - train_loss: 0.013839 - val_loss: 0.164873 - ETA: 1s   Epoch 74/2000 [3.7%] - train_loss: 0.011441 - val_loss: 0.176589 - ETA: 1s   Epoch 75/2000 [3.8%] - train_loss: 0.016896 - val_loss: 0.198900 - ETA: 1s   Epoch 76/2000 [3.8%] - train_loss: 0.013784 - val_loss: 0.194200 - ETA: 1s   Epoch 77/2000 [3.8%] - train_loss: 0.013666 - val_loss: 0.181509 - ETA: 1s   Epoch 78/2000 [3.9%] - train_loss: 0.021662 - val_loss: 0.180878 - ETA: 1s   Epoch 79/2000 [4.0%] - train_loss: 0.010051 - val_loss: 0.173540 - ETA: 1s   Epoch 80/2000 [4.0%] - train_loss: 0.011470 - val_loss: 0.179921 - ETA: 1s   
+Epoch 81/2000 [4.1%] - train_loss: 0.015735 - val_loss: 0.151703 - ETA: 1s   Epoch 82/2000 [4.1%] - train_loss: 0.011756 - val_loss: 0.152134 - ETA: 1s   Epoch 83/2000 [4.1%] - train_loss: 0.031367 - val_loss: 0.203764 - ETA: 1s   Epoch 84/2000 [4.2%] - train_loss: 0.021240 - val_loss: 0.173090 - ETA: 1s   Epoch 85/2000 [4.2%] - train_loss: 0.011609 - val_loss: 0.134669 - ETA: 1s   Epoch 86/2000 [4.3%] - train_loss: 0.013273 - val_loss: 0.146234 - ETA: 1s   Epoch 87/2000 [4.3%] - train_loss: 0.008716 - val_loss: 0.161830 - ETA: 1s   Epoch 88/2000 [4.4%] - train_loss: 0.010152 - val_loss: 0.177925 - ETA: 1s   Epoch 89/2000 [4.5%] - train_loss: 0.008800 - val_loss: 0.180654 - ETA: 1s   Epoch 90/2000 [4.5%] - train_loss: 0.008983 - val_loss: 0.181087 - ETA: 1s   
+Epoch 91/2000 [4.5%] - train_loss: 0.008469 - val_loss: 0.183590 - ETA: 1s   Epoch 92/2000 [4.6%] - train_loss: 0.007766 - val_loss: 0.190381 - ETA: 1s   Epoch 93/2000 [4.7%] - train_loss: 0.007976 - val_loss: 0.194189 - ETA: 1s   Epoch 94/2000 [4.7%] - train_loss: 0.007419 - val_loss: 0.193427 - ETA: 1s   Epoch 95/2000 [4.8%] - train_loss: 0.007120 - val_loss: 0.189059 - ETA: 1s   Epoch 96/2000 [4.8%] - train_loss: 0.007104 - val_loss: 0.187757 - ETA: 1s   Epoch 97/2000 [4.9%] - train_loss: 0.006746 - val_loss: 0.189069 - ETA: 1s   Epoch 98/2000 [4.9%] - train_loss: 0.007353 - val_loss: 0.189654 - ETA: 1s   Epoch 99/2000 [4.9%] - train_loss: 0.006764 - val_loss: 0.192068 - ETA: 1s   Epoch 100/2000 [5.0%] - train_loss: 0.006339 - val_loss: 0.195645 - ETA: 1s   
+Epoch 101/2000 [5.1%] - train_loss: 0.006718 - val_loss: 0.198857 - ETA: 1s   Epoch 102/2000 [5.1%] - train_loss: 0.008589 - val_loss: 0.205111 - ETA: 1s   Epoch 103/2000 [5.2%] - train_loss: 0.005875 - val_loss: 0.193546 - ETA: 1s   Epoch 104/2000 [5.2%] - train_loss: 0.006168 - val_loss: 0.191415 - ETA: 1s   Epoch 105/2000 [5.2%] - train_loss: 0.005760 - val_loss: 0.192137 - ETA: 1s   Epoch 106/2000 [5.3%] - train_loss: 0.005518 - val_loss: 0.195433 - ETA: 1s   Epoch 107/2000 [5.3%] - train_loss: 0.008731 - val_loss: 0.208296 - ETA: 1s   Epoch 108/2000 [5.4%] - train_loss: 0.005846 - val_loss: 0.200803 - ETA: 1s   Epoch 109/2000 [5.4%] - train_loss: 0.011800 - val_loss: 0.192810 - ETA: 1s   Epoch 110/2000 [5.5%] - train_loss: 0.009909 - val_loss: 0.189241 - ETA: 1s   
+Epoch 111/2000 [5.6%] - train_loss: 0.005428 - val_loss: 0.194322 - ETA: 1s   Epoch 112/2000 [5.6%] - train_loss: 0.008293 - val_loss: 0.212799 - ETA: 1s   Epoch 113/2000 [5.7%] - train_loss: 0.006020 - val_loss: 0.208696 - ETA: 1s   Epoch 114/2000 [5.7%] - train_loss: 0.004711 - val_loss: 0.205443 - ETA: 1s   Epoch 115/2000 [5.8%] - train_loss: 0.005324 - val_loss: 0.209479 - ETA: 1s   Epoch 116/2000 [5.8%] - train_loss: 0.004688 - val_loss: 0.213103 - ETA: 1s   Epoch 117/2000 [5.8%] - train_loss: 0.004251 - val_loss: 0.215637 - ETA: 1s   Epoch 118/2000 [5.9%] - train_loss: 0.004158 - val_loss: 0.213256 - ETA: 1s   Epoch 119/2000 [6.0%] - train_loss: 0.004085 - val_loss: 0.211594 - ETA: 1s   Epoch 120/2000 [6.0%] - train_loss: 0.004014 - val_loss: 0.210484 - ETA: 1s   
+Epoch 121/2000 [6.1%] - train_loss: 0.003947 - val_loss: 0.210633 - ETA: 1s   Epoch 122/2000 [6.1%] - train_loss: 0.003871 - val_loss: 0.209546 - ETA: 1s   Epoch 123/2000 [6.2%] - train_loss: 0.003953 - val_loss: 0.215040 - ETA: 1s   Epoch 124/2000 [6.2%] - train_loss: 0.003772 - val_loss: 0.219918 - ETA: 1s   Epoch 125/2000 [6.2%] - train_loss: 0.003644 - val_loss: 0.222176 - ETA: 1s   
+⚠️ EarlyStopping: Stopped at epoch 125 (best epoch: 25, loss: 0.132946)
+✅ Entraînement terminé en 0.04s
+
+   ✅ Training completed in 126 epochs
+   Final loss - Train: 0.003826 | Val: 0.218470
+
+📊 Evaluating...
+
+   Iris Classification Results:
+   ┌─────────────────────────────────┐
+   │  Correct: 42/45 (93.33%)        │
+   └─────────────────────────────────┘
+
+   Test Accuracy: 93.33%
+
+💾 Saving model...
+
+   ✅ Model saved to src/iris_model.bin
+   📊 Accuracy: 93.33%
+
+╔══════════════════════════════════════════════════════════════╗
+║              Training Complete! 🎉                           ║
+╚══════════════════════════════════════════════════════════════╝
