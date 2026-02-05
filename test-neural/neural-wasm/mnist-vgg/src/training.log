@@ -1,0 +1,123 @@
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/xor/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/mnist/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/mnist-lenet/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/mnist-alexnet/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/mnist-vgg/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/mnist-resnet/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
+package:   /workspace/test-neural/neural-wasm/iris/Cargo.toml
+workspace: /workspace/test-neural/Cargo.toml
+warning: unused variable: `weight_dims`
+   --> cma-neural-network/src/trainer.rs:226:13
+    |
+226 |         let weight_dims: Vec<_> = self
+    |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_weight_dims`
+    |
+    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused variable: `bias_dims`
+   --> cma-neural-network/src/trainer.rs:232:13
+    |
+232 |         let bias_dims: Vec<_> = self.network.layers.iter().map(|l| l.biases.len()).collect();
+    |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bias_dims`
+
+warning: `cma-neural-network` (lib) generated 2 warnings (run `cargo fix --lib -p cma-neural-network` to apply 2 suggestions)
+   Compiling neural-wasm-mnist-vgg v0.1.0 (/workspace/test-neural/neural-wasm/mnist-vgg)
+warning: unused import: `Layer`
+  --> neural-wasm/mnist-vgg/src/train_vgg.rs:14:40
+   |
+14 | use cma_cnn::{ActivationLayer, Conv2D, Layer, MaxPool2D, Sequential, Tensor4D, TensorShape};
+   |                                        ^^^^^
+   |
+   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `neural-wasm-mnist-vgg` (bin "train_vgg") generated 1 warning
+    Finished `release` profile [optimized] target(s) in 0.74s
+     Running `/workspace/test-neural/target/release/train_vgg`
+╔══════════════════════════════════════════════════════════════╗
+║  VGG-Tiny CNN for MNIST (Simonyan & Zisserman, 2014 style)   ║
+╚══════════════════════════════════════════════════════════════╝
+
+📦 Preparing MNIST dataset...
+
+   ✅ Loaded 70000 samples from CSV
+   ✅ Features normalized (z-score)
+   ✅ Dataset shuffled
+   Training samples: 56000 (80%)
+   Validation samples: 14000 (20%)
+
+🔧 Building VGG-Tiny CNN...
+
+   CNN Architecture:
+Model: VGG-Tiny
+======================================================================
+Layer (type)                           Output Shape         Param #
+======================================================================
+Conv2D(1 → 32, 3x3, stride=1, pad=1) (0)      [1, 32, 28, 28]             320
+ReLU (1)                            [1, 32, 28, 28]               0
+Conv2D(32 → 32, 3x3, stride=1, pad=1) (2)      [1, 32, 28, 28]            9248
+ReLU (3)                            [1, 32, 28, 28]               0
+MaxPool2D(2x2, stride=2) (4)        [1, 32, 14, 14]               0
+Conv2D(32 → 64, 3x3, stride=1, pad=1) (5)      [1, 64, 14, 14]           18496
+ReLU (6)                            [1, 64, 14, 14]               0
+Conv2D(64 → 64, 3x3, stride=1, pad=1) (7)      [1, 64, 14, 14]           36928
+ReLU (8)                            [1, 64, 14, 14]               0
+MaxPool2D(2x2, stride=2) (9)          [1, 64, 7, 7]               0
+Flatten (10)                        [1, 1, 1, 3136]               0
+======================================================================
+Total params: 64992
+Trainable params: 64992
+Non-trainable params: 0
+======================================================================
+
+   Flattened output size: 3136
+   FC Classifier: 3136 → 128 → 10
+
+🏋️  Training (CNN forward + FC backprop)...
+
+   📊 Extracting CNN features...
+   ✅ Features extracted: 56000 training, 14000 validation
+🚀 Début de l'entraînement (500 epochs)
+Epoch 1/500 [0.2%] - train_loss: 1.083124 - val_loss: 1.093882 - ETA: 60235s   Epoch 2/500 [0.4%] - train_loss: 0.881393 - val_loss: 0.892963 - ETA: 60380s   Epoch 3/500 [0.6%] - train_loss: 0.993042 - val_loss: 0.998173 - ETA: 60425s   Epoch 4/500 [0.8%] - train_loss: 1.105367 - val_loss: 1.109633 - ETA: 60522s   Epoch 5/500 [1.0%] - train_loss: 0.953234 - val_loss: 0.963358 - ETA: 60398s   Epoch 6/500 [1.2%] - train_loss: 1.229828 - val_loss: 1.232062 - ETA: 60267s   Epoch 7/500 [1.4%] - train_loss: 1.452886 - val_loss: 1.438739 - ETA: 60168s   Epoch 8/500 [1.6%] - train_loss: 1.568128 - val_loss: 1.574064 - ETA: 60031s   Epoch 9/500 [1.8%] - train_loss: 2.106421 - val_loss: 2.106022 - ETA: 59909s   Epoch 10/500 [2.0%] - train_loss: 2.307497 - val_loss: 2.305750 - ETA: 59760s   
+Epoch 11/500 [2.2%] - train_loss: 2.312081 - val_loss: 2.310833 - ETA: 59654s   Epoch 12/500 [2.4%] - train_loss: 2.303142 - val_loss: 2.301973 - ETA: 59516s   Epoch 13/500 [2.6%] - train_loss: 2.302746 - val_loss: 2.301877 - ETA: 59478s   Epoch 14/500 [2.8%] - train_loss: 2.303231 - val_loss: 2.302137 - ETA: 59398s   Epoch 15/500 [3.0%] - train_loss: 2.303268 - val_loss: 2.302830 - ETA: 59295s   Epoch 16/500 [3.2%] - train_loss: 2.302561 - val_loss: 2.302814 - ETA: 59153s   Epoch 17/500 [3.4%] - train_loss: 2.302568 - val_loss: 2.301334 - ETA: 59020s   Epoch 18/500 [3.6%] - train_loss: 2.302637 - val_loss: 2.302608 - ETA: 58885s   Epoch 19/500 [3.8%] - train_loss: 2.301664 - val_loss: 2.301353 - ETA: 58748s   Epoch 20/500 [4.0%] - train_loss: 2.302406 - val_loss: 2.301489 - ETA: 58605s   
+Epoch 21/500 [4.2%] - train_loss: 2.301823 - val_loss: 2.301345 - ETA: 58471s   Epoch 22/500 [4.4%] - train_loss: 2.301890 - val_loss: 2.301073 - ETA: 58341s   Epoch 23/500 [4.6%] - train_loss: 2.301288 - val_loss: 2.301513 - ETA: 58205s   Epoch 24/500 [4.8%] - train_loss: 2.301691 - val_loss: 2.300808 - ETA: 58067s   Epoch 25/500 [5.0%] - train_loss: 2.302117 - val_loss: 2.300949 - ETA: 57940s   Epoch 26/500 [5.2%] - train_loss: 2.301706 - val_loss: 2.301469 - ETA: 57817s   
+📉 LR Scheduler: Epoch 26 - Plateau detected, reducing LR 0.010000 → 0.005000
+Epoch 27/500 [5.4%] - train_loss: 2.301257 - val_loss: 2.301327 - ETA: 57693s   Epoch 28/500 [5.6%] - train_loss: 2.301236 - val_loss: 2.300635 - ETA: 57565s   Epoch 29/500 [5.8%] - train_loss: 2.301066 - val_loss: 2.301209 - ETA: 57437s   Epoch 30/500 [6.0%] - train_loss: 2.301685 - val_loss: 2.300654 - ETA: 57310s   
+Epoch 31/500 [6.2%] - train_loss: 2.301843 - val_loss: 2.301003 - ETA: 57179s   Epoch 32/500 [6.4%] - train_loss: 2.301059 - val_loss: 2.300714 - ETA: 57049s   Epoch 33/500 [6.6%] - train_loss: 2.301118 - val_loss: 2.300688 - ETA: 56924s   Epoch 34/500 [6.8%] - train_loss: 2.301857 - val_loss: 2.301314 - ETA: 56795s   Epoch 35/500 [7.0%] - train_loss: 2.301680 - val_loss: 2.300711 - ETA: 56701s   Epoch 36/500 [7.2%] - train_loss: 2.301570 - val_loss: 2.301380 - ETA: 56542s   Epoch 37/500 [7.4%] - train_loss: 2.302280 - val_loss: 2.302722 - ETA: 56372s   Epoch 38/500 [7.6%] - train_loss: 2.301583 - val_loss: 2.301045 - ETA: 56207s   Epoch 39/500 [7.8%] - train_loss: 2.301613 - val_loss: 2.301205 - ETA: 56049s   Epoch 40/500 [8.0%] - train_loss: 2.301856 - val_loss: 2.301192 - ETA: 55884s   
+Epoch 41/500 [8.2%] - train_loss: 2.301173 - val_loss: 2.300880 - ETA: 55728s   Epoch 42/500 [8.4%] - train_loss: 2.301563 - val_loss: 2.300872 - ETA: 55574s   Epoch 43/500 [8.6%] - train_loss: 2.302367 - val_loss: 2.301460 - ETA: 55419s   Epoch 44/500 [8.8%] - train_loss: 2.302269 - val_loss: 2.300889 - ETA: 55264s   Epoch 45/500 [9.0%] - train_loss: 2.300894 - val_loss: 2.301196 - ETA: 55107s   Epoch 46/500 [9.2%] - train_loss: 2.301979 - val_loss: 2.301740 - ETA: 54958s   Epoch 47/500 [9.4%] - train_loss: 2.301627 - val_loss: 2.300658 - ETA: 54806s   Epoch 48/500 [9.6%] - train_loss: 2.301771 - val_loss: 2.300787 - ETA: 54655s   Epoch 49/500 [9.8%] - train_loss: 2.301703 - val_loss: 2.300587 - ETA: 54508s   Epoch 50/500 [10.0%] - train_loss: 2.302056 - val_loss: 2.300661 - ETA: 54364s   
+Epoch 51/500 [10.2%] - train_loss: 2.301403 - val_loss: 2.301128 - ETA: 54219s   
+📉 LR Scheduler: Epoch 51 - Plateau detected, reducing LR 0.005000 → 0.002500
+
+⚠️ EarlyStopping: Stopped at epoch 51 (best epoch: 1, loss: 0.892963)
+✅ Entraînement terminé en 6276.06s
+
+   ✅ Training completed in 52 epochs
+   Final loss - Train: 2.301559 | Val: 2.301055
+
+📊 Evaluating...
+
+   VGG-Tiny MNIST Classification Results:
+   ┌─────────────────────────────────┐
+   │  Correct: 1617/14000 (11.55%)      │
+   └─────────────────────────────────┘
+
+💾 Saving model...
+
+   ✅ Model saved to src/vgg_model.bin
+   📊 Accuracy: 11.55%
+
+╔══════════════════════════════════════════════════════════════╗
+║             VGG-Tiny Training Complete! 🎉                   ║
+╚══════════════════════════════════════════════════════════════╝

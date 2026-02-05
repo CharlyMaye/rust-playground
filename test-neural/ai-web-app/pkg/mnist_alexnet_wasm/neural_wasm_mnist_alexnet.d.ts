@@ -1,17 +1,95 @@
-// TypeScript declarations for AlexNet-Mini MNIST WASM stub
+/* tslint:disable */
+/* eslint-disable */
+
+/**
+ * AlexNet-Mini MNIST Neural Network exposed to JavaScript
+ */
+export class MnistAlexNetNetwork {
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Get architecture summary
+     */
+    get_architecture(): string;
+    /**
+     * Get class names (digits 0-9)
+     */
+    get_class_names(): string;
+    /**
+     * Get class probabilities for 784 pixels
+     */
+    get_probabilities(pixels: Float32Array): string;
+    /**
+     * Get FC classifier weights and biases as JSON
+     */
+    get_weights(): string;
+    /**
+     * Get model info with accuracy and metadata
+     */
+    model_info(): string;
+    /**
+     * Create a new AlexNet-Mini MNIST network by loading the embedded model
+     */
+    constructor();
+    /**
+     * Predict MNIST digit from pixel array using AlexNet-Mini CNN
+     * Accepts 784 pixels (28x28 image)
+     * Returns JSON with digit prediction (0-9), probabilities, and confidence
+     */
+    predict(pixels: Float32Array): string;
+    /**
+     * Test with sample MNIST digits
+     */
+    test_all(): string;
+}
+
+/**
+ * Initialize the module
+ */
+export function main(): void;
+
+export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
 export interface InitOutput {
-  memory: WebAssembly.Memory;
+    readonly memory: WebAssembly.Memory;
+    readonly __wbg_mnistalexnetnetwork_free: (a: number, b: number) => void;
+    readonly mnistalexnetnetwork_get_architecture: (a: number) => [number, number];
+    readonly mnistalexnetnetwork_get_class_names: (a: number) => [number, number];
+    readonly mnistalexnetnetwork_get_probabilities: (a: number, b: number, c: number) => [number, number];
+    readonly mnistalexnetnetwork_get_weights: (a: number) => [number, number];
+    readonly mnistalexnetnetwork_model_info: (a: number) => [number, number];
+    readonly mnistalexnetnetwork_new: () => [number, number, number];
+    readonly mnistalexnetnetwork_predict: (a: number, b: number, c: number) => [number, number];
+    readonly mnistalexnetnetwork_test_all: (a: number) => [number, number];
+    readonly main: () => void;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
+    readonly __wbindgen_exn_store: (a: number) => void;
+    readonly __externref_table_alloc: () => number;
+    readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __wbindgen_malloc: (a: number, b: number) => number;
+    readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+    readonly __externref_table_dealloc: (a: number) => void;
+    readonly __wbindgen_start: () => void;
 }
 
-export declare class MnistAlexNetNetwork {
-  constructor();
-  predict(pixels: Float64Array): string;
-  model_info(): string;
-  get_architecture(): string;
-  get_weights(): string;
-  test_all(): string;
-}
+export type SyncInitInput = BufferSource | WebAssembly.Module;
 
-declare function init(input?: string | URL | Request | RequestInfo): Promise<InitOutput>;
-export default init;
+/**
+ * Instantiates the given `module`, which can either be bytes or
+ * a precompiled `WebAssembly.Module`.
+ *
+ * @param {{ module: SyncInitInput }} module - Passing `SyncInitInput` directly is deprecated.
+ *
+ * @returns {InitOutput}
+ */
+export function initSync(module: { module: SyncInitInput } | SyncInitInput): InitOutput;
+
+/**
+ * If `module_or_path` is {RequestInfo} or {URL}, makes a request and
+ * for everything else, calls `WebAssembly.instantiate` directly.
+ *
+ * @param {{ module_or_path: InitInput | Promise<InitInput> }} module_or_path - Passing `InitInput` directly is deprecated.
+ *
+ * @returns {Promise<InitOutput>}
+ */
+export default function __wbg_init (module_or_path?: { module_or_path: InitInput | Promise<InitInput> } | InitInput | Promise<InitInput>): Promise<InitOutput>;

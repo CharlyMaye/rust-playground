@@ -1,0 +1,16 @@
+{
+  "name": "neural-wasm-mnist-vgg",
+  "type": "module",
+  "description": "VGG-Tiny CNN for MNIST - WebAssembly module",
+  "version": "0.1.0",
+  "files": [
+    "neural_wasm_mnist_vgg_bg.wasm",
+    "neural_wasm_mnist_vgg.js",
+    "neural_wasm_mnist_vgg.d.ts"
+  ],
+  "main": "neural_wasm_mnist_vgg.js",
+  "types": "neural_wasm_mnist_vgg.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
