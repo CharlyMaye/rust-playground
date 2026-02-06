@@ -35,7 +35,7 @@ export class MnistResNet {
       return null;
     }
 
-    const flattenedInput = new Float64Array(digitData.flat());
+    const flattenedInput = new Float32Array(digitData.flat());
     const prediction = network.predict(flattenedInput);
     const output = JSON.parse(prediction) as PredictionResult;
     return output;

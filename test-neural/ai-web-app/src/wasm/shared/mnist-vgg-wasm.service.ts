@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import init, {
   InitOutput as InitMNISTVggOutput,
-  MnistVggNetwork,
+  MnistVGGNetwork,
 } from '@cma/wasm/mnist_vgg_wasm/neural_wasm_mnist_vgg.js';
 import { ArchitectureSummary, ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
 
@@ -56,7 +56,7 @@ export class MNISTVggWasmService {
     if (!initOutput) {
       return undefined;
     }
-    return new MnistVggNetwork();
+    return new MnistVGGNetwork();
   });
 
   /** Model metadata including name, accuracy, and description */

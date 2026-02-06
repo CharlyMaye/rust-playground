@@ -48,8 +48,8 @@ export class MnistDigit {
       return null;
     }
 
-    // Flatten the 28x28 grid into a 784-element Float64Array for MNIST
-    const flattenedInput = new Float64Array(digitData.flat());
+    // Flatten the 28x28 grid into a 784-element Float32Array for MNIST
+    const flattenedInput = new Float32Array(digitData.flat());
 
     // Call the WASM predict function with flattened input
     const prediction = network.predict(flattenedInput);
@@ -68,8 +68,8 @@ export class MnistDigit {
     // Use zeros if no digit is drawn, to show the network structure
     const flattenedInput =
       digitData.length === 0
-        ? new Float64Array(28 * 28).fill(0)
-        : new Float64Array(digitData.flat());
+        ? new Float32Array(28 * 28).fill(0)
+        : new Float32Array(digitData.flat());
 
     const acts = JSON.parse(network.get_activations(flattenedInput));
     return acts;
