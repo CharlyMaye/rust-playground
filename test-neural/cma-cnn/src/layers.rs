@@ -1,21 +1,22 @@
-//! # Couches CNN
+//! # CNN Layers
 //!
-//! Implémentation des couches pour réseaux de neurones convolutifs:
-//! - Conv2D: Convolution 2D
-//! - MaxPool2D / AvgPool2D: Pooling spatial
-//! - BatchNorm2D: Normalisation par batch
-//! - Flatten: Conversion 4D → 2D
+//! Implementation of layers for convolutional neural networks:
+//! - Conv2D: 2D Convolution
+//! - MaxPool2D / AvgPool2D: Spatial pooling
+//! - BatchNorm2D: Batch normalization
+//! - Flatten: 4D to 2D conversion
 //!
-//! ## Références
+//! ## References
 //!
-//! - LeCun et al. (1998): Convolutions et pooling
+//! - LeCun et al. (1998): Convolutions and pooling
 //! - Ioffe & Szegedy (2015): Batch Normalization
-//! - He et al. (2015): Initialisation pour ReLU
+//! - He et al. (2015): Initialization for ReLU
 
 use crate::Float;
 use ndarray::{Array1, Array4};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
+use std::sync::RwLock;
 
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
@@ -23,7 +24,7 @@ use rayon::prelude::*;
 use crate::ops::{avgpool2d, conv2d_im2col, global_avgpool2d, maxpool2d};
 use crate::tensor::{Tensor4D, TensorShape};
 
-/// Type de couche
+/// Layer type
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LayerType {
     Conv2D,
@@ -36,21 +37,21 @@ pub enum LayerType {
     Activation,
 }
 
-/// Trait commun à toutes les couches
+/// Common trait for all layers
 pub trait Layer: Send + Sync {
-    /// Propagation avant
+    /// Forward propagation
     fn forward(&self, input: &Tensor4D) -> Tensor4D;
 
-    /// Type de la couche
+    /// Layer type
     fn layer_type(&self) -> LayerType;
 
-    /// Nombre de paramètres entraînables
+    /// Trainable parameters count
     fn num_parameters(&self) -> usize;
 
-    /// Shape de sortie étant donné un shape d'entrée
+    /// Output shape given an input shape
     fn output_shape(&self, input_shape: TensorShape) -> TensorShape;
 
-    /// Description pour debug
+    /// Description for debugging
     fn summary(&self) -> String;
 }
 
@@ -58,12 +59,12 @@ pub trait Layer: Send + Sync {
 // Conv2D - Convolution 2D
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Couche de convolution 2D
+/// 2D Convolution Layer
 ///
 /// # Architecture (LeCun et al., 1998)
 ///
-/// Applique `out_channels` filtres de taille `kernel_size × kernel_size`
-/// sur l'entrée avec `in_channels` canaux.
+/// Applies `out_channels` filters of size `kernel_size × kernel_size`
+/// on the input with `in_channels` channels.
 ///
 /// # Exemple
 ///
@@ -73,33 +74,33 @@ pub trait Layer: Send + Sync {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conv2D {
-    /// Nombre de canaux d'entrée
+    /// Number of input channels
     pub in_channels: usize,
-    /// Nombre de filtres (canaux de sortie)
+    /// Number of filters (output channels)
     pub out_channels: usize,
-    /// Taille du kernel (carré)
+    /// Kernel size (square)
     pub kernel_size: usize,
-    /// Stride (pas de déplacement)
+    /// Stride (step size)
     pub stride: usize,
     /// Padding
     pub padding: usize,
-    /// Poids [out_channels, in_channels, kernel_h, kernel_w]
+    /// Weights [out_channels, in_channels, kernel_h, kernel_w]
     pub weights: Array4<Float>,
-    /// Biais [out_channels]
+    /// Bias [out_channels]
     pub bias: Array1<Float>,
-    /// Utiliser le biais?
+    /// Whether to use bias
     pub use_bias: bool,
 }
 
 impl Conv2D {
-    /// Crée une nouvelle couche Conv2D avec initialisation He
+    /// Creates a new Conv2D layer with He initialization
     ///
     /// # Arguments
-    /// * `in_channels` - Nombre de canaux d'entrée (1 pour grayscale, 3 pour RGB)
-    /// * `out_channels` - Nombre de filtres
-    /// * `kernel_size` - Taille du kernel (ex: 3 pour 3x3)
-    /// * `stride` - Pas de déplacement (1 = chaque pixel)
-    /// * `padding` - Zéros autour de l'image
+    /// * `in_channels` - Number of input channels (1 for grayscale, 3 for RGB)
+    /// * `out_channels` - Number of filters
+    /// * `kernel_size` - Kernel size (e.g. 3 for 3x3)
+    /// * `stride` - Step size (1 = every pixel)
+    /// * `padding` - Zeros around the image
     pub fn new(
         in_channels: usize,
         out_channels: usize,
@@ -109,13 +110,13 @@ impl Conv2D {
     ) -> Self {
         let mut rng = rand::rng();
 
-        // Initialisation He (pour ReLU)
+        // He initialization (for ReLU)
         // Variance = 2 / (fan_in)
         // fan_in = in_channels * kernel_size * kernel_size
         let fan_in = in_channels * kernel_size * kernel_size;
         let std = (2.0 / fan_in as Float).sqrt();
 
-        // Génère les poids avec distribution normale
+        // Generate weights with normal distribution
         let weights_vec: Vec<Float> = (0..out_channels * in_channels * kernel_size * kernel_size)
             .map(|_| {
                 // Box-Muller transform
@@ -132,7 +133,7 @@ impl Conv2D {
         )
         .unwrap();
 
-        // Biais initialisé à zéro
+        // Bias initialized to zero
         let bias = Array1::zeros(out_channels);
 
         Self {
@@ -147,13 +148,13 @@ impl Conv2D {
         }
     }
 
-    /// Crée Conv2D sans biais (utile avant BatchNorm)
+    /// Creates Conv2D without bias (useful before BatchNorm)
     pub fn without_bias(mut self) -> Self {
         self.use_bias = false;
         self
     }
 
-    /// Crée Conv2D avec padding "same" (conserve la taille)
+    /// Creates Conv2D with "same" padding (preserves spatial size)
     pub fn same_padding(in_channels: usize, out_channels: usize, kernel_size: usize) -> Self {
         let padding = kernel_size / 2;
         Self::new(in_channels, out_channels, kernel_size, 1, padding)
@@ -167,7 +168,7 @@ impl Layer for Conv2D {
         } else {
             None
         };
-        // Utilise im2col + GEMM pour une convolution ~10-100x plus rapide
+        // Uses im2col + GEMM for ~10-100x faster convolution
         conv2d_im2col(input, &self.weights, bias, self.stride, self.padding)
     }
 
@@ -207,15 +208,15 @@ impl Layer for Conv2D {
 // MaxPool2D - Max Pooling
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Couche de Max Pooling 2D
+/// 2D Max Pooling Layer
 ///
-/// Réduit la dimension spatiale en prenant le maximum sur chaque fenêtre.
-/// Introduit l'invariance aux petites translations.
+/// Reduces the spatial dimension by taking the maximum over each window.
+/// Introduces invariance to small translations.
 ///
-/// # Exemple
+/// # Example
 ///
 /// ```rust,ignore
-/// // Pool 2x2 avec stride 2 → divise la résolution par 2
+/// // Pool 2x2 with stride 2 → halves the resolution
 /// let pool = MaxPool2D::new(2, 2);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -229,7 +230,7 @@ impl MaxPool2D {
         Self { pool_size, stride }
     }
 
-    /// Pool 2x2 stride 2 (le plus commun)
+    /// Pool 2x2 stride 2 (most common)
     pub fn default_2x2() -> Self {
         Self::new(2, 2)
     }
@@ -246,7 +247,7 @@ impl Layer for MaxPool2D {
     }
 
     fn num_parameters(&self) -> usize {
-        0 // Pas de paramètres entraînables
+        0 // No trainable parameters
     }
 
     fn output_shape(&self, input_shape: TensorShape) -> TensorShape {
@@ -265,7 +266,7 @@ impl Layer for MaxPool2D {
 // AvgPool2D - Average Pooling
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Couche de Average Pooling 2D
+/// 2D Average Pooling Layer
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AvgPool2D {
     pub pool_size: usize,
@@ -309,14 +310,14 @@ impl Layer for AvgPool2D {
 
 /// Global Average Pooling 2D
 ///
-/// Réduit [batch, channels, H, W] → [batch, channels, 1, 1]
-/// Utilisé dans les architectures modernes (ResNet, EfficientNet) à la place
-/// des couches fully-connected.
+/// Reduces [batch, channels, H, W] → [batch, channels, 1, 1]
+/// Used in modern architectures (ResNet, EfficientNet) instead of
+/// fully-connected layers.
 ///
-/// # Avantages
-/// - Pas de paramètres entraînables
-/// - Régularisation implicite
-/// - Invariance à la taille d'entrée
+/// # Advantages
+/// - No trainable parameters
+/// - Implicit regularization
+/// - Input size invariance
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobalAvgPool2D;
 
@@ -360,34 +361,70 @@ impl Layer for GlobalAvgPool2D {
 
 /// Batch Normalization 2D (Ioffe & Szegedy, 2015)
 ///
-/// Normalise les activations par batch pour stabiliser l'entraînement.
+/// Normalizes activations per batch to stabilize training.
 ///
-/// # Formule
+/// # Formula
 /// ```text
 /// y = γ * (x - μ) / √(σ² + ε) + β
 /// ```
 ///
-/// # Avantages
-/// - Permet des learning rates plus élevés
-/// - Réduit la dépendance à l'initialisation
-/// - Régularisation implicite
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// # Advantages
+/// - Allows higher learning rates
+/// - Reduces dependency on initialization
+/// - Implicit regularization
+#[derive(Debug, Serialize, Deserialize)]
 pub struct BatchNorm2D {
     pub num_features: usize,
-    /// Paramètres appris: scale (γ)
+    /// Learned parameters: scale (γ)
     pub gamma: Array1<Float>,
-    /// Paramètres appris: shift (β)
+    /// Learned parameters: shift (β)
     pub beta: Array1<Float>,
-    /// Moyenne courante (pour inference)
-    pub running_mean: Array1<Float>,
-    /// Variance courante (pour inference)
-    pub running_var: Array1<Float>,
-    /// Momentum pour running stats
+    /// Running mean (for inference) — RwLock for thread-safe interior mutability
+    /// Allows forward(&self) to update running stats during training
+    #[serde(serialize_with = "serialize_rwlock", deserialize_with = "deserialize_rwlock")]
+    pub running_mean: RwLock<Array1<Float>>,
+    /// Running variance (for inference)
+    #[serde(serialize_with = "serialize_rwlock", deserialize_with = "deserialize_rwlock")]
+    pub running_var: RwLock<Array1<Float>>,
+    /// Momentum for running stats (EMA: running = (1-m)*running + m*batch)
     pub momentum: Float,
-    /// Epsilon pour stabilité numérique
+    /// Epsilon for numerical stability
     pub eps: Float,
-    /// Mode training (true) ou eval (false)
+    /// Training mode (true) or eval (false)
     pub training: bool,
+}
+
+/// Manual Clone impl since RwLock doesn't derive Clone
+impl Clone for BatchNorm2D {
+    fn clone(&self) -> Self {
+        Self {
+            num_features: self.num_features,
+            gamma: self.gamma.clone(),
+            beta: self.beta.clone(),
+            running_mean: RwLock::new(self.running_mean.read().unwrap().clone()),
+            running_var: RwLock::new(self.running_var.read().unwrap().clone()),
+            momentum: self.momentum,
+            eps: self.eps,
+            training: self.training,
+        }
+    }
+}
+
+/// Serde helper: serialize RwLock<Array1<Float>> transparently as Array1<Float>
+fn serialize_rwlock<S>(val: &RwLock<Array1<Float>>, s: S) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    val.read().unwrap().serialize(s)
+}
+
+/// Serde helper: deserialize Array1<Float> into RwLock<Array1<Float>>
+fn deserialize_rwlock<'de, D>(d: D) -> Result<RwLock<Array1<Float>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let arr = Array1::<Float>::deserialize(d)?;
+    Ok(RwLock::new(arr))
 }
 
 impl BatchNorm2D {
@@ -396,8 +433,8 @@ impl BatchNorm2D {
             num_features,
             gamma: Array1::ones(num_features),
             beta: Array1::zeros(num_features),
-            running_mean: Array1::zeros(num_features),
-            running_var: Array1::ones(num_features),
+            running_mean: RwLock::new(Array1::zeros(num_features)),
+            running_var: RwLock::new(Array1::ones(num_features)),
             momentum: 0.1,
             eps: 1e-5,
             training: true,
@@ -410,6 +447,16 @@ impl BatchNorm2D {
 
     pub fn train_mode(&mut self) {
         self.training = true;
+    }
+
+    /// Direct access to running_mean (for debug/tests)
+    pub fn get_running_mean(&self) -> Array1<Float> {
+        self.running_mean.read().unwrap().clone()
+    }
+
+    /// Direct access to running_var (for debug/tests)
+    pub fn get_running_var(&self) -> Array1<Float> {
+        self.running_var.read().unwrap().clone()
     }
 }
 
@@ -427,12 +474,12 @@ impl Layer for BatchNorm2D {
     }
 
     fn num_parameters(&self) -> usize {
-        // gamma et beta sont appris
+        // gamma and beta are learned
         self.num_features * 2
     }
 
     fn output_shape(&self, input_shape: TensorShape) -> TensorShape {
-        input_shape // BatchNorm ne change pas la shape
+        input_shape // BatchNorm does not change the shape
     }
 
     fn summary(&self) -> String {
@@ -441,7 +488,10 @@ impl Layer for BatchNorm2D {
 }
 
 impl BatchNorm2D {
-    /// Version séquentielle du forward pass
+    /// Sequential version of the forward pass
+    ///
+    /// In training mode: uses batch stats and updates running_mean/running_var via EMA
+    /// In eval mode: uses stable running_mean/running_var
     #[allow(dead_code)]
     fn forward_sequential(&self, input: &Tensor4D) -> Tensor4D {
         let shape = input.shape();
@@ -454,15 +504,15 @@ impl BatchNorm2D {
         let n_inv = 1.0 / n;
 
         for c in 0..shape.channels {
-            // Extraction du canal avec slicing ndarray (vectorisé)
+            // Channel extraction with ndarray slicing (vectorized)
             let channel_data = data.slice(ndarray::s![.., c, .., ..]);
 
             let (mean, var) = if self.training {
-                // Optimisation: utilise iter().sum() et iter().map() vectorisés
+                // Optimization: uses vectorized iter().sum() and iter().map()
                 let sum: Float = channel_data.iter().copied().sum();
                 let mean = sum * n_inv;
 
-                // Variance optimisée: un seul parcours
+                // Optimized variance: single pass
                 let var: Float = channel_data
                     .iter()
                     .map(|&x| {
@@ -471,20 +521,38 @@ impl BatchNorm2D {
                     })
                     .sum::<Float>()
                     * n_inv;
+
+                // EMA update of running stats (interior mutability via RwLock)
+                // running = (1 - momentum) * running + momentum * batch
+                let m = self.momentum;
+                {
+                    let mut rm = self.running_mean.write().unwrap();
+                    rm[c] = (1.0 - m) * rm[c] + m * mean;
+                }
+                {
+                    let mut rv = self.running_var.write().unwrap();
+                    // Uses unbiased variance for running stats (Bessel's correction: n/(n-1))
+                    let unbiased_var = if n > 1.0 { var * n / (n - 1.0) } else { var };
+                    rv[c] = (1.0 - m) * rv[c] + m * unbiased_var;
+                }
+
                 (mean, var)
             } else {
-                (self.running_mean[c], self.running_var[c])
+                // Eval mode: uses accumulated running stats
+                let rm = self.running_mean.read().unwrap();
+                let rv = self.running_var.read().unwrap();
+                (rm[c], rv[c])
             };
 
             let std_inv = 1.0 / (var + self.eps).sqrt();
             let gamma = self.gamma[c];
             let beta = self.beta[c];
 
-            // Précalcul des constantes pour éviter les calculs répétés
+            // Precompute constants to avoid repeated calculations
             let scale = gamma * std_inv;
             let shift = beta - mean * scale;
 
-            // Normalisation optimisée: appliquée par slice
+            // Optimized normalization: applied per slice
             let mut out_channel = output.slice_mut(ndarray::s![.., c, .., ..]);
             for (out_val, &in_val) in out_channel.iter_mut().zip(channel_data.iter()) {
                 *out_val = in_val * scale + shift;
@@ -494,7 +562,7 @@ impl BatchNorm2D {
         Tensor4D::from_array(output)
     }
 
-    /// Version parallèle du forward pass - parallélise sur les canaux
+    /// Parallel version of the forward pass - parallelizes over channels
     #[cfg(feature = "parallel")]
     fn forward_parallel(&self, input: &Tensor4D) -> Tensor4D {
         let shape = input.shape();
@@ -503,48 +571,80 @@ impl BatchNorm2D {
         let n = (shape.batch * shape.height * shape.width) as Float;
         let n_inv = 1.0 / n;
 
-        // Calcule (scale, shift, channel_data) pour chaque canal en parallèle
-        let channel_params: Vec<(usize, Float, Float, Vec<Float>)> = (0..shape.channels)
-            .into_par_iter()
-            .map(|c| {
-                let channel_data = data.slice(ndarray::s![.., c, .., ..]);
+        // In eval mode, we can read running stats in a thread-safe manner
+        let rm_snapshot: Option<Array1<Float>> = if !self.training {
+            Some(self.running_mean.read().unwrap().clone())
+        } else {
+            None
+        };
+        let rv_snapshot: Option<Array1<Float>> = if !self.training {
+            Some(self.running_var.read().unwrap().clone())
+        } else {
+            None
+        };
 
-                let (mean, var) = if self.training {
-                    let sum: Float = channel_data.iter().copied().sum();
-                    let mean = sum * n_inv;
-                    let var: Float = channel_data
-                        .iter()
-                        .map(|&x| {
-                            let diff = x - mean;
-                            diff * diff
-                        })
-                        .sum::<Float>()
-                        * n_inv;
-                    (mean, var)
-                } else {
-                    (self.running_mean[c], self.running_var[c])
-                };
+        // Compute (scale, shift, channel_data, batch_mean, batch_var) per channel in parallel
+        let channel_params: Vec<(usize, Float, Float, Vec<Float>, Option<(Float, Float)>)> =
+            (0..shape.channels)
+                .into_par_iter()
+                .map(|c| {
+                    let channel_data = data.slice(ndarray::s![.., c, .., ..]);
 
-                let std_inv = 1.0 / (var + self.eps).sqrt();
-                let scale = self.gamma[c] * std_inv;
-                let shift = self.beta[c] - mean * scale;
+                    let (mean, var, batch_stats) = if self.training {
+                        let sum: Float = channel_data.iter().copied().sum();
+                        let mean = sum * n_inv;
+                        let var: Float = channel_data
+                            .iter()
+                            .map(|&x| {
+                                let diff = x - mean;
+                                diff * diff
+                            })
+                            .sum::<Float>()
+                            * n_inv;
+                        (mean, var, Some((mean, var)))
+                    } else {
+                        let rm = rm_snapshot.as_ref().unwrap();
+                        let rv = rv_snapshot.as_ref().unwrap();
+                        (rm[c], rv[c], None)
+                    };
 
-                // Applique la transformation
-                let transformed: Vec<Float> =
-                    channel_data.iter().map(|&x| x * scale + shift).collect();
+                    let std_inv = 1.0 / (var + self.eps).sqrt();
+                    let scale = self.gamma[c] * std_inv;
+                    let shift = self.beta[c] - mean * scale;
 
-                (c, scale, shift, transformed)
-            })
-            .collect();
+                    let transformed: Vec<Float> =
+                        channel_data.iter().map(|&x| x * scale + shift).collect();
 
-        // Reconstruit l'output
+                    (c, scale, shift, transformed, batch_stats)
+                })
+                .collect();
+
+        // Rebuild output and update running stats sequentially
         let mut output =
             ndarray::Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
 
-        for (c, _scale, _shift, transformed) in channel_params {
+        let m = self.momentum;
+        for (c, _scale, _shift, transformed, batch_stats) in channel_params {
             let mut out_channel = output.slice_mut(ndarray::s![.., c, .., ..]);
             for (out_val, &in_val) in out_channel.iter_mut().zip(transformed.iter()) {
                 *out_val = in_val;
+            }
+
+            // EMA update (sequential after par_iter)
+            if let Some((batch_mean, batch_var)) = batch_stats {
+                {
+                    let mut rm = self.running_mean.write().unwrap();
+                    rm[c] = (1.0 - m) * rm[c] + m * batch_mean;
+                }
+                {
+                    let mut rv = self.running_var.write().unwrap();
+                    let unbiased_var = if n > 1.0 {
+                        batch_var * n / (n - 1.0)
+                    } else {
+                        batch_var
+                    };
+                    rv[c] = (1.0 - m) * rv[c] + m * unbiased_var;
+                }
             }
         }
 
@@ -558,8 +658,8 @@ impl BatchNorm2D {
 
 /// Dropout 2D (Spatial Dropout)
 ///
-/// Désactive des canaux entiers plutôt que des pixels individuels.
-/// Plus efficace pour les CNN car les pixels adjacents sont corrélés.
+/// Disables entire channels rather than individual pixels.
+/// More effective for CNNs because adjacent pixels are correlated.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Dropout2D {
     pub rate: Float,
@@ -596,17 +696,17 @@ impl Layer for Dropout2D {
 
         let mut output = data.clone();
 
-        // Dropout par canal (spatial dropout) - optimisé avec slices
+        // Per-channel dropout (spatial dropout) - optimized with slices
         for b in 0..shape.batch {
             for c in 0..shape.channels {
                 let drop: bool = rng.random::<Float>() < self.rate;
                 let mut channel_slice = output.slice_mut(ndarray::s![b, c, .., ..]);
 
                 if drop {
-                    // Optimisation: fill(0.0) au lieu de boucles
+                    // Optimization: fill(0.0) instead of loops
                     channel_slice.fill(0.0);
                 } else {
-                    // Optimisation: mapv_inplace au lieu de boucles
+                    // Optimization: mapv_inplace instead of loops
                     channel_slice.mapv_inplace(|x| x * scale);
                 }
             }
@@ -636,12 +736,12 @@ impl Layer for Dropout2D {
 // Flatten - 4D → 2D
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Flatten: Convertit [batch, C, H, W] → vecteur pour couches Dense
+/// Flatten: Converts [batch, C, H, W] → vector for Dense layers
 ///
-/// Utilisé pour connecter les couches CNN aux couches fully-connected.
+/// Used to connect CNN layers to fully-connected layers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Flatten {
-    /// Shape d'entrée (pour unflatten au backward)
+    /// Input shape (for unflatten during backward pass)
     input_shape: Option<TensorShape>,
 }
 
@@ -659,21 +759,21 @@ impl Default for Flatten {
 
 impl Layer for Flatten {
     fn forward(&self, input: &Tensor4D) -> Tensor4D {
-        // Note: Flatten retourne techniquement un Array2, pas Tensor4D
-        // Mais pour l'interface unifiée, on garde Tensor4D avec H=1, W=flat_size
+        // Note: Flatten technically returns an Array2, not Tensor4D
+        // But for the unified interface, we keep Tensor4D with H=1, W=flat_size
         let shape = input.shape();
         let flat_size = shape.channels * shape.height * shape.width;
 
-        // Optimisation: reshape direct si les données sont contiguës
-        // Évite la double copie (flatten puis reshape)
+        // Optimization: direct reshape if data is contiguous
+        // Avoids double copy (flatten then reshape)
         if let Some(slice) = input.data().as_slice() {
-            // Données contiguës: reshape direct en une seule allocation
+            // Contiguous data: direct reshape in a single allocation
             let data =
                 ndarray::Array4::from_shape_vec((shape.batch, 1, 1, flat_size), slice.to_vec())
                     .unwrap();
             Tensor4D::from_array(data)
         } else {
-            // Fallback: données non contiguës
+            // Fallback: non-contiguous data
             let mut data = ndarray::Array4::zeros((shape.batch, 1, 1, flat_size));
             for b in 0..shape.batch {
                 let image = input.data().slice(ndarray::s![b, .., .., ..]);
@@ -708,17 +808,17 @@ impl Layer for Flatten {
 // Activation Layer Wrapper
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Couche d'activation (wrapper autour de cma_neural_network::Activation)
+/// Activation layer (wrapper around cma_neural_network::Activation)
 ///
-/// Réutilise les activations de cma-neural-network en les appliquant
-/// élément par élément sur les Tensor4D.
+/// Reuses activations from cma-neural-network by applying them
+/// element-wise on Tensor4D.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivationLayer {
     pub activation: cma_neural_network::Activation,
 }
 
 impl ActivationLayer {
-    /// Crée une couche avec l'activation spécifiée
+    /// Creates a layer with the specified activation
     pub fn new(activation: cma_neural_network::Activation) -> Self {
         Self { activation }
     }
@@ -766,9 +866,9 @@ impl ActivationLayer {
 
 impl Layer for ActivationLayer {
     fn forward(&self, input: &Tensor4D) -> Tensor4D {
-        // Applique l'activation élément par élément
-        // On utilise la même logique que cma_neural_network::Activation::apply
-        // mais sur un scalaire au lieu d'un Array1
+        // Apply activation element-wise
+        // Uses the same logic as cma_neural_network::Activation::apply
+        // but on a scalar instead of an Array1
         input.map(|x| apply_activation_scalar(self.activation, x))
     }
 
@@ -789,8 +889,8 @@ impl Layer for ActivationLayer {
     }
 }
 
-/// Applique une activation sur un scalaire
-/// Réplique la logique de cma_neural_network::Activation::apply pour un seul élément
+/// Applies an activation on a scalar
+/// Replicates cma_neural_network::Activation::apply logic for a single element
 fn apply_activation_scalar(activation: cma_neural_network::Activation, x: Float) -> Float {
     use cma_neural_network::Activation;
     match activation {
@@ -826,7 +926,7 @@ fn apply_activation_scalar(activation: cma_neural_network::Activation, x: Float)
         Activation::Softsign => x / (1.0 + x.abs()),
         Activation::HardSigmoid => (0.2 * x + 0.5).clamp(0.0, 1.0),
         Activation::HardTanh => x.clamp(-1.0, 1.0),
-        Activation::Softmax => x, // Softmax nécessite le contexte complet, identité ici
+        Activation::Softmax => x, // Softmax requires full context, identity here
         Activation::Linear => x,
     }
 }
@@ -863,7 +963,7 @@ mod tests {
         let input_shape = TensorShape::new(1, 1, 28, 28);
         let output_shape = conv.output_shape(input_shape);
 
-        // Same padding préserve la taille
+        // Same padding preserves spatial size
         assert_eq!(output_shape.height, 28);
         assert_eq!(output_shape.width, 28);
     }
@@ -887,6 +987,62 @@ mod tests {
 
         let input_shape = TensorShape::new(4, 32, 14, 14);
         assert_eq!(bn.output_shape(input_shape), input_shape);
+    }
+
+    #[test]
+    fn test_batchnorm2d_running_stats_update() {
+        let bn = BatchNorm2D::new(2);
+        // Initial running stats: mean=0, var=1
+        assert_eq!(bn.get_running_mean(), Array1::<Float>::zeros(2));
+        assert_eq!(bn.get_running_var(), Array1::<Float>::ones(2));
+
+        // Forward pass in training mode with non-zero data
+        // Channel 0: all 2.0, Channel 1: all -1.0
+        let mut data = ndarray::Array4::zeros((4, 2, 3, 3));
+        data.slice_mut(ndarray::s![.., 0, .., ..]).fill(2.0);
+        data.slice_mut(ndarray::s![.., 1, .., ..]).fill(-1.0);
+        let input = Tensor4D::from_array(data);
+
+        let _output = bn.forward(&input);
+
+        // running_mean should have moved towards batch means (2.0 and -1.0)
+        let rm = bn.get_running_mean();
+        assert!(
+            rm[0] > 0.0,
+            "running_mean[0] should be positive after seeing 2.0s, got {}",
+            rm[0]
+        );
+        assert!(
+            rm[1] < 0.0,
+            "running_mean[1] should be negative after seeing -1.0s, got {}",
+            rm[1]
+        );
+        // With momentum=0.1: running_mean = 0.9*0 + 0.1*batch_mean = 0.1*2.0 = 0.2
+        assert!((rm[0] - 0.2).abs() < 1e-5, "expected ~0.2, got {}", rm[0]);
+        assert!((rm[1] - (-0.1)).abs() < 1e-5, "expected ~-0.1, got {}", rm[1]);
+    }
+
+    #[test]
+    fn test_batchnorm2d_eval_uses_running_stats() {
+        let mut bn = BatchNorm2D::new(1);
+
+        // Manually set running stats
+        *bn.running_mean.write().unwrap() = Array1::from_vec(vec![5.0]);
+        *bn.running_var.write().unwrap() = Array1::from_vec(vec![4.0]);
+        bn.eval_mode();
+
+        // Input: constant 7.0
+        let data = ndarray::Array4::from_elem((1, 1, 2, 2), 7.0);
+        let input = Tensor4D::from_array(data);
+        let output = bn.forward(&input);
+
+        // Expected: gamma * (7 - 5) / sqrt(4 + 1e-5) + beta = 1.0 * 2 / 2.0 + 0 = 1.0
+        let val = output.data()[[0, 0, 0, 0]];
+        assert!(
+            (val - 1.0).abs() < 1e-4,
+            "eval mode should use running stats, expected ~1.0, got {}",
+            val
+        );
     }
 
     #[test]
@@ -914,11 +1070,11 @@ mod tests {
         let conv = Conv2D::new(1, 32, 5, 1, 0);
         assert_eq!(conv.num_parameters(), 832);
 
-        // Sans biais: 32 * 1 * 5 * 5 = 800
+        // Without bias: 32 * 1 * 5 * 5 = 800
         let conv_no_bias = Conv2D::new(1, 32, 5, 1, 0).without_bias();
         assert_eq!(conv_no_bias.num_parameters(), 800);
 
-        // Pool n'a pas de paramètres
+        // Pool has no parameters
         let pool = MaxPool2D::new(2, 2);
         assert_eq!(pool.num_parameters(), 0);
     }

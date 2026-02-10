@@ -107,7 +107,7 @@ impl Dataset {
         let mut rng = rng();
         let n = self.len();
 
-        // Fisher-Yates shuffle in-place (O(n), pas de clone!)
+        // Fisher-Yates shuffle in-place (O(n), no clones!)
         for i in (1..n).rev() {
             let j = rng.random_range(0..=i);
             self.inputs.swap(i, j);
@@ -350,11 +350,11 @@ mod tests {
 
         let batches: Vec<_> = dataset.batches(3).collect();
 
-        assert_eq!(batches.len(), 4); // 10 éléments avec batch_size=3 → 4 batches
+        assert_eq!(batches.len(), 4); // 10 elements with batch_size=3 → 4 batches
         assert_eq!(batches[0].0.len(), 3);
         assert_eq!(batches[1].0.len(), 3);
         assert_eq!(batches[2].0.len(), 3);
-        assert_eq!(batches[3].0.len(), 1); // Dernier batch plus petit
+        assert_eq!(batches[3].0.len(), 1); // Last batch is smaller
     }
 
     #[test]
@@ -365,18 +365,18 @@ mod tests {
 
         dataset.shuffle();
 
-        // Vérifier que le dataset a toujours la même taille
+        // Verify the dataset still has the same size
         assert_eq!(dataset.len(), 10);
 
-        // Vérifier que les données sont différentes de l'ordre original (très probable)
+        // Verify the data is different from the original order (very likely)
         let all_same = dataset
             .inputs()
             .iter()
             .zip(inputs.iter())
             .all(|(a, b)| a[0] == b[0]);
 
-        // Il y a une très faible probabilité que shuffle ne change rien
-        // mais avec 10 éléments, c'est presque impossible
+        // There is a very low probability that shuffle changes nothing
+        // but with 10 elements, it is almost impossible
         assert!(!all_same || dataset.len() <= 1);
     }
 }

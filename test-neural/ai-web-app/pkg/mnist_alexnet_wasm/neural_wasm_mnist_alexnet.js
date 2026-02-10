@@ -15,7 +15,6 @@ export class MnistAlexNetNetwork {
         wasm.__wbg_mnistalexnetnetwork_free(ptr, 0);
     }
     /**
-     * Get architecture summary
      * @returns {string}
      */
     get_architecture() {
@@ -31,7 +30,6 @@ export class MnistAlexNetNetwork {
         }
     }
     /**
-     * Get class names (digits 0-9)
      * @returns {string}
      */
     get_class_names() {
@@ -47,7 +45,6 @@ export class MnistAlexNetNetwork {
         }
     }
     /**
-     * Get class probabilities for 784 pixels
      * @param {Float32Array} pixels
      * @returns {string}
      */
@@ -66,7 +63,6 @@ export class MnistAlexNetNetwork {
         }
     }
     /**
-     * Get FC classifier weights and biases as JSON
      * @returns {string}
      */
     get_weights() {
@@ -82,7 +78,6 @@ export class MnistAlexNetNetwork {
         }
     }
     /**
-     * Get model info with accuracy and metadata
      * @returns {string}
      */
     model_info() {
@@ -97,9 +92,6 @@ export class MnistAlexNetNetwork {
             wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
         }
     }
-    /**
-     * Create a new AlexNet-Mini MNIST network by loading the embedded model
-     */
     constructor() {
         const ret = wasm.mnistalexnetnetwork_new();
         if (ret[2]) {
@@ -110,9 +102,6 @@ export class MnistAlexNetNetwork {
         return this;
     }
     /**
-     * Predict MNIST digit from pixel array using AlexNet-Mini CNN
-     * Accepts 784 pixels (28x28 image)
-     * Returns JSON with digit prediction (0-9), probabilities, and confidence
      * @param {Float32Array} pixels
      * @returns {string}
      */
@@ -131,7 +120,6 @@ export class MnistAlexNetNetwork {
         }
     }
     /**
-     * Test with sample MNIST digits
      * @returns {string}
      */
     test_all() {
@@ -149,9 +137,6 @@ export class MnistAlexNetNetwork {
 }
 if (Symbol.dispose) MnistAlexNetNetwork.prototype[Symbol.dispose] = MnistAlexNetNetwork.prototype.free;
 
-/**
- * Initialize the module
- */
 export function main() {
     wasm.main();
 }

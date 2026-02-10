@@ -66,7 +66,7 @@ pub fn accuracy(
     let mut correct = 0;
 
     for (pred, target) in predictions.iter().zip(targets.iter()) {
-        // Classification binaire simple
+        // Simple binary classification
         if pred.len() == 1 && target.len() == 1 {
             let pred_class: Float = if pred[0] > threshold { 1.0 } else { 0.0 };
             let target_class: Float = if target[0] > threshold { 1.0 } else { 0.0 };
@@ -74,7 +74,7 @@ pub fn accuracy(
                 correct += 1;
             }
         }
-        // Classification multi-classes (argmax)
+        // Multi-class classification (argmax)
         else {
             let pred_class = pred
                 .iter()
@@ -136,7 +136,7 @@ pub fn binary_metrics(
 
     for (pred, target) in predictions.iter().zip(targets.iter()) {
         if pred.len() != 1 || target.len() != 1 {
-            continue; // Skip multi-class (non supporté par cette fonction)
+            continue; // Skip multi-class (not supported by this function)
         }
 
         let pred_class = pred[0] > threshold;
@@ -234,7 +234,7 @@ pub fn confusion_matrix_multiclass(
     let mut matrix = Array2::zeros((num_classes, num_classes));
 
     for (pred, target) in predictions.iter().zip(targets.iter()) {
-        // Trouver la classe prédite (argmax)
+        // Find the predicted class (argmax)
         let pred_class = pred
             .iter()
             .enumerate()
@@ -242,7 +242,7 @@ pub fn confusion_matrix_multiclass(
             .map(|(idx, _)| idx)
             .unwrap_or(0);
 
-        // Trouver la classe réelle (argmax)
+        // Find the actual class (argmax)
         let target_class = target
             .iter()
             .enumerate()
@@ -266,7 +266,7 @@ pub fn format_confusion_matrix(matrix: &Array2<usize>, class_names: Option<&[&st
     result.push_str("\nConfusion Matrix:\n");
     result.push_str("                Predicted\n");
 
-    // Header avec noms de classes
+    // Header with class names
     result.push_str("         ");
     for i in 0..size {
         if let Some(names) = class_names {
@@ -281,7 +281,7 @@ pub fn format_confusion_matrix(matrix: &Array2<usize>, class_names: Option<&[&st
     }
     result.push('\n');
 
-    // Lignes avec données
+    // Rows with data
     for i in 0..size {
         if i == 0 {
             result.push_str("Actual ");
@@ -379,7 +379,7 @@ pub fn roc_curve(
 pub fn auc_roc(predictions: &[Array1<Float>], targets: &[Array1<Float>]) -> Float {
     let (mut fpr, mut tpr, _) = roc_curve(predictions, targets, 100);
 
-    // Trier par FPR croissant (nécessaire pour l'intégration)
+    // Sort by ascending FPR (required for integration)
     let mut points: Vec<(Float, Float)> =
         fpr.iter().zip(tpr.iter()).map(|(&f, &t)| (f, t)).collect();
     points.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
@@ -387,7 +387,7 @@ pub fn auc_roc(predictions: &[Array1<Float>], targets: &[Array1<Float>]) -> Floa
     fpr = points.iter().map(|(f, _)| *f).collect();
     tpr = points.iter().map(|(_, t)| *t).collect();
 
-    // Méthode des trapèzes
+    // Trapezoidal method
     let mut area = 0.0;
     for i in 1..fpr.len() {
         let width = (fpr[i] - fpr[i - 1]).abs();
@@ -469,14 +469,14 @@ mod tests {
     #[test]
     fn test_multiclass_accuracy() {
         let predictions = vec![
-            array![0.8, 0.1, 0.1], // Classe 0
-            array![0.1, 0.8, 0.1], // Classe 1
-            array![0.1, 0.1, 0.8], // Classe 2
+            array![0.8, 0.1, 0.1], // Class 0
+            array![0.1, 0.8, 0.1], // Class 1
+            array![0.1, 0.1, 0.8], // Class 2
         ];
         let targets = vec![
-            array![1.0, 0.0, 0.0], // Classe 0
-            array![0.0, 1.0, 0.0], // Classe 1
-            array![0.0, 0.0, 1.0], // Classe 2
+            array![1.0, 0.0, 0.0], // Class 0
+            array![0.0, 1.0, 0.0], // Class 1
+            array![0.0, 0.0, 1.0], // Class 2
         ];
 
         let acc = accuracy(&predictions, &targets, 0.5);
@@ -489,8 +489,8 @@ mod tests {
         let targets = vec![array![1.0], array![1.0], array![0.0], array![0.0]];
 
         let auc = auc_roc(&predictions, &targets);
-        // AUC doit être > 0.5 (mieux que random)
-        // Avec un petit dataset, l'AUC peut ne pas atteindre 1.0
+        // AUC should be > 0.5 (better than random)
+        // With a small dataset, AUC may not reach 1.0
         assert!(auc > 0.5, "AUC should be > 0.5 (random), got {}", auc);
         assert!(auc <= 1.0, "AUC should be <= 1.0, got {}", auc);
     }

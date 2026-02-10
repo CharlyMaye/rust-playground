@@ -290,14 +290,14 @@ impl Callback for ModelCheckpoint {
 
                 match result {
                     Ok(_) => println!(
-                        "💾 ModelCheckpoint: Modèle sauvegardé à l'epoch {} (loss: {:.6})",
+                        "💾 ModelCheckpoint: Model saved at epoch {} (loss: {:.6})",
                         epoch, loss
                     ),
-                    Err(e) => eprintln!("❌ Erreur sauvegarde: {}", e),
+                    Err(e) => eprintln!("❌ Save error: {}", e),
                 }
             }
         }
-        true // Continue toujours
+        true // Always continue
     }
 }
 
@@ -480,15 +480,15 @@ impl Callback for LearningRateScheduler {
         _train_loss: Float,
         val_loss: Option<Float>,
     ) -> bool {
-        // Note: On ne peut pas modifier network ici car c'est une référence immutable
-        // Le LR sera mis à jour dans la méthode d'entraînement
+        // Note: We cannot modify network here because it is an immutable reference
+        // The LR will be updated in the training method
 
         match &self.schedule {
             LRSchedule::StepLR { step_size, gamma } => {
                 if (epoch + 1).is_multiple_of(*step_size) {
                     let new_lr = self.current_lr * gamma;
                     println!(
-                        "📉 LR Scheduler: Epoch {} - Réduction LR {:.6} → {:.6}",
+                        "📉 LR Scheduler: Epoch {} - LR reduced {:.6} → {:.6}",
                         epoch, self.current_lr, new_lr
                     );
                     self.current_lr = new_lr;
@@ -597,7 +597,7 @@ impl Callback for LearningRateScheduler {
             }
         }
 
-        true // Continue toujours
+        true // Always continue
     }
 }
 
@@ -645,7 +645,7 @@ impl Callback for ProgressBar {
     fn on_train_begin(&mut self, _network: &Network) {
         self.start_time = Some(std::time::Instant::now());
         if self.verbose {
-            println!("🚀 Début de l'entraînement ({} epochs)", self.total_epochs);
+            println!("🚀 Training started ({} epochs)", self.total_epochs);
         }
     }
 
@@ -653,7 +653,7 @@ impl Callback for ProgressBar {
         if let Some(start) = self.start_time {
             let duration = start.elapsed();
             if self.verbose {
-                println!("✅ Entraînement terminé en {:.2}s", duration.as_secs_f32());
+                println!("✅ Training completed in {:.2}s", duration.as_secs_f32());
             }
         }
     }
@@ -694,7 +694,7 @@ impl Callback for ProgressBar {
             use std::io::Write;
             std::io::stdout().flush().ok();
 
-            // Nouvelle ligne tous les 10 epochs ou à la fin
+            // New line every 10 epochs or at the end
             if (epoch + 1).is_multiple_of(10) || epoch + 1 == self.total_epochs {
                 println!();
             }
@@ -722,11 +722,11 @@ mod tests {
 
         early_stop.on_train_begin(&network);
 
-        // Pas d'amélioration pendant 3 epochs
+        // No improvement for 3 epochs
         assert!(early_stop.on_epoch_end(0, &network, 1.0, Some(1.0)));
         assert!(early_stop.on_epoch_end(1, &network, 0.9, Some(1.0)));
         assert!(early_stop.on_epoch_end(2, &network, 0.8, Some(1.0)));
-        assert!(!early_stop.on_epoch_end(3, &network, 0.7, Some(1.0))); // Arrête ici
+        assert!(!early_stop.on_epoch_end(3, &network, 0.7, Some(1.0))); // Stops here
 
         assert!(early_stop.stopped());
     }
@@ -744,10 +744,10 @@ mod tests {
 
         early_stop.on_train_begin(&network);
 
-        // Amélioration continue
+        // Continuous improvement
         assert!(early_stop.on_epoch_end(0, &network, 1.0, Some(1.0)));
-        assert!(early_stop.on_epoch_end(1, &network, 0.9, Some(0.5))); // Amélioration
-        assert!(early_stop.on_epoch_end(2, &network, 0.8, Some(0.3))); // Amélioration
+        assert!(early_stop.on_epoch_end(1, &network, 0.9, Some(0.5))); // Improvement
+        assert!(early_stop.on_epoch_end(2, &network, 0.8, Some(0.3))); // Improvement
 
         assert!(!early_stop.stopped());
         assert_eq!(early_stop.best_epoch(), 2);
@@ -768,15 +768,15 @@ mod tests {
             .optimizer(OptimizerType::sgd(1.0))
             .build();
 
-        // Initialise manuellement le LR (normalement fait par fit())
+        // Manually initialize LR (normally done by fit())
         scheduler.current_lr = 1.0;
         scheduler.on_train_begin(&network);
         assert_eq!(scheduler.current_lr(), 1.0);
 
         scheduler.on_epoch_end(0, &network, 1.0, Some(1.0));
-        assert_eq!(scheduler.current_lr(), 1.0); // Pas encore
+        assert_eq!(scheduler.current_lr(), 1.0); // Not yet
 
         scheduler.on_epoch_end(1, &network, 0.9, Some(0.9));
-        assert_eq!(scheduler.current_lr(), 0.5); // Réduit à epoch 2
+        assert_eq!(scheduler.current_lr(), 0.5); // Reduced at epoch 2
     }
 }

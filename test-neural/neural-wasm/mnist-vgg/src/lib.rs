@@ -1,14 +1,15 @@
 //! WebAssembly VGG-Tiny CNN for MNIST
 //!
-//! VGG-style architecture (Simonyan & Zisserman, 2014) adapted for MNIST.
-//! Uses stacked 3x3 convolutions as per the original VGG design.
+//! Uses trained CNN weights exported from cma_autograd via cma_cnn Sequential.
+//! Model format: CnnModelWithMetadata (CNN feature extractor + FC classifier).
 
+use cma_cnn::sequential::Sequential as CnnSequential;
 use cma_cnn::Float;
-use cma_cnn::{ActivationLayer, Conv2D, MaxPool2D, Sequential, Tensor4D, TensorShape};
+use cma_cnn::Tensor4D;
 use cma_neural_network::network::Network;
 use ndarray::Array1;
 use neural_wasm_shared::{
-    build_prediction_result, build_test_result, load_model_from_bytes, ArchitectureSummary,
+    build_prediction_result, build_test_result, load_cnn_model_from_bytes, ArchitectureSummary,
     LayerInfo, LayerSummary, ModelInfo, NormalizationStats, TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
@@ -21,26 +22,9 @@ const MODEL_BIN: &[u8] = &[];
 
 const CLASS_NAMES: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
-fn build_vgg_cnn() -> Sequential {
-    Sequential::named("VGG-Tiny")
-        // Block 1: 2x Conv 3x3, 32 filters
-        .add_conv2d(Conv2D::new(1, 32, 3, 1, 1))
-        .add_activation(ActivationLayer::relu())
-        .add_conv2d(Conv2D::new(32, 32, 3, 1, 1))
-        .add_activation(ActivationLayer::relu())
-        .add_maxpool(MaxPool2D::new(2, 2))
-        // Block 2: 2x Conv 3x3, 64 filters
-        .add_conv2d(Conv2D::new(32, 64, 3, 1, 1))
-        .add_activation(ActivationLayer::relu())
-        .add_conv2d(Conv2D::new(64, 64, 3, 1, 1))
-        .add_activation(ActivationLayer::relu())
-        .add_maxpool(MaxPool2D::new(2, 2))
-        .add_flatten()
-}
-
 #[wasm_bindgen]
 pub struct MnistVGGNetwork {
-    cnn: Sequential,
+    cnn: CnnSequential,
     classifier: Network,
     accuracy: Float,
     test_samples: usize,
@@ -52,14 +36,12 @@ pub struct MnistVGGNetwork {
 impl MnistVGGNetwork {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<MnistVGGNetwork, JsValue> {
-        let model = load_model_from_bytes(MODEL_BIN)
+        let model = load_cnn_model_from_bytes(MODEL_BIN)
             .map_err(|e| JsValue::from_str(&format!("Failed to load model: {}", e)))?;
 
-        let cnn = build_vgg_cnn();
-
         Ok(MnistVGGNetwork {
-            cnn,
-            classifier: model.network,
+            cnn: model.cnn,
+            classifier: model.classifier,
             accuracy: model.metadata.accuracy,
             test_samples: model.metadata.test_samples,
             trained_at: model.metadata.trained_at,
@@ -70,12 +52,8 @@ impl MnistVGGNetwork {
     #[wasm_bindgen]
     pub fn predict(&self, pixels: &[Float]) -> String {
         if pixels.len() != 784 {
-            return serde_json::json!({
-                "error": format!("Expected 784 pixels, got {}", pixels.len())
-            })
-            .to_string();
+            return serde_json::json!({"error": format!("Expected 784 pixels, got {}", pixels.len())}).to_string();
         }
-
         let probs = self.forward(pixels);
         let class_names: Vec<String> = CLASS_NAMES.iter().map(|s| s.to_string()).collect();
         let result = build_prediction_result(&probs, &class_names);
@@ -85,14 +63,12 @@ impl MnistVGGNetwork {
     fn forward(&self, pixels: &[Float]) -> Vec<Float> {
         let normalized = self.normalize_input(pixels);
         let tensor = Tensor4D::from_array(
-            ndarray::Array4::from_shape_vec((1, 1, 28, 28), normalized)
-                .expect("Failed to reshape input"),
+            ndarray::Array4::from_shape_vec((1, 1, 28, 28), normalized).expect("reshape failed"),
         );
         let features = self.cnn.forward(&tensor);
         let flat = features.flatten();
         let fc_input = Array1::from_vec(flat.row(0).to_vec());
-        let output = self.classifier.predict(&fc_input);
-        output.to_vec()
+        self.classifier.predict(&fc_input).to_vec()
     }
 
     fn normalize_input(&self, pixels: &[Float]) -> Vec<Float> {
@@ -108,8 +84,7 @@ impl MnistVGGNetwork {
         if pixels.len() != 784 {
             return serde_json::json!({"error": "Expected 784 pixels"}).to_string();
         }
-        let probs = self.forward(pixels);
-        serde_json::to_string(&probs).unwrap_or_else(|_| "[]".to_string())
+        serde_json::to_string(&self.forward(pixels)).unwrap_or_else(|_| "[]".to_string())
     }
 
     #[wasm_bindgen]
@@ -121,7 +96,6 @@ impl MnistVGGNetwork {
     pub fn test_all(&self) -> String {
         let test_samples = get_mnist_test_samples();
         let class_names: Vec<String> = CLASS_NAMES.iter().map(|s| s.to_string()).collect();
-
         let results: Vec<TestResult> = test_samples
             .iter()
             .map(|(pixels, expected)| {
@@ -129,18 +103,17 @@ impl MnistVGGNetwork {
                 build_test_result(pixels.clone(), *expected as usize, &probs, &class_names)
             })
             .collect();
-
         serde_json::to_string(&results).unwrap_or_else(|_| "[]".to_string())
     }
 
     #[wasm_bindgen]
     pub fn model_info(&self) -> String {
+        let num_cnn_layers = self.cnn.layers().len();
         let info = ModelInfo {
             name: "VGG-Tiny MNIST Classifier".to_string(),
-            architecture: "VGG-Tiny: Conv(1→32,3x3)×2→Pool→Conv(32→64,3x3)×2→Pool→FC(128)→10"
-                .to_string(),
+            architecture: format!("CNN: {} layers → FC(→10)", num_cnn_layers),
             accuracy: self.accuracy * 100.0,
-            description: "VGG-style CNN for MNIST (Simonyan & Zisserman, 2014 style)".to_string(),
+            description: "VGG-Tiny CNN trained end-to-end with autograd (Simonyan & Zisserman, 2014)".to_string(),
             test_samples: self.test_samples,
             trained_at: self.trained_at.clone(),
         };
@@ -168,68 +141,40 @@ impl MnistVGGNetwork {
         serde_json::to_string(&response).unwrap_or_else(|_| r#"{"layers":[]}"#.to_string())
     }
 
-    /// Get architecture summary
     #[wasm_bindgen]
     pub fn get_architecture(&self) -> String {
-        let input_shape = TensorShape::new(1, 1, 28, 28);
-        let output_shape = self.cnn.output_shape(input_shape);
-        let output_features =
-            (output_shape.channels * output_shape.height * output_shape.width) as usize;
+        use cma_cnn::sequential::BoxedLayer;
+
+        let layers: Vec<LayerSummary> = self
+            .cnn
+            .layers()
+            .iter()
+            .map(|layer| {
+                let (name, config) = match layer {
+                    BoxedLayer::Conv2D(_) => ("Conv2D", ""),
+                    BoxedLayer::BatchNorm2D(_) => ("BatchNorm2D", ""),
+                    BoxedLayer::MaxPool2D(_) => ("MaxPool2D", "2×2"),
+                    BoxedLayer::AvgPool2D(_) => ("AvgPool2D", ""),
+                    BoxedLayer::GlobalAvgPool2D(_) => ("GlobalAvgPool2D", "→1×1"),
+                    BoxedLayer::Activation(_) => ("Activation", "ReLU"),
+                    BoxedLayer::Flatten(_) => ("Flatten", ""),
+                    BoxedLayer::Dropout2D(_) => ("Dropout2D", ""),
+                };
+                LayerSummary {
+                    name: name.to_string(),
+                    config: config.to_string(),
+                }
+            })
+            .collect();
 
         let summary = ArchitectureSummary {
             name: "VGG-Tiny".to_string(),
             model_type: "cnn".to_string(),
             input_shape: vec![1, 1, 28, 28],
-            output_features,
-            num_parameters: self.cnn.num_parameters(),
-            layers: vec![
-                LayerSummary {
-                    name: "Conv2D".to_string(),
-                    config: "1→32, 3x3, pad=1".to_string(),
-                },
-                LayerSummary {
-                    name: "ReLU".to_string(),
-                    config: "".to_string(),
-                },
-                LayerSummary {
-                    name: "Conv2D".to_string(),
-                    config: "32→32, 3x3, pad=1".to_string(),
-                },
-                LayerSummary {
-                    name: "ReLU".to_string(),
-                    config: "".to_string(),
-                },
-                LayerSummary {
-                    name: "MaxPool2D".to_string(),
-                    config: "2x2".to_string(),
-                },
-                LayerSummary {
-                    name: "Conv2D".to_string(),
-                    config: "32→64, 3x3, pad=1".to_string(),
-                },
-                LayerSummary {
-                    name: "ReLU".to_string(),
-                    config: "".to_string(),
-                },
-                LayerSummary {
-                    name: "Conv2D".to_string(),
-                    config: "64→64, 3x3, pad=1".to_string(),
-                },
-                LayerSummary {
-                    name: "ReLU".to_string(),
-                    config: "".to_string(),
-                },
-                LayerSummary {
-                    name: "MaxPool2D".to_string(),
-                    config: "2x2".to_string(),
-                },
-                LayerSummary {
-                    name: "Flatten".to_string(),
-                    config: format!("→{}", output_features),
-                },
-            ],
+            output_features: 3136,
+            num_parameters: 0,
+            layers,
         };
-
         serde_json::to_string(&summary).unwrap_or_else(|_| "{}".to_string())
     }
 }
@@ -245,7 +190,5 @@ fn get_mnist_test_samples() -> Vec<(Vec<Float>, u8)> {
         (vec![0.0; 784], 0),
         (vec![0.0; 784], 1),
         (vec![0.0; 784], 2),
-        (vec![0.0; 784], 3),
-        (vec![0.0; 784], 4),
     ]
 }

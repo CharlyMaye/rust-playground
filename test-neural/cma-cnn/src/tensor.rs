@@ -1,19 +1,19 @@
-//! # Tensor4D: Tenseur 4D pour les opérations CNN
+//! # Tensor4D: 4D Tensor for CNN operations
 //!
-//! Structure de données pour images en batch: `[batch, channels, height, width]`
+//! Data structure for batched images: `[batch, channels, height, width]`
 //!
 //! ## Convention NCHW (PyTorch-style)
 //!
-//! - **N**: Batch size (nombre d'images)
-//! - **C**: Channels (1 pour grayscale, 3 pour RGB)
-//! - **H**: Height (hauteur en pixels)
-//! - **W**: Width (largeur en pixels)
+//! - **N**: Batch size (number of images)
+//! - **C**: Channels (1 for grayscale, 3 for RGB)
+//! - **H**: Height (height in pixels)
+//! - **W**: Width (width in pixels)
 
 use crate::Float;
 use ndarray::{Array2, Array4, s};
 use serde::{Deserialize, Serialize};
 
-/// Shape d'un tenseur 4D
+/// Shape of a 4D tensor
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TensorShape {
     pub batch: usize,
@@ -32,17 +32,17 @@ impl TensorShape {
         }
     }
 
-    /// Nombre total d'éléments
+    /// Total number of elements
     pub fn size(&self) -> usize {
         self.batch * self.channels * self.height * self.width
     }
 
-    /// Shape pour une seule image (sans batch)
+    /// Shape for a single image (without batch)
     pub fn image_size(&self) -> usize {
         self.channels * self.height * self.width
     }
 
-    /// Après convolution avec kernel_size, stride, padding
+    /// After convolution with kernel_size, stride, padding
     pub fn after_conv(
         &self,
         out_channels: usize,
@@ -55,14 +55,14 @@ impl TensorShape {
         Self::new(self.batch, out_channels, out_h, out_w)
     }
 
-    /// Après pooling
+    /// After pooling
     pub fn after_pool(&self, pool_size: usize, stride: usize) -> Self {
         let out_h = (self.height - pool_size) / stride + 1;
         let out_w = (self.width - pool_size) / stride + 1;
         Self::new(self.batch, self.channels, out_h, out_w)
     }
 
-    /// Après global average pooling → [batch, channels, 1, 1]
+    /// After global average pooling → [batch, channels, 1, 1]
     pub fn after_global_pool(&self) -> Self {
         Self::new(self.batch, self.channels, 1, 1)
     }
@@ -78,35 +78,35 @@ impl std::fmt::Display for TensorShape {
     }
 }
 
-/// Tenseur 4D avec opérations CNN
+/// 4D Tensor with CNN operations
 ///
-/// Layout mémoire: [batch, channels, height, width] (NCHW)
+/// Memory layout: [batch, channels, height, width] (NCHW)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tensor4D {
     data: Array4<Float>,
 }
 
 impl Tensor4D {
-    /// Crée un tenseur à partir d'un Array4
+    /// Creates a tensor from an Array4
     pub fn from_array(data: Array4<Float>) -> Self {
         Self { data }
     }
 
-    /// Crée un tenseur rempli de zéros
+    /// Creates a tensor filled with zeros
     pub fn zeros(shape: TensorShape) -> Self {
         Self {
             data: Array4::zeros((shape.batch, shape.channels, shape.height, shape.width)),
         }
     }
 
-    /// Crée un tenseur rempli de uns
+    /// Creates a tensor filled with ones
     pub fn ones(shape: TensorShape) -> Self {
         Self {
             data: Array4::ones((shape.batch, shape.channels, shape.height, shape.width)),
         }
     }
 
-    /// Crée un tenseur avec des valeurs aléatoires uniformes dans [-1, 1]
+    /// Creates a tensor with uniform random values in [-1, 1]
     pub fn random(shape: TensorShape) -> Self {
         use rand::Rng;
         let mut rng = rand::rng();
@@ -122,34 +122,34 @@ impl Tensor4D {
         }
     }
 
-    /// Shape du tenseur
+    /// Tensor shape
     pub fn shape(&self) -> TensorShape {
         let dim = self.data.dim();
         TensorShape::new(dim.0, dim.1, dim.2, dim.3)
     }
 
-    /// Accès aux données brutes
+    /// Access to raw data
     pub fn data(&self) -> &Array4<Float> {
         &self.data
     }
 
-    /// Accès mutable aux données
+    /// Mutable access to data
     pub fn data_mut(&mut self) -> &mut Array4<Float> {
         &mut self.data
     }
 
-    /// Réinitialise le tenseur à zéro (réutilise la mémoire allouée)
+    /// Resets the tensor to zero (reuses allocated memory)
     ///
-    /// Plus efficace que de créer un nouveau tenseur zeros() car
-    /// évite l'allocation mémoire.
+    /// More efficient than creating a new zeros() tensor because
+    /// it avoids memory allocation.
     #[inline]
     pub fn reset_to_zero(&mut self) {
         self.data.fill(0.0);
     }
 
-    /// Copie les données d'un autre tenseur dans celui-ci
+    /// Copies data from another tensor into this one
     ///
-    /// Les shapes doivent correspondre. Réutilise la mémoire existante.
+    /// Shapes must match. Reuses existing memory.
     #[inline]
     pub fn copy_from(&mut self, other: &Tensor4D) {
         debug_assert_eq!(
@@ -160,22 +160,22 @@ impl Tensor4D {
         self.data.assign(&other.data);
     }
 
-    /// Vérifie si les données sont contiguës en mémoire
+    /// Checks if data is contiguous in memory
     ///
-    /// Les données contiguës permettent des opérations vectorisées plus rapides.
+    /// Contiguous data enables faster vectorized operations.
     #[inline]
     pub fn is_contiguous(&self) -> bool {
         self.data.is_standard_layout()
     }
 
-    /// Force les données à être contiguës (crée une copie si nécessaire)
+    /// Forces data to be contiguous (creates a copy if necessary)
     pub fn make_contiguous(&mut self) {
         if !self.is_contiguous() {
             self.data = self.data.as_standard_layout().into_owned();
         }
     }
 
-    /// Convertit en Array4
+    /// Converts to Array4
     pub fn into_array(self) -> Array4<Float> {
         self.data
     }
@@ -185,17 +185,17 @@ impl Tensor4D {
         let shape = self.shape();
         let flat_size = shape.channels * shape.height * shape.width;
 
-        // Optimisation: utilise une vue contiguë et reshape direct si possible
-        // Évite les itérations scalaires
+        // Optimization: use a contiguous view and direct reshape if possible
+        // Avoids scalar iterations
         if let Some(slice) = self.data.as_slice() {
-            // Données contiguës en mémoire: reshape direct sans copie
+            // Contiguous data in memory: direct reshape without copy
             Array2::from_shape_vec((shape.batch, flat_size), slice.to_vec()).unwrap()
         } else {
-            // Fallback: données non contiguës, copie nécessaire
+            // Fallback: non-contiguous data, copy required
             let mut result = Array2::zeros((shape.batch, flat_size));
             for b in 0..shape.batch {
                 let image = self.data.slice(s![b, .., .., ..]);
-                // Copie directe dans le slice de destination
+                // Direct copy into destination slice
                 let mut dest_slice = result.row_mut(b);
                 for (dest, &src) in dest_slice.iter_mut().zip(image.iter()) {
                     *dest = src;
@@ -207,7 +207,7 @@ impl Tensor4D {
 
     /// Unflatten: [batch, flat] → [batch, channels, height, width]
     pub fn unflatten(flat: &Array2<Float>, shape: TensorShape) -> Self {
-        // Optimisation: reshape direct si les données sont contiguës
+        // Optimization: direct reshape if data is contiguous
         if let Some(slice) = flat.as_slice() {
             let data = Array4::from_shape_vec(
                 (shape.batch, shape.channels, shape.height, shape.width),
@@ -216,7 +216,7 @@ impl Tensor4D {
             .unwrap();
             Self { data }
         } else {
-            // Fallback pour données non contiguës
+            // Fallback for non-contiguous data
             let mut data = Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
             let chw = shape.channels * shape.height * shape.width;
             for b in 0..shape.batch {
@@ -230,7 +230,7 @@ impl Tensor4D {
         }
     }
 
-    /// Applique une fonction élément par élément
+    /// Applies a function element-wise
     pub fn map<F>(&self, f: F) -> Self
     where
         F: Fn(Float) -> Float + Copy,
@@ -240,28 +240,28 @@ impl Tensor4D {
         }
     }
 
-    /// Applique ReLU
+    /// Applies ReLU
     pub fn relu(&self) -> Self {
         self.map(|x| x.max(0.0))
     }
 
-    /// Somme sur tous les éléments
+    /// Sum over all elements
     pub fn sum(&self) -> Float {
         self.data.sum()
     }
 
-    /// Moyenne sur tous les éléments
+    /// Mean over all elements
     pub fn mean(&self) -> Float {
         self.sum() / (self.shape().size() as Float)
     }
 
-    /// Extrait une image du batch
+    /// Extracts an image from the batch
     pub fn get_image(&self, batch_idx: usize) -> Array4<Float> {
         let image = self.data.slice(s![batch_idx..batch_idx + 1, .., .., ..]);
         image.to_owned()
     }
 
-    /// Padding: ajoute des zéros autour de l'image
+    /// Padding: adds zeros around the image
     pub fn pad(&self, padding: usize) -> Self {
         if padding == 0 {
             return self.clone();
@@ -273,8 +273,8 @@ impl Tensor4D {
 
         let mut padded = Array4::zeros((shape.batch, shape.channels, new_h, new_w));
 
-        // Optimisation: copie par slice au lieu de boucles scalaires
-        // Copie le bloc central en une seule opération par batch/channel
+        // Optimization: copy by slice instead of scalar loops
+        // Copy the central block in a single operation per batch/channel
         let p = padding;
         padded
             .slice_mut(s![.., .., p..p + shape.height, p..p + shape.width])
@@ -376,9 +376,9 @@ mod tests {
         let padded = tensor.pad(1);
         assert_eq!(padded.shape().height, 5);
         assert_eq!(padded.shape().width, 5);
-        // Coins doivent être 0
+        // Corners should be 0
         assert_eq!(padded.data()[[0, 0, 0, 0]], 0.0);
-        // Centre doit être 1
+        // Center should be 1
         assert_eq!(padded.data()[[0, 0, 1, 1]], 1.0);
     }
 }

@@ -1,7 +1,7 @@
-//! # Exemple VGG: Very Deep Convolutional Networks (Simonyan & Zisserman, 2014)
+//! # VGG Example: Very Deep Convolutional Networks (Simonyan & Zisserman, 2014)
 //!
-//! Cet exemple reproduit l'architecture VGG qui a démontré l'importance
-//! de la profondeur et la puissance des petits filtres 3×3.
+//! This example reproduces the VGG architecture that demonstrated the importance
+//! of depth and the power of small 3×3 filters.
 //!
 //! ## Paper Citation
 //!
@@ -14,7 +14,7 @@
 //! }
 //! ```
 //!
-//! ## Philosophie VGG
+//! ## VGG Philosophy
 //!
 //! ```text
 //! "We address an important aspect of ConvNet architecture design –
@@ -22,18 +22,18 @@
 //!  which is substantially deeper than what has been used before"
 //!                                    - Simonyan & Zisserman
 //!
-//! La clé: utiliser UNIQUEMENT des filtres 3×3
+//! The key: use ONLY 3×3 filters
 //!
-//! Pourquoi 3×3 ?
+//! Why 3×3?
 //! ━━━━━━━━━━━━━━
-//! 2 convolutions 3×3 = champ réceptif 5×5
-//! 3 convolutions 3×3 = champ réceptif 7×7
+//! 2 convolutions 3×3 = receptive field 5×5
+//! 3 convolutions 3×3 = receptive field 7×7
 //!
-//! Mais avec MOINS de paramètres:
+//! But with FEWER parameters:
 //! • 3 × (3×3×C×C) = 27C²
 //! • 1 × (7×7×C×C) = 49C²
 //!
-//! Et PLUS de non-linéarités (ReLU entre chaque conv)
+//! And MORE non-linearities (ReLU between each conv)
 //! ```
 //!
 //! ## Architecture VGG-16
@@ -51,7 +51,7 @@
 //!     │ FC 4096 → ReLU → Dropout(0.5)                                     │
 //!     │ FC 1000 → Softmax                                                 │
 //!     └───────────────────────────────────────────────────────────────────┘
-//!     Total: ~138M paramètres (dont 123M dans les FC!)
+//!     Total: ~138M parameters (of which 123M in the FC layers!)
 //! ```
 
 use cma_cnn::{Tensor4D, TensorShape};
@@ -66,11 +66,11 @@ fn main() {
     println!();
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Configurations VGG (Table 1 du paper)
+    // VGG Configurations (Table 1 from the paper)
     // ═══════════════════════════════════════════════════════════════════════
 
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Configurations VGG (Table 1 du paper)                           │");
+    println!("│ VGG Configurations (Table 1 from the paper)                     │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("┌─────────────┬───────────┬───────────┬───────────┬──────────────┐");
@@ -100,12 +100,12 @@ fn main() {
     println!("└─────────────┴───────────┴───────────┴───────────┴──────────────┘");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // VGG-16 pour ImageNet
+    // VGG-16 for ImageNet
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ VGG-16 Configuration D (Configuration classique)                │");
+    println!("│ VGG-16 Configuration D (Classic configuration)                  │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
 
@@ -120,16 +120,16 @@ fn main() {
     println!();
     println!("Forward pass (ImageNet):");
     println!("  Input:  [1, 3, 224, 224]");
-    println!("  Output: {:?} (4096 features après FC)", features.shape());
+    println!("  Output: {:?} (4096 features after FC)", features.shape());
     println!("  Params: {} (~138M)", vgg16.num_parameters());
 
     // ═══════════════════════════════════════════════════════════════════════
-    // VGG pour CIFAR-10
+    // VGG for CIFAR-10
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ VGG-16 adapté pour CIFAR-10 (32×32)                             │");
+    println!("│ VGG-16 adapted for CIFAR-10 (32×32)                              │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
 
@@ -146,7 +146,7 @@ fn main() {
     println!("  Input:  [32, 3, 32, 32]");
     println!("  Output: {:?}", cifar_features.shape());
     println!(
-        "  Params: {} (beaucoup moins car FC plus petit)",
+        "  Params: {} (much fewer since FC is smaller)",
         vgg16_cifar.num_parameters()
     );
 
@@ -156,7 +156,7 @@ fn main() {
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ VGG-19 Configuration E (le plus profond)                        │");
+    println!("│ VGG-19 Configuration E (the deepest)                            │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
 
@@ -166,12 +166,12 @@ fn main() {
     vgg19.features.summary(TensorShape::new(1, 3, 224, 224));
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Analyse des Paramètres
+    // Parameter Analysis
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Analyse des Paramètres VGG-16                                   │");
+    println!("│ VGG-16 Parameter Analysis                                       │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("```");
@@ -196,27 +196,27 @@ fn main() {
     println!("FC3 (4096→1000)  4,097,000    138,357,544 100%");
     println!("──────────────────────────────────────────────────");
     println!("Total Conv:      14.7M (10.6%)");
-    println!("Total FC:        123.6M (89.4%) ← Problème!");
+    println!("Total FC:        123.6M (89.4%) ← Problem!");
     println!("```");
     println!();
-    println!("Les couches FC contiennent 89% des paramètres!");
-    println!("C'est pourquoi ResNet utilise Global Average Pooling.");
+    println!("The FC layers contain 89% of the parameters!");
+    println!("This is why ResNet uses Global Average Pooling.");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Champ Réceptif
+    // Receptive Field
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Champ Réceptif: Pourquoi 3×3 × N > 7×7 × 1                       │");
+    println!("│ Receptive Field: Why 3×3 × N > 7×7 × 1                            │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("```");
-    println!("2 couches 3×3:                 1 couche 5×5:");
+    println!("2 layers 3×3:                 1 layer 5×5:");
     println!("                               ");
-    println!("Couche 2:    [3×3]             [5×5]");
+    println!("Layer 2:     [3×3]             [5×5]");
     println!("               ↑                 ↑");
-    println!("Couche 1:  [1×1×3×3]          [1×1×5×5]");
+    println!("Layer 1:   [1×1×3×3]          [1×1×5×5]");
     println!("               ↑                 ↑");
     println!("Input:   [1×1×5×5]            [1×1×5×5]");
     println!("         = 5×5 RF             = 5×5 RF");
@@ -225,22 +225,22 @@ fn main() {
     println!("ReLUs:  2                      1");
     println!("```");
     println!();
-    println!("Conclusion: 2 couches 3×3 ont:");
-    println!("• Même champ réceptif que 1 couche 5×5");
-    println!("• 28% moins de paramètres");
-    println!("• 2× plus de non-linéarités");
+    println!("Conclusion: 2 layers of 3×3 have:");
+    println!("• Same receptive field as 1 layer of 5×5");
+    println!("• 28% fewer parameters");
+    println!("• 2× more non-linearities");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Résultats ILSVRC
+    // ILSVRC Results
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Résultats ILSVRC-2014                                           │");
+    println!("│ ILSVRC-2014 Results                                             │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("┌─────────────────────┬──────────┬──────────┬─────────────────────┐");
-    println!("│ Modèle              │ Top-1 Err│ Top-5 Err│ Notes               │");
+    println!("│ Model               │ Top-1 Err│ Top-5 Err│ Notes               │");
     println!("├─────────────────────┼──────────┼──────────┼─────────────────────┤");
     println!("│ AlexNet (2012)      │ 40.7%    │ 18.2%    │ Baseline            │");
     println!("│ ZFNet (2013)        │ 36.0%    │ 14.8%    │                     │");
@@ -254,16 +254,16 @@ fn main() {
     println!("│ VGGNet ensemble     │ 25.5%    │  7.32%   │ 2nd place 2014      │");
     println!("└─────────────────────┴──────────┴──────────┴─────────────────────┘");
     println!();
-    println!("VGG a fini 2ème mais est devenu plus populaire que GoogLeNet");
-    println!("grâce à sa simplicité architecturale.");
+    println!("VGG finished 2nd but became more popular than GoogLeNet");
+    println!("thanks to its architectural simplicity.");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Usage avec cma-neural-network
+    // Usage with cma-neural-network
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Classifieur FC (cma-neural-network)                             │");
+    println!("│ FC Classifier (cma-neural-network)                              │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("```rust");
@@ -271,15 +271,15 @@ fn main() {
         "use cma_neural_network::{{NetworkBuilder, Activation, LossFunction, OptimizerType}};"
     );
     println!();
-    println!("// VGG produit 4096 features (après les FC internes)");
-    println!("// Pour un classifieur, il suffit de la dernière couche:");
+    println!("// VGG produces 4096 features (after the internal FCs)");
+    println!("// For a classifier, just the last layer is needed:");
     println!("let classifier = NetworkBuilder::new(4096, 1000)");
     println!("    .output_activation(Activation::Softmax)");
     println!("    .loss(LossFunction::CategoricalCrossEntropy)");
     println!("    .optimizer(OptimizerType::sgd_with_momentum(0.01, 0.9))");
     println!("    .build();");
     println!();
-    println!("// Ou version sans les FC internes de VGG:");
+    println!("// Or version without VGG's internal FC layers:");
     println!("let classifier = NetworkBuilder::new(512 * 7 * 7, 10)");
     println!("    .hidden_layers(&[4096, 4096])");
     println!("    .hidden_activation(Activation::ReLU)");
@@ -291,37 +291,37 @@ fn main() {
     println!("```");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Héritage de VGG
+    // VGG's Legacy
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Héritage de VGG                                                 │");
+    println!("│ VGG's Legacy                                                    │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
-    println!("VGG a établi des principes fondamentaux:");
+    println!("VGG established fundamental principles:");
     println!();
-    println!("1. PROFONDEUR COMPTE");
-    println!("   Plus profond = meilleur (jusqu'à 19 couches)");
-    println!("   Limite: degradation problem → résolu par ResNet");
+    println!("1. DEPTH MATTERS");
+    println!("   Deeper = better (up to 19 layers)");
+    println!("   Limit: degradation problem → solved by ResNet");
     println!();
-    println!("2. PETITS FILTRES");
-    println!("   3×3 est devenu le standard de facto");
-    println!("   Utilisé dans ResNet, DenseNet, etc.");
+    println!("2. SMALL FILTERS");
+    println!("   3×3 became the de facto standard");
+    println!("   Used in ResNet, DenseNet, etc.");
     println!();
-    println!("3. STRUCTURE EN BLOCS");
+    println!("3. BLOCK STRUCTURE");
     println!("   [Conv-ReLU] × N → MaxPool");
-    println!("   Doubler les channels à chaque étage");
+    println!("   Double the channels at each stage");
     println!();
     println!("4. TRANSFER LEARNING");
-    println!("   VGG pre-trained est encore utilisé pour:");
-    println!("   • Extraction de features");
+    println!("   VGG pre-trained is still used for:");
+    println!("   • Feature extraction");
     println!("   • Style transfer (Gatys et al., 2015)");
     println!("   • Perceptual loss (Johnson et al., 2016)");
 
     println!();
     println!("═══════════════════════════════════════════════════════════════════");
-    println!("  Fin de l'exemple VGG");
+    println!("  End of VGG example");
     println!("═══════════════════════════════════════════════════════════════════");
 }
 

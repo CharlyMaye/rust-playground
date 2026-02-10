@@ -1,32 +1,41 @@
-//! ResNet-MNIST CNN Training
+//! ResNet-MNIST: End-to-End CNN Training with Autograd
 //!
-//! Proper ResNet (He et al., 2015) with residual blocks for MNIST.
-//! Uses ResNetBuilder from cma_models for flexible architecture configuration.
+//! Trains a deep CNN end-to-end using cma_autograd's automatic differentiation,
+//! then exports trained weights to cma-cnn format for WASM inference.
 //!
-//! Architecture (via ResNetBuilder::mnist()):
-//! - Input: 28x28x1 (grayscale)
-//! - Stem: Conv 1→16, 3x3 → 28x28x16
-//! - Stage 1: 2× BasicBlock(16→16) → 28x28x16
-//! - Stage 2: 2× BasicBlock(16→32, stride=2) → 14x14x32
-//! - Stage 3: 2× BasicBlock(32→64, stride=2) → 7x7x64
-//! - Global Average Pooling → 64
-//! - FC: 64 → 10
+//! Architecture (ResNet-style plain network):
+//! - Stem:     Conv(1→16, 3×3, p=1) → BN → ReLU           28×28×16
+//! - Stage 1:  Conv(16→16, 3×3, p=1) → BN → ReLU          28×28×16
+//! - Stage 2a: Conv(16→32, 3×3, s=2, p=1) → BN → ReLU     14×14×32
+//! - Stage 2b: Conv(32→32, 3×3, p=1) → BN → ReLU          14×14×32
+//! - Stage 3a: Conv(32→64, 3×3, s=2, p=1) → BN → ReLU     7×7×64
+//! - Stage 3b: Conv(64→64, 3×3, p=1) → BN → ReLU          7×7×64
+//! - Head:     GlobalAvgPool → Flatten → Linear(64→10)
+//!
+//! Pipeline:
+//! 1. Train autograd Sequential (end-to-end backprop through all layers)
+//! 2. Export CNN → cma-cnn Sequential (via export_cnn_to_inference)
+//! 3. Extract features with exported CNN
+//! 4. Quick-train FC head (cma-neural-network Network)
+//! 5. Save full model: save_cnn_model_binary(cnn, classifier, metadata)
 
+use cma_autograd::prelude::*;
 use cma_cnn::Float;
 use cma_cnn::Tensor4D;
-use cma_models::resnet::{ResNet, ResNetBuilder};
 use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
-use cma_neural_network::callbacks::{DeltaMode, EarlyStopping, LRSchedule, LearningRateScheduler, ProgressBar};
+use cma_neural_network::callbacks::{
+    DeltaMode, EarlyStopping, LRSchedule, LearningRateScheduler, ProgressBar,
+};
 use cma_neural_network::dataset::Dataset;
 use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
-use ndarray::Array1;
-use neural_wasm_shared::{load_mnist_from_csv, normalize_features_with_stats, save_model_binary};
+use ndarray::{Array1, ArrayD, IxDyn};
+use neural_wasm_shared::{load_mnist_from_csv, normalize_features_with_stats, save_cnn_model_binary};
 use std::error::Error;
 
 fn main() -> Result<(), Box<dyn Error>> {
     println!("╔══════════════════════════════════════════════════════════════╗");
-    println!("║       ResNet-MNIST CNN (He et al., 2015) with Skip Conn      ║");
+    println!("║     ResNet-MNIST: End-to-End CNN Training with Autograd     ║");
     println!("╚══════════════════════════════════════════════════════════════╝\n");
 
     let model_path = "src/resnet_model.bin";
@@ -51,89 +60,180 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (inputs, norm_stats) = normalize_features_with_stats(&inputs);
     println!("   ✅ Features normalized (z-score)");
 
-    let mut dataset = Dataset::new(inputs, targets);
-    dataset.shuffle();
-    println!("   ✅ Dataset shuffled");
+    // Deterministic shuffle
+    let n = inputs.len();
+    let split = (n as f64 * 0.8) as usize;
+    let mut indices: Vec<usize> = (0..n).collect();
+    {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        for i in (1..n).rev() {
+            let mut h = DefaultHasher::new();
+            i.hash(&mut h);
+            let j = h.finish() as usize % (i + 1);
+            indices.swap(i, j);
+        }
+    }
 
-    let (train, val) = dataset.split(0.8);
-    println!("   Training: {} | Validation: {}\n", train.len(), val.len());
+    // Convert to autograd format: [1, 1, 28, 28] images, [1, 10] targets
+    let train_inputs: Vec<ArrayD<Float>> = indices[..split]
+        .iter()
+        .map(|&i| ArrayD::from_shape_vec(IxDyn(&[1, 1, 28, 28]), inputs[i].to_vec()).unwrap())
+        .collect();
+    let train_targets: Vec<ArrayD<Float>> = indices[..split]
+        .iter()
+        .map(|&i| ArrayD::from_shape_vec(IxDyn(&[1, 10]), targets[i].to_vec()).unwrap())
+        .collect();
+    let val_inputs: Vec<ArrayD<Float>> = indices[split..]
+        .iter()
+        .map(|&i| ArrayD::from_shape_vec(IxDyn(&[1, 1, 28, 28]), inputs[i].to_vec()).unwrap())
+        .collect();
+    let val_targets: Vec<ArrayD<Float>> = indices[split..]
+        .iter()
+        .map(|&i| ArrayD::from_shape_vec(IxDyn(&[1, 10]), targets[i].to_vec()).unwrap())
+        .collect();
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // 2. BUILD ResNet using cma_models::ResNetBuilder
-    // ═══════════════════════════════════════════════════════════════════════
-    println!("🔧 Building ResNet-MNIST using ResNetBuilder...\n");
-
-    // Use the library's builder with MNIST preset
-    let resnet = ResNetBuilder::mnist().build();
-    resnet.summary();
-
-    let flat_size = resnet.output_features();
-
-    // FC classifier - Higher LR because features are from random CNN
-    let mut classifier = NetworkBuilder::new(flat_size, 10)
-        .hidden_layer(128, Activation::ReLU)  // Larger hidden layer
-        .hidden_layer(64, Activation::ReLU)   // Additional layer
-        .output_activation(Activation::Softmax)
-        .loss(LossFunction::CategoricalCrossEntropy)
-        .optimizer(OptimizerType::adam(0.01))  // Higher LR for feature learning
-        .dropout(0.3)  // Regularization
-        .build();
-
-    println!("\n   FC Classifier: {} → 64 → 10", flat_size);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // 3. TRAIN (CNN features are fixed, only FC is trained)
-    // ═══════════════════════════════════════════════════════════════════════
-    println!("\n🏋️  Training (ResNet forward + FC backprop)...\n");
-
-    println!("   📊 Extracting ResNet features...");
-    let train_features = extract_resnet_features(&resnet, train.inputs());
-    let val_features = extract_resnet_features(&resnet, val.inputs());
     println!(
-        "   ✅ Features extracted: {} training, {} validation",
+        "   Training: {} | Validation: {}\n",
+        train_inputs.len(),
+        val_inputs.len()
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 2. BUILD CNN MODEL (autograd end-to-end trainable)
+    // ═══════════════════════════════════════════════════════════════════════
+    println!("🔧 Building ResNet-style CNN (autograd)...\n");
+
+    let mut model = CnnBuilder::resnet_mnist(10);
+
+    model.train();
+    model.summary();
+    println!("   Total parameters: {}\n", model.num_parameters());
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 3. TRAIN END-TO-END (autograd backprop through all layers)
+    // ═══════════════════════════════════════════════════════════════════════
+    println!("🏋️  Training end-to-end with autograd backprop...\n");
+
+    let params: Vec<Parameter> = model.parameters().into_iter().cloned().collect();
+    let mut optimizer = Adam::new(params, 0.001);
+
+    let history = model.trainer(&mut optimizer)
+        .train_data(&train_inputs, &train_targets)
+        .validation_data(&val_inputs, &val_targets)
+        .loss_fn(cross_entropy_loss)
+        .epochs(10)
+        .batch_size(64)
+        .early_stopping(3)
+        .fit();
+
+    let last = history.last().unwrap();
+    println!(
+        "\n   ✅ Autograd training done — {} epochs",
+        history.len()
+    );
+    println!(
+        "   Train loss: {:.4} | Val loss: {:.4}",
+        last.train_loss,
+        last.val_loss.unwrap_or(0.0)
+    );
+    if let Some(acc) = last.val_accuracy {
+        println!("   Val accuracy: {:.2}%", acc * 100.0);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 4. EXPORT CNN → cma-cnn Sequential
+    // ═══════════════════════════════════════════════════════════════════════
+    println!("\n🔄 Exporting trained CNN to cma-cnn format...\n");
+
+    model.eval();
+
+    let exported = cma_autograd::export::export_cnn_to_inference(&model)
+        .expect("Failed to export CNN to cma-cnn");
+
+    println!(
+        "   ✅ CNN exported ({} layers in cma-cnn Sequential)",
+        exported.cnn.layers().len()
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 5. EXTRACT FEATURES with exported CNN + TRAIN FC HEAD
+    // ═══════════════════════════════════════════════════════════════════════
+    println!("\n📊 Extracting features with trained CNN...\n");
+
+    // Collect flat inputs in shuffled order for feature extraction
+    let train_flat: Vec<Array1<Float>> = indices[..split]
+        .iter()
+        .map(|&i| inputs[i].clone())
+        .collect();
+    let val_flat: Vec<Array1<Float>> = indices[split..]
+        .iter()
+        .map(|&i| inputs[i].clone())
+        .collect();
+    let train_tgt: Vec<Array1<Float>> = indices[..split]
+        .iter()
+        .map(|&i| targets[i].clone())
+        .collect();
+    let val_tgt: Vec<Array1<Float>> = indices[split..]
+        .iter()
+        .map(|&i| targets[i].clone())
+        .collect();
+
+    let train_features = extract_cnn_features(&exported.cnn, &train_flat);
+    let val_features = extract_cnn_features(&exported.cnn, &val_flat);
+
+    let feature_dim = train_features[0].len();
+    println!(
+        "   ✅ Features: {}D, {} train, {} val",
+        feature_dim,
         train_features.len(),
         val_features.len()
     );
 
-    let mut train_fc = Dataset::new(train_features, train.targets().to_vec());
-    let val_fc = Dataset::new(val_features, val.targets().to_vec());
+    // Train FC classifier head
+    println!("\n🎯 Training FC classifier on trained CNN features...\n");
 
-    let epochs = 500;
-    let history = classifier
+    let mut classifier = NetworkBuilder::new(feature_dim, 10)
+        .hidden_layer(128, Activation::ReLU)
+        .hidden_layer(64, Activation::ReLU)
+        .dropout(0.3)
+        .output_activation(Activation::Softmax)
+        .loss(LossFunction::CategoricalCrossEntropy)
+        .optimizer(OptimizerType::adam(0.001))
+        .build();
+
+    let mut train_fc = Dataset::new(train_features, train_tgt);
+    let val_fc = Dataset::new(val_features, val_tgt);
+
+    let fc_epochs = 500;
+    let fc_history = classifier
         .trainer()
-        .parallel() // Enable multi-threaded training
+        .parallel()
         .train_data(&mut train_fc)
         .validation_data(&val_fc)
-        .epochs(epochs)
-        .batch_size(64)  // Smaller batch for better gradient estimates
-        .max_grad_norm(1.0) // Tighter gradient clipping
-        .scheduler(LearningRateScheduler::new(
-            LRSchedule::ReduceOnPlateau {
-                patience: 25,   // Wait longer before reducing LR
-                factor: 0.5,
-                min_delta: 0.001,  // Larger threshold for improvement
-            },
-        ))
+        .epochs(fc_epochs)
+        .batch_size(64)
+        .max_grad_norm(1.0)
+        .scheduler(LearningRateScheduler::new(LRSchedule::ReduceOnPlateau {
+            patience: 25,
+            factor: 0.5,
+            min_delta: 0.001,
+        }))
         .callback(Box::new(
-            EarlyStopping::new(50, 0.005).mode(DeltaMode::Relative),  // More patience
+            EarlyStopping::new(50, 0.005).mode(DeltaMode::Relative),
         ))
-        .callback(Box::new(ProgressBar::new(epochs)))
+        .callback(Box::new(ProgressBar::new(fc_epochs)))
         .fit();
 
-    println!("\n   ✅ Training completed in {} epochs", history.len());
-
-    if let Some((train_loss, val_loss)) = history.last() {
-        println!(
-            "   Final loss - Train: {:.6} | Val: {:.6}",
-            train_loss,
-            val_loss.unwrap_or(0.0)
-        );
-    }
+    println!(
+        "\n   ✅ FC training completed in {} epochs",
+        fc_history.len()
+    );
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 4. EVALUATE
+    // 6. EVALUATE
     // ═══════════════════════════════════════════════════════════════════════
-    println!("\n📊 Evaluating...\n");
+    println!("\n📊 Evaluating final model...\n");
 
     classifier.eval_mode();
 
@@ -174,11 +274,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("   └─────────────────────────────────────┘");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // 5. SAVE MODEL
+    // 7. SAVE MODEL (CNN + FC + metadata)
     // ═══════════════════════════════════════════════════════════════════════
     println!("\n💾 Saving model...\n");
 
-    match save_model_binary(classifier, acc, total, Some(norm_stats), model_path) {
+    match save_cnn_model_binary(
+        exported.cnn,
+        classifier,
+        acc,
+        total,
+        Some(norm_stats),
+        model_path,
+    ) {
         Ok(_) => {
             println!("   ✅ Model saved to {}", model_path);
             println!("   📊 Accuracy: {:.2}%", acc * 100.0);
@@ -195,22 +302,19 @@ fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Extract ResNet features for all samples
-fn extract_resnet_features(resnet: &ResNet, inputs: &[Array1<Float>]) -> Vec<Array1<Float>> {
+/// Extract CNN features for a batch of flat MNIST inputs
+fn extract_cnn_features(
+    cnn: &cma_cnn::sequential::Sequential,
+    inputs: &[Array1<Float>],
+) -> Vec<Array1<Float>> {
     inputs
         .iter()
         .map(|flat_input| {
-            // Reshape flat 784 → [1, 1, 28, 28]
-            let pixels: Vec<Float> = flat_input.to_vec();
             let tensor = Tensor4D::from_array(
-                ndarray::Array4::from_shape_vec((1, 1, 28, 28), pixels)
-                    .expect("Failed to reshape input"),
+                ndarray::Array4::from_shape_vec((1, 1, 28, 28), flat_input.to_vec())
+                    .expect("Failed to reshape MNIST input to 28×28"),
             );
-
-            // Forward through ResNet (returns flattened 64-dim vector)
-            let features = resnet.forward(&tensor);
-
-            // Flatten to Array1
+            let features = cnn.forward(&tensor);
             let flat = features.flatten();
             Array1::from_vec(flat.row(0).to_vec())
         })

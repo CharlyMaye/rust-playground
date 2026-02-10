@@ -1,16 +1,16 @@
 //! # LeNet-5 (LeCun et al., 1998)
 //!
-//! Première architecture CNN à succès commercial, utilisée pour la reconnaissance
-//! de chiffres manuscrits sur les chèques bancaires.
+//! First commercially successful CNN architecture, used for handwritten
+//! digit recognition on bank checks.
 //!
-//! ## Paper Original
+//! ## Original Paper
 //!
 //! **"Gradient-Based Learning Applied to Document Recognition"**
 //! Yann LeCun, Léon Bottou, Yoshua Bengio, Patrick Haffner
 //! Proceedings of the IEEE, 1998
 //! http://yann.lecun.com/exdb/publis/pdf/lecun-98.pdf
 //!
-//! ## Architecture Originale (32x32 input)
+//! ## Original Architecture (32x32 input)
 //!
 //! ```text
 //! Input (32x32x1)
@@ -32,32 +32,32 @@
 //! └───────────────────────┘
 //! ```
 //!
-//! ## Adaptation MNIST (28x28 input)
+//! ## MNIST Adaptation (28x28 input)
 //!
-//! Pour MNIST, on utilise un padding initial ou on adapte les tailles.
-//! Cette implémentation supporte les deux modes.
+//! For MNIST, we use initial padding or adapt the sizes.
+//! This implementation supports both modes.
 //!
-//! ## Innovations Clés (1998)
+//! ## Key Innovations (1998)
 //!
-//! 1. **Partage de poids** (weight sharing): même filtre appliqué partout
-//! 2. **Sous-échantillonnage** (subsampling): réduit la dimension spatiale
-//! 3. **Architecture profonde**: 7 couches (révolutionnaire pour l'époque)
-//! 4. **Backpropagation bout-en-bout**: entraînement différentiable
+//! 1. **Weight sharing**: same filter applied everywhere
+//! 2. **Subsampling**: reduces spatial dimension
+//! 3. **Deep architecture**: 7 layers (revolutionary for the time)
+//! 4. **End-to-end backpropagation**: differentiable training
 //!
 //! ## Exemple
 //!
 //! ```rust,ignore
 //! use cma_models::lenet::{LeNet5, LeNet5Config};
 //!
-//! // Version standard pour MNIST
+//! // Standard version for MNIST
 //! let model = LeNet5::new(10);
 //!
-//! // Version personnalisée
+//! // Custom version
 //! let model = LeNet5::with_config(LeNet5Config {
 //!     num_classes: 10,
 //!     input_size: 28,
-//!     use_batch_norm: true,  // Modernisation
-//!     activation: "relu",     // ReLU au lieu de tanh
+//!     use_batch_norm: true,  // Modernization
+//!     activation: "relu",     // ReLU instead of tanh
 //! });
 //! ```
 
@@ -65,18 +65,18 @@ use serde::{Deserialize, Serialize};
 
 use cma_cnn::{ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Sequential, Tensor4D, TensorShape};
 
-/// Configuration de LeNet-5
+/// LeNet-5 configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeNet5Config {
-    /// Nombre de classes en sortie (10 pour MNIST)
+    /// Number of output classes (10 for MNIST)
     pub num_classes: usize,
-    /// Taille de l'image d'entrée (28 pour MNIST, 32 pour original)
+    /// Input image size (28 for MNIST, 32 for original)
     pub input_size: usize,
-    /// Utiliser BatchNorm (modernisation, pas dans le paper original)
+    /// Use BatchNorm (modernization, not in original paper)
     pub use_batch_norm: bool,
-    /// Activation: "tanh" (original) ou "relu" (moderne)
+    /// Activation: "tanh" (original) or "relu" (modern)
     pub activation: String,
-    /// Nombre de canaux d'entrée (1 pour grayscale)
+    /// Number of input channels (1 for grayscale)
     pub in_channels: usize,
 }
 
@@ -86,19 +86,19 @@ impl Default for LeNet5Config {
             num_classes: 10,
             input_size: 28,
             use_batch_norm: false,
-            activation: "tanh".to_string(), // Fidèle au paper
+            activation: "tanh".to_string(), // Faithful to the paper
             in_channels: 1,
         }
     }
 }
 
 impl LeNet5Config {
-    /// Config pour MNIST (28x28)
+    /// Config for MNIST (28x28)
     pub fn mnist() -> Self {
         Self::default()
     }
 
-    /// Config originale du paper (32x32)
+    /// Original paper config (32x32)
     pub fn original() -> Self {
         Self {
             num_classes: 10,
@@ -109,7 +109,7 @@ impl LeNet5Config {
         }
     }
 
-    /// Config moderne avec ReLU et BatchNorm
+    /// Modern config with ReLU and BatchNorm
     pub fn modern() -> Self {
         Self {
             num_classes: 10,
@@ -121,11 +121,11 @@ impl LeNet5Config {
     }
 }
 
-/// LeNet-5: Architecture CNN Historique (1998)
+/// LeNet-5: Historic CNN Architecture (1998)
 ///
 /// # Architecture
 ///
-/// | Couche | Type | Output Shape | Params |
+/// | Layer | Type | Output Shape | Params |
 /// |--------|------|--------------|--------|
 /// | Input | - | 1×28×28 | 0 |
 /// | C1 | Conv 5×5, 6 | 6×24×24 | 156 |
@@ -135,21 +135,21 @@ impl LeNet5Config {
 /// | C5 | Conv 4×4, 120 | 120×1×1 | 30,840 |
 /// | **Total** | | | **~33k** |
 ///
-/// Note: Le paper original utilisait une table de connexion partielle pour C3,
-/// cette implémentation utilise des connexions complètes (standard moderne).
+/// Note: The original paper used a partial connection table for C3,
+/// this implementation uses full connections (modern standard).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeNet5 {
-    /// Couches convolutionnelles
+    /// Convolutional layers
     pub conv_layers: Sequential,
     /// Configuration
     pub config: LeNet5Config,
 }
 
 impl LeNet5 {
-    /// Crée LeNet-5 avec configuration par défaut pour MNIST
+    /// Creates LeNet-5 with default configuration for MNIST
     ///
     /// # Arguments
-    /// * `num_classes` - Nombre de classes (10 pour MNIST)
+    /// * `num_classes` - Number of classes (10 for MNIST)
     ///
     /// # Exemple
     /// ```rust,ignore
@@ -162,7 +162,7 @@ impl LeNet5 {
         Self::with_config(config)
     }
 
-    /// Crée LeNet-5 avec configuration personnalisée
+    /// Creates LeNet-5 with custom configuration
     pub fn with_config(config: LeNet5Config) -> Self {
         let activation = match config.activation.as_str() {
             "relu" => ActivationLayer::relu(),
@@ -170,11 +170,11 @@ impl LeNet5 {
             _ => ActivationLayer::tanh(), // Default: tanh (original)
         };
 
-        // Calcul de la taille du kernel C5 pour avoir output 1x1
-        // Pour input 28x28: après C1(5x5) → 24, S2(2x2) → 12, C3(5x5) → 8, S4(2x2) → 4
-        // Donc C5 kernel = 4 pour 28x28
-        // Pour input 32x32: après C1 → 28, S2 → 14, C3 → 10, S4 → 5
-        // Donc C5 kernel = 5 pour 32x32
+        // Calculate C5 kernel size to get output 1x1
+        // For input 28x28: after C1(5x5) → 24, S2(2x2) → 12, C3(5x5) → 8, S4(2x2) → 4
+        // So C5 kernel = 4 for 28x28
+        // For input 32x32: after C1 → 28, S2 → 14, C3 → 10, S4 → 5
+        // So C5 kernel = 5 for 32x32
         let c5_kernel = if config.input_size == 32 { 5 } else { 4 };
 
         let mut conv_layers = Sequential::named("LeNet-5");
@@ -187,7 +187,7 @@ impl LeNet5 {
         conv_layers = conv_layers.add_activation(activation.clone());
 
         // S2: Subsampling (Average Pooling 2x2)
-        // Note: Le paper original utilisait une forme de pooling avec poids appris
+        // Note: The original paper used a form of pooling with learned weights
         conv_layers = conv_layers.add_avgpool(AvgPool2D::new(2, 2));
 
         // C3: Convolution Layer (16 feature maps, 5x5 kernel)
@@ -201,14 +201,14 @@ impl LeNet5 {
         conv_layers = conv_layers.add_avgpool(AvgPool2D::new(2, 2));
 
         // C5: Convolution Layer (120 feature maps)
-        // Dans le paper, C5 est en fait une couche fully-connected déguisée
+        // In the paper, C5 is actually a disguised fully-connected layer
         conv_layers = conv_layers.add_conv2d(Conv2D::new(16, 120, c5_kernel, 1, 0));
         if config.use_batch_norm {
             conv_layers = conv_layers.add_batchnorm(BatchNorm2D::new(120));
         }
         conv_layers = conv_layers.add_activation(activation);
 
-        // Flatten pour connexion aux couches FC
+        // Flatten for connection to FC layers
         conv_layers = conv_layers.add_flatten();
 
         Self {
@@ -217,20 +217,20 @@ impl LeNet5 {
         }
     }
 
-    /// Propagation avant (couches conv uniquement)
+    /// Forward pass (conv layers only)
     ///
-    /// Retourne les features aplaties prêtes pour les couches Dense.
-    /// Utilisez un Network de cma-neural-network pour les couches FC.
+    /// Returns flattened features ready for Dense layers.
+    /// Use a Network from cma-neural-network for the FC layers.
     pub fn forward(&self, input: &Tensor4D) -> Tensor4D {
         self.conv_layers.forward(input)
     }
 
-    /// Nombre total de paramètres (couches conv)
+    /// Total number of parameters (conv layers)
     pub fn num_parameters(&self) -> usize {
         self.conv_layers.num_parameters()
     }
 
-    /// Affiche le résumé du modèle
+    /// Prints the model summary
     pub fn summary(&self) {
         let input_shape = TensorShape::new(
             1,
@@ -241,7 +241,7 @@ impl LeNet5 {
         self.conv_layers.summary(input_shape);
     }
 
-    /// Shape de sortie (features aplaties)
+    /// Output shape (flattened features)
     pub fn output_size(&self) -> usize {
         let input_shape = TensorShape::new(
             1,
@@ -250,13 +250,13 @@ impl LeNet5 {
             self.config.input_size,
         );
         let output = self.conv_layers.output_shape(input_shape);
-        output.width // Après flatten
+        output.width // After flatten
     }
 }
 
-/// Crée le classifieur FC pour LeNet-5
+/// Creates the FC classifier for LeNet-5
 ///
-/// # Architecture FC (paper original)
+/// # FC Architecture (original paper)
 /// - F6: 120 → 84 (tanh)
 /// - Output: 84 → num_classes
 ///
@@ -269,16 +269,16 @@ impl LeNet5 {
 /// let classifier = create_lenet5_classifier(cnn.output_size(), 10);
 /// ```
 pub fn create_lenet5_classifier(input_size: usize, num_classes: usize) -> String {
-    // Retourne la configuration recommandée pour le NetworkBuilder
+    // Returns the recommended configuration for the NetworkBuilder
     format!(
-        r#"// Classifieur FC pour LeNet-5
-// Input: {} features (sortie du CNN)
+        r#"// FC Classifier for LeNet-5
+// Input: {} features (CNN output)
 // Output: {} classes
 
 use cma_neural_network::{{NetworkBuilder, Activation, LossFunction, OptimizerType}};
 
 let classifier = NetworkBuilder::new({}, {})
-    .hidden_layer(84, Activation::Tanh)  // F6 du paper
+    .hidden_layer(84, Activation::Tanh)  // F6 from the paper
     .output_activation(Activation::Softmax)
     .loss(LossFunction::CategoricalCrossEntropy)
     .optimizer(OptimizerType::adam(0.001))
@@ -303,7 +303,7 @@ mod tests {
         let input = Tensor4D::zeros(TensorShape::new(1, 1, 28, 28));
         let output = model.forward(&input);
 
-        // Après C1(5x5) → 24, S2 → 12, C3(5x5) → 8, S4 → 4, C5(4x4) → 1
+        // After C1(5x5) → 24, S2 → 12, C3(5x5) → 8, S4 → 4, C5(4x4) → 1
         // Flatten: 120 * 1 * 1 = 120
         assert_eq!(output.shape().width, 120);
     }
@@ -321,7 +321,7 @@ mod tests {
     #[test]
     fn test_lenet5_modern() {
         let model = LeNet5::with_config(LeNet5Config::modern());
-        // Avec BatchNorm, plus de paramètres
+        // With BatchNorm, more parameters
         assert!(model.num_parameters() > LeNet5::new(10).num_parameters());
     }
 

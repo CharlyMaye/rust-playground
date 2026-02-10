@@ -4,9 +4,6 @@
 export class MnistVGGNetwork {
     free(): void;
     [Symbol.dispose](): void;
-    /**
-     * Get architecture summary
-     */
     get_architecture(): string;
     get_class_names(): string;
     get_probabilities(pixels: Float32Array): string;

@@ -12,7 +12,6 @@ export class MnistVGGNetwork {
         wasm.__wbg_mnistvggnetwork_free(ptr, 0);
     }
     /**
-     * Get architecture summary
      * @returns {string}
      */
     get_architecture() {

@@ -1,33 +1,33 @@
-//! # CMA-Models: Architectures Historiques de Deep Learning
+//! # CMA-Models: Historic Deep Learning Architectures
 //!
-//! Réimplémentations fidèles des architectures CNN qui ont marqué l'histoire du Deep Learning.
+//! Faithful reimplementations of the CNN architectures that shaped the history of Deep Learning.
 //!
-//! ## Écosystème
+//! ## Ecosystem
 //!
 //! ```text
-//! cma-models ← VOUS ÊTES ICI (Architectures prêtes à l'emploi)
+//! cma-models ← YOU ARE HERE (Ready-to-use architectures)
 //!     │
-//!     └── cma-cnn (Couches: Conv2D, MaxPool2D, BatchNorm2D)
+//!     └── cma-cnn (Layers: Conv2D, MaxPool2D, BatchNorm2D)
 //!             │
-//!             └── cma-neural-network (Base: Dense, Activations, Optimiseurs)
+//!             └── cma-neural-network (Base: Dense, Activations, Optimizers)
 //! ```
 //!
-//! ## Architectures Disponibles
+//! ## Available Architectures
 //!
-//! | Année | Architecture | Paper | Usage |
+//! | Year | Architecture | Paper | Usage |
 //! |-------|--------------|-------|-------|
-//! | 1998  | LeNet-5      | LeCun et al. | MNIST, petites images |
-//! | 2012  | AlexNet      | Krizhevsky et al. | ImageNet, révolution DL |
-//! | 2014  | VGG          | Simonyan & Zisserman | Features extraction |
-//! | 2015  | ResNet       | He et al. | Réseaux très profonds |
-//! | 2019  | EfficientNet | Tan & Le | État de l'art efficace |
+//! | 1998  | LeNet-5      | LeCun et al. | MNIST, small images |
+//! | 2012  | AlexNet      | Krizhevsky et al. | ImageNet, DL revolution |
+//! | 2014  | VGG          | Simonyan & Zisserman | Feature extraction |
+//! | 2015  | ResNet       | He et al. | Very deep networks |
+//! | 2019  | EfficientNet | Tan & Le | Efficient state of the art |
 //!
-//! ## Exemple Rapide
+//! ## Quick Example
 //!
 //! ```rust,ignore
 //! use cma_models::lenet::LeNet5;
 //!
-//! // Crée LeNet-5 pour MNIST (10 classes)
+//! // Create LeNet-5 for MNIST (10 classes)
 //! let model = LeNet5::new(10);
 //! println!("Params: {}", model.num_parameters());
 //!
@@ -36,7 +36,7 @@
 //! let features = model.forward(&input);
 //! ```
 //!
-//! ## Références Académiques
+//! ## Academic References
 //!
 //! - LeCun et al. (1998): "Gradient-Based Learning Applied to Document Recognition"
 //! - Krizhevsky et al. (2012): "ImageNet Classification with Deep CNNs"

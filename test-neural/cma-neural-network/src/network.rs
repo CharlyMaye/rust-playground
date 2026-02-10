@@ -639,7 +639,7 @@ impl Network {
                 weights,
                 biases,
                 activation: hidden_activations[i],
-                dropout: None, // Pas de dropout par défaut
+                dropout: None, // No dropout by default
             });
 
             prev_size = size;
@@ -653,7 +653,7 @@ impl Network {
             weights,
             biases,
             activation: output_activation,
-            dropout: None, // Pas de dropout sur la couche de sortie
+            dropout: None, // No dropout on the output layer
         });
 
         // Initialize optimizer states for all layers
@@ -953,7 +953,7 @@ impl Network {
         callbacks: &mut Vec<Box<dyn crate::callbacks::Callback>>,
         eval_every: usize,
     ) -> Vec<(Float, Option<Float>)> {
-        // Initialise le scheduler s'il existe
+        // Initialize the scheduler if it exists
         if let Some(sched) = scheduler.as_mut() {
             sched.current_lr = match &self.optimizer {
                 crate::optimizer::OptimizerType::SGD { learning_rate } => *learning_rate,
@@ -965,7 +965,7 @@ impl Network {
             sched.on_train_begin(self);
         }
 
-        // Appel on_train_begin
+        // Call on_train_begin
         for callback in callbacks.iter_mut() {
             callback.on_train_begin(self);
         }
@@ -977,7 +977,7 @@ impl Network {
             .expect("Device should be validated before calling fit()");
 
         for epoch in 0..epochs {
-            // Appel on_epoch_begin
+            // Call on_epoch_begin
             if let Some(sched) = scheduler.as_mut() {
                 sched.on_epoch_begin(epoch, trainer.network_mut());
             }
@@ -1010,13 +1010,13 @@ impl Network {
 
             history.push((train_loss, val_loss));
 
-            // Appel scheduler on_epoch_end et update
+            // Call scheduler on_epoch_end and update
             if let Some(sched) = scheduler.as_mut() {
                 sched.on_epoch_end(epoch, trainer.network_mut(), train_loss, val_loss);
                 sched.update_optimizer_lr(&mut trainer.network_mut().optimizer);
             }
 
-            // Appel on_epoch_end
+            // Call on_epoch_end
             let mut should_continue = true;
             for callback in callbacks.iter_mut() {
                 if !callback.on_epoch_end(epoch, trainer.network_mut(), train_loss, val_loss) {
@@ -1030,7 +1030,7 @@ impl Network {
             }
         }
 
-        // Appel on_train_end
+        // Call on_train_end
         if let Some(sched) = scheduler.as_mut() {
             sched.on_train_end(trainer.network_mut());
         }

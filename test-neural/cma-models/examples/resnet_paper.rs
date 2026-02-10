@@ -1,7 +1,7 @@
-//! # Exemple ResNet: Deep Residual Learning (He et al., 2015)
+//! # ResNet Example: Deep Residual Learning (He et al., 2015)
 //!
-//! Cet exemple reproduit l'architecture ResNet qui a révolutionné
-//! l'entraînement de réseaux très profonds grâce aux skip connections.
+//! This example reproduces the ResNet architecture that revolutionized
+//! the training of very deep networks through skip connections.
 //!
 //! ## Paper Citation
 //!
@@ -15,9 +15,9 @@
 //! }
 //! ```
 //!
-//! ## Le Problème de la Profondeur
+//! ## The Depth Problem
 //!
-//! Avant ResNet, les réseaux plus profonds avaient une accuracy PIRE:
+//! Before ResNet, deeper networks had WORSE accuracy:
 //!
 //! ```text
 //! Training Error (CIFAR-10):
@@ -35,10 +35,10 @@
 //!  training error" - He et al., 2015
 //! ```
 //!
-//! ## La Solution: Skip Connections
+//! ## The Solution: Skip Connections
 //!
 //! ```text
-//! Bloc Standard:          Bloc Résiduel:
+//! Standard Block:           Residual Block:
 //! ┌─────────────┐         ┌─────────────┐
 //! │   x (input) │         │   x (input) │──────────────┐
 //! └──────┬──────┘         └──────┬──────┘              │
@@ -64,17 +64,17 @@
 //!   H(x) = ?                 F(x) + x
 //!                           (Residual!)
 //!
-//! Le réseau apprend F(x) = H(x) - x
-//! Si la transformation idéale est proche de l'identité,
-//! il est plus facile d'apprendre F(x) ≈ 0 que H(x) ≈ x
+//! The network learns F(x) = H(x) - x
+//! If the ideal transformation is close to identity,
+//! it is easier to learn F(x) ≈ 0 than H(x) ≈ x
 //! ```
 //!
 //! ## Impact
 //!
-//! - **1er** au challenge ILSVRC 2015 (classification, détection, localisation)
-//! - **152 couches** (vs 22 pour VGG, 8 pour AlexNet)
-//! - **Top-5 error**: 3.57% (surpasse le niveau humain ~5%)
-//! - **Plus de 100,000 citations** (un des papers les plus cités)
+//! - **1st** at ILSVRC 2015 challenge (classification, detection, localization)
+//! - **152 layers** (vs 22 for VGG, 8 for AlexNet)
+//! - **Top-5 error**: 3.57% (surpasses human level ~5%)
+//! - **Over 100,000 citations** (one of the most cited papers)
 
 use cma_cnn::{Tensor4D, TensorShape};
 use cma_models::resnet::{ResNet18, ResNet34, ResNet50, ResNetConfig, ResidualBlock};
@@ -87,43 +87,43 @@ fn main() {
     println!();
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Bloc Résiduel: L'Innovation Clé
+    // Residual Block: The Key Innovation
     // ═══════════════════════════════════════════════════════════════════════
 
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Bloc Résiduel: L'Innovation Clé                                 │");
+    println!("│ Residual Block: The Key Innovation                              │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
 
-    // Bloc sans changement de dimension
+    // Block without dimension change
     let block_identity = ResidualBlock::new(64, 64, 1);
     let input_64 = Tensor4D::random(TensorShape::new(1, 64, 56, 56));
     let output_64 = block_identity.forward(&input_64);
 
-    println!("Bloc Identity (stride=1, in_ch == out_ch):");
+    println!("Identity Block (stride=1, in_ch == out_ch):");
     println!("  Input:  {:?}", input_64.shape());
     println!("  Output: {:?}", output_64.shape());
     println!("  Params: {}", block_identity.num_parameters());
-    println!("  Skip:   x → F(x) + x (identité directe)");
+    println!("  Skip:   x → F(x) + x (direct identity)");
     println!();
 
-    // Bloc avec downsampling
+    // Block with downsampling
     let block_downsample = ResidualBlock::new(64, 128, 2);
     let output_128 = block_downsample.forward(&input_64);
 
-    println!("Bloc Downsample (stride=2, in_ch ≠ out_ch):");
+    println!("Downsample Block (stride=2, in_ch ≠ out_ch):");
     println!("  Input:  {:?}", input_64.shape());
     println!("  Output: {:?}", output_128.shape());
     println!("  Params: {}", block_downsample.num_parameters());
     println!("  Skip:   x → F(x) + Conv1×1(x) (projection)");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ResNet-18 pour CIFAR-10
+    // ResNet-18 for CIFAR-10
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ ResNet-18 pour CIFAR-10 (32×32)                                 │");
+    println!("│ ResNet-18 for CIFAR-10 (32×32)                                  │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
 
@@ -141,15 +141,15 @@ fn main() {
     println!();
     println!("Forward pass:");
     println!("  Input:  [32, 3, 32, 32]");
-    println!("  Output: {:?} (512 features après GAP)", features.shape());
+    println!("  Output: {:?} (512 features after GAP)", features.shape());
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Comparaison des Variantes
+    // Variant Comparison
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Variantes ResNet (Table 1 du paper)                             │");
+    println!("│ ResNet Variants (Table 1 from the paper)                        │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
 
@@ -219,19 +219,19 @@ fn main() {
     println!("                                         ▼");
     println!("                                   (Add + ReLU)");
     println!();
-    println!("Bottleneck réduit les calculs: 3×3×64×64 → 1×1×64 + 3×3×64 + 1×1×256");
+    println!("Bottleneck reduces computation: 3×3×64×64 → 1×1×64 + 3×3×64 + 1×1×256");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Résultats du Paper
+    // Paper Results
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Résultats du Paper (ILSVRC-2015)                                │");
+    println!("│ Paper Results (ILSVRC-2015)                                     │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("┌─────────────────────┬──────────┬──────────┬─────────────────────┐");
-    println!("│ Modèle              │ Couches  │ Top-5 Err│ Notes               │");
+    println!("│ Model               │ Layers   │ Top-5 Err│ Notes               │");
     println!("├─────────────────────┼──────────┼──────────┼─────────────────────┤");
     println!("│ VGG-16              │ 16       │ 7.32%    │ Baseline 2014       │");
     println!("│ VGG-19              │ 19       │ 7.10%    │                     │");
@@ -246,38 +246,38 @@ fn main() {
     println!("│ Human performance   │ -        │ ~5.1%    │ Andrej Karpathy     │");
     println!("└─────────────────────┴──────────┴──────────┴─────────────────────┘");
     println!();
-    println!("ResNet-152 surpasse la performance humaine sur ImageNet!");
+    println!("ResNet-152 surpasses human performance on ImageNet!");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Pourquoi ça Marche
+    // Why It Works
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Pourquoi les Skip Connections Marchent                          │");
+    println!("│ Why Skip Connections Work                                       │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("1. GRADIENT FLOW:");
-    println!("   Sans skip: ∂L/∂x = ∂L/∂F × ∂F/∂x");
-    println!("   Avec skip: ∂L/∂x = ∂L/∂F × ∂F/∂x + ∂L/∂x");
+    println!("   Without skip: ∂L/∂x = ∂L/∂F × ∂F/∂x");
+    println!("   With skip: ∂L/∂x = ∂L/∂F × ∂F/∂x + ∂L/∂x");
     println!("                                        ^^^^^ highway!");
-    println!("   Les gradients peuvent \"bypasser\" les couches.");
+    println!("   Gradients can \"bypass\" the layers.");
     println!();
     println!("2. IDENTITY MAPPING:");
-    println!("   Si F(x) ≈ 0, alors y = x + F(x) ≈ x");
-    println!("   Apprendre F(x) = 0 est plus facile que H(x) = x");
+    println!("   If F(x) ≈ 0, then y = x + F(x) ≈ x");
+    println!("   Learning F(x) = 0 is easier than H(x) = x");
     println!();
     println!("3. IMPLICIT ENSEMBLING:");
-    println!("   Un ResNet de N blocs = ensemble de 2^N chemins");
-    println!("   Chaque chemin = sous-réseau de profondeur variable");
+    println!("   A ResNet with N blocks = ensemble of 2^N paths");
+    println!("   Each path = sub-network of variable depth");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Classifieur FC
+    // FC Classifier
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Classifieur FC (cma-neural-network)                             │");
+    println!("│ FC Classifier (cma-neural-network)                              │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("```rust");
@@ -285,7 +285,7 @@ fn main() {
         "use cma_neural_network::{{NetworkBuilder, Activation, LossFunction, OptimizerType}};"
     );
     println!();
-    println!("// ResNet produit 512 features (après GAP)");
+    println!("// ResNet produces 512 features (after GAP)");
     println!("let classifier = NetworkBuilder::new(512, 10)");
     println!("    .output_activation(Activation::Softmax)");
     println!("    .loss(LossFunction::CategoricalCrossEntropy)");
@@ -293,26 +293,26 @@ fn main() {
     println!("    .build();");
     println!("```");
     println!();
-    println!("Note: ResNet utilise Global Average Pooling → pas de FC hidden layers.");
-    println!("      Le classifieur final est simplement une projection linéaire.");
+    println!("Note: ResNet uses Global Average Pooling → no FC hidden layers.");
+    println!("      The final classifier is simply a linear projection.");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Héritage
+    // Legacy
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Héritage de ResNet                                              │");
+    println!("│ ResNet's Legacy                                                 │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
-    println!("ResNet a inspiré:");
-    println!("- DenseNet (2017): Toutes les couches connectées entre elles");
-    println!("- ResNeXt (2017): Agrégation de branches parallèles");
+    println!("ResNet inspired:");
+    println!("- DenseNet (2017): All layers connected to each other");
+    println!("- ResNeXt (2017): Aggregation of parallel branches");
     println!("- SE-ResNet (2018): Squeeze-and-Excitation attention");
     println!("- EfficientNet (2019): Compound scaling");
-    println!("- Vision Transformers (2020): Skip connections dans attention");
+    println!("- Vision Transformers (2020): Skip connections in attention");
     println!();
-    println!("Le concept de skip connection est maintenant UNIVERSEL:");
+    println!("The concept of skip connection is now UNIVERSAL:");
     println!("- Transformers (attention residual)");
     println!("- U-Net (segmentation)");
     println!("- Diffusion models (denoising)");
@@ -320,7 +320,7 @@ fn main() {
 
     println!();
     println!("═══════════════════════════════════════════════════════════════════");
-    println!("  Fin de l'exemple ResNet");
+    println!("  End of ResNet example");
     println!("═══════════════════════════════════════════════════════════════════");
 }
 

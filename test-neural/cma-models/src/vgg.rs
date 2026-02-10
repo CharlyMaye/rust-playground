@@ -1,9 +1,9 @@
 //! # VGG (Simonyan & Zisserman, 2014)
 //!
-//! Architecture caractérisée par l'utilisation exclusive de convolutions 3×3,
-//! démontrant que la profondeur est clé pour la performance.
+//! Architecture characterized by the exclusive use of 3×3 convolutions,
+//! demonstrating that depth is key to performance.
 //!
-//! ## Paper Original
+//! ## Original Paper
 //!
 //! **"Very Deep Convolutional Networks for Large-Scale Image Recognition"**
 //! Karen Simonyan, Andrew Zisserman
@@ -47,38 +47,38 @@
 //! └────────────────────┘
 //! ```
 //!
-//! ## Variantes
+//! ## Variants
 //!
-//! | Modèle | Couches Conv | Paramètres |
+//! | Model | Conv Layers | Parameters |
 //! |--------|--------------|------------|
 //! | VGG-11 | 8 conv | 133M |
 //! | VGG-13 | 10 conv | 133M |
 //! | VGG-16 | 13 conv | 138M |
 //! | VGG-19 | 16 conv | 144M |
 //!
-//! ## Innovations Clés (2014)
+//! ## Key Innovations (2014)
 //!
-//! 1. **Kernels 3×3 uniquement**: Deux 3×3 = un 5×5 réceptif, mais moins de params
-//! 2. **Profondeur**: 16-19 couches (vs 8 pour AlexNet)
-//! 3. **Uniformité**: Architecture très régulière, facile à comprendre
-//! 4. **Pre-training**: Poids transférables pour d'autres tâches
+//! 1. **3×3 kernels only**: Two 3×3 = one 5×5 receptive field, but fewer params
+//! 2. **Depth**: 16-19 layers (vs 8 for AlexNet)
+//! 3. **Uniformity**: Very regular architecture, easy to understand
+//! 4. **Pre-training**: Transferable weights for other tasks
 
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, MaxPool2D, Sequential, Tensor4D, TensorShape};
 
-/// Configuration VGG
+/// VGG configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VGGConfig {
-    /// Nombre de classes
+    /// Number of classes
     pub num_classes: usize,
-    /// Taille d'entrée (224 pour ImageNet)
+    /// Input size (224 for ImageNet)
     pub input_size: usize,
-    /// Canaux d'entrée (3 pour RGB)
+    /// Input channels (3 for RGB)
     pub in_channels: usize,
-    /// Utiliser BatchNorm
+    /// Use BatchNorm
     pub use_batch_norm: bool,
-    /// Configuration des blocs [num_convs, out_channels]
+    /// Block configuration [num_convs, out_channels]
     pub blocks: Vec<(usize, usize)>,
 }
 
@@ -116,14 +116,14 @@ impl VGGConfig {
             blocks: vec![
                 (2, 64),
                 (2, 128),
-                (4, 256), // 4 conv au lieu de 3
-                (4, 512), // 4 conv au lieu de 3
-                (4, 512), // 4 conv au lieu de 3
+                (4, 256), // 4 conv instead of 3
+                (4, 512), // 4 conv instead of 3
+                (4, 512), // 4 conv instead of 3
             ],
         }
     }
 
-    /// VGG-11 (plus léger)
+    /// VGG-11 (lighter)
     pub fn vgg11() -> Self {
         Self {
             num_classes: 1000,
@@ -134,7 +134,7 @@ impl VGGConfig {
         }
     }
 
-    /// Version mini pour CIFAR-10
+    /// Mini version for CIFAR-10
     pub fn cifar10() -> Self {
         Self {
             num_classes: 10,
@@ -151,14 +151,14 @@ impl VGGConfig {
     }
 }
 
-/// VGG-16: Architecture "Very Deep" (2014)
+/// VGG-16: "Very Deep" Architecture (2014)
 ///
-/// # Caractéristiques
+/// # Characteristics
 ///
-/// - 13 couches convolutionnelles
-/// - Tous les kernels sont 3×3
-/// - MaxPool 2×2 entre les blocs
-/// - ~138M paramètres (dont 119M dans les FC)
+/// - 13 convolutional layers
+/// - All kernels are 3×3
+/// - MaxPool 2×2 between blocks
+/// - ~138M parameters (including 119M in FC layers)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VGG16 {
     pub features: Sequential,
@@ -166,14 +166,14 @@ pub struct VGG16 {
 }
 
 impl VGG16 {
-    /// Crée VGG-16 pour ImageNet
+    /// Creates VGG-16 for ImageNet
     pub fn new(num_classes: usize) -> Self {
         let mut config = VGGConfig::vgg16();
         config.num_classes = num_classes;
         Self::with_config(config)
     }
 
-    /// Crée VGG-16 avec configuration personnalisée
+    /// Creates VGG-16 with custom configuration
     pub fn with_config(config: VGGConfig) -> Self {
         let features = Self::build_features(&config);
         Self { features, config }
@@ -196,7 +196,7 @@ impl VGG16 {
                 in_channels = *out_channels;
             }
 
-            // MaxPool après chaque bloc
+            // MaxPool after each block
             features = features.add_maxpool(MaxPool2D::new(2, 2));
         }
 
@@ -204,17 +204,17 @@ impl VGG16 {
         features
     }
 
-    /// Propagation avant
+    /// Forward pass
     pub fn forward(&self, input: &Tensor4D) -> Tensor4D {
         self.features.forward(input)
     }
 
-    /// Nombre de paramètres
+    /// Number of parameters
     pub fn num_parameters(&self) -> usize {
         self.features.num_parameters()
     }
 
-    /// Affiche le résumé
+    /// Prints the summary
     pub fn summary(&self) {
         let input_shape = TensorShape::new(
             1,
@@ -225,7 +225,7 @@ impl VGG16 {
         self.features.summary(input_shape);
     }
 
-    /// Taille de sortie
+    /// Output size
     pub fn output_size(&self) -> usize {
         let input_shape = TensorShape::new(
             1,
@@ -238,7 +238,7 @@ impl VGG16 {
     }
 }
 
-/// VGG-19: Version encore plus profonde
+/// VGG-19: Even deeper version
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VGG19 {
     pub features: Sequential,
@@ -246,31 +246,31 @@ pub struct VGG19 {
 }
 
 impl VGG19 {
-    /// Crée VGG-19 pour ImageNet
+    /// Creates VGG-19 for ImageNet
     pub fn new(num_classes: usize) -> Self {
         let mut config = VGGConfig::vgg19();
         config.num_classes = num_classes;
         Self::with_config(config)
     }
 
-    /// Crée VGG-19 avec configuration
+    /// Creates VGG-19 with configuration
     pub fn with_config(config: VGGConfig) -> Self {
         let features = VGG16::build_features(&config);
         Self { features, config }
     }
 
-    /// Propagation avant
+    /// Forward pass
     pub fn forward(&self, input: &Tensor4D) -> Tensor4D {
         self.features.forward(input)
     }
 
-    /// Nombre de paramètres
+    /// Number of parameters
     pub fn num_parameters(&self) -> usize {
         self.features.num_parameters()
     }
 }
 
-/// Crée un bloc VGG (n convolutions + maxpool)
+/// Creates a VGG block (n convolutions + maxpool)
 pub fn vgg_block(
     in_channels: usize,
     out_channels: usize,
@@ -303,7 +303,7 @@ mod tests {
         let input = Tensor4D::zeros(TensorShape::new(1, 3, 32, 32));
         let output = block.forward(&input);
 
-        // 32 → 16 après pool
+        // 32 → 16 after pool
         assert_eq!(output.shape().height, 16);
         assert_eq!(output.shape().channels, 64);
     }

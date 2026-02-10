@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .hidden_layer(64, Activation::ReLU)
         .output_activation(Activation::Softmax)
         .loss(LossFunction::CategoricalCrossEntropy)
-        .optimizer(OptimizerType::adam(0.001)) // Réduit de 0.01 à 0.001
+        .optimizer(OptimizerType::adam(0.001)) // Reduced from 0.01 to 0.001
         .build();
 
     println!("   Architecture: 784 → [128, 64] → 10");

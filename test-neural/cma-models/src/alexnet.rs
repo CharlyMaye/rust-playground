@@ -1,16 +1,16 @@
 //! # AlexNet (Krizhevsky et al., 2012)
 //!
-//! L'architecture qui a déclenché la révolution du Deep Learning en gagnant
-//! le challenge ImageNet 2012 avec une marge significative.
+//! The architecture that sparked the Deep Learning revolution by winning
+//! the ImageNet 2012 challenge by a significant margin.
 //!
-//! ## Paper Original
+//! ## Original Paper
 //!
 //! **"ImageNet Classification with Deep Convolutional Neural Networks"**
 //! Alex Krizhevsky, Ilya Sutskever, Geoffrey E. Hinton
 //! NIPS 2012
 //! https://papers.nips.cc/paper/2012/file/c399862d3b9d6b76c8436e924a68c45b-Paper.pdf
 //!
-//! ## Architecture Originale (227x227 RGB input)
+//! ## Original Architecture (227x227 RGB input)
 //!
 //! ```text
 //! Input (227×227×3)
@@ -50,41 +50,41 @@
 //! └────────────────────────────┘
 //! ```
 //!
-//! ## Innovations Clés (2012)
+//! ## Key Innovations (2012)
 //!
-//! 1. **ReLU**: Première utilisation massive, 6× plus rapide que tanh
-//! 2. **Dropout**: Régularisation révolutionnaire (Hinton)
-//! 3. **GPU Training**: Parallélisation sur 2 GPUs (GTX 580)
+//! 1. **ReLU**: First massive use, 6× faster than tanh
+//! 2. **Dropout**: Revolutionary regularization (Hinton)
+//! 3. **GPU Training**: Parallelization on 2 GPUs (GTX 580)
 //! 4. **Data Augmentation**: Flip, crop, color jittering
-//! 5. **LRN** (Local Response Normalization): remplacé par BatchNorm aujourd'hui
+//! 5. **LRN** (Local Response Normalization): replaced by BatchNorm today
 //!
-//! ## Résultats
+//! ## Results
 //!
-//! - **Top-5 Error**: 15.3% (vs 26.2% pour le 2ème)
-//! - **60M paramètres** (révolutionnaire pour l'époque)
-//! - **5 jours d'entraînement** sur 2 GPUs
+//! - **Top-5 Error**: 15.3% (vs 26.2% for 2nd place)
+//! - **60M parameters** (revolutionary for the time)
+//! - **5 days of training** on 2 GPUs
 //!
-//! ## Adaptation Mini (pour images plus petites)
+//! ## Mini Adaptation (for smaller images)
 //!
-//! Cette implémentation propose aussi une version réduite pour CIFAR-10 (32x32).
+//! This implementation also provides a reduced version for CIFAR-10 (32x32).
 
 use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, MaxPool2D, Sequential, Tensor4D, TensorShape};
 
-/// Configuration d'AlexNet
+/// AlexNet configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlexNetConfig {
-    /// Nombre de classes en sortie (1000 pour ImageNet)
+    /// Number of output classes (1000 for ImageNet)
     pub num_classes: usize,
-    /// Taille de l'image d'entrée (227 pour ImageNet)
+    /// Input image size (227 for ImageNet)
     pub input_size: usize,
-    /// Nombre de canaux (3 pour RGB)
+    /// Number of channels (3 for RGB)
     pub in_channels: usize,
-    /// Utiliser BatchNorm au lieu de LRN
+    /// Use BatchNorm instead of LRN
     pub use_batch_norm: bool,
-    /// Taux de dropout
+    /// Dropout rate
     pub dropout_rate: Float,
 }
 
@@ -94,20 +94,20 @@ impl Default for AlexNetConfig {
             num_classes: 1000,
             input_size: 227,
             in_channels: 3,
-            use_batch_norm: true, // Modernisation
+            use_batch_norm: true, // Modernization
             dropout_rate: 0.5,
         }
     }
 }
 
 impl AlexNetConfig {
-    /// Config pour ImageNet (original)
+    /// Config for ImageNet (original)
     pub fn imagenet() -> Self {
         Self::default()
     }
 
-    /// Config pour CIFAR-10 (32x32, 10 classes)
-    /// Version réduite adaptée
+    /// Config for CIFAR-10 (32x32, 10 classes)
+    /// Adapted reduced version
     pub fn cifar10() -> Self {
         Self {
             num_classes: 10,
@@ -118,7 +118,7 @@ impl AlexNetConfig {
         }
     }
 
-    /// Config pour images 64x64
+    /// Config for 64x64 images
     pub fn small(num_classes: usize) -> Self {
         Self {
             num_classes,
@@ -130,11 +130,11 @@ impl AlexNetConfig {
     }
 }
 
-/// AlexNet: Architecture CNN Révolutionnaire (2012)
+/// AlexNet: Revolutionary CNN Architecture (2012)
 ///
-/// # Architecture (version ImageNet)
+/// # Architecture (ImageNet version)
 ///
-/// | Couche | Type | Output Shape | Params |
+/// | Layer | Type | Output Shape | Params |
 /// |--------|------|--------------|--------|
 /// | Input | - | 3×227×227 | 0 |
 /// | Conv1 | 11×11, 96, /4 | 96×55×55 | 34,944 |
@@ -147,24 +147,24 @@ impl AlexNetConfig {
 /// | Pool5 | MaxPool 3×3/2 | 256×6×6 | 0 |
 /// | **Total Conv** | | | **~3.7M** |
 ///
-/// + FC layers: ~58M paramètres = **~62M paramètres total**
+/// + FC layers: ~58M parameters = **~62M parameters total**
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlexNet {
-    /// Couches convolutionnelles (feature extractor)
+    /// Convolutional layers (feature extractor)
     pub features: Sequential,
     /// Configuration
     pub config: AlexNetConfig,
 }
 
 impl AlexNet {
-    /// Crée AlexNet pour ImageNet (1000 classes)
+    /// Creates AlexNet for ImageNet (1000 classes)
     pub fn new(num_classes: usize) -> Self {
         let mut config = AlexNetConfig::imagenet();
         config.num_classes = num_classes;
         Self::with_config(config)
     }
 
-    /// Crée AlexNet avec configuration personnalisée
+    /// Creates AlexNet with custom configuration
     pub fn with_config(config: AlexNetConfig) -> Self {
         if config.input_size >= 200 {
             Self::build_full(config)
@@ -175,7 +175,7 @@ impl AlexNet {
         }
     }
 
-    /// Version complète pour ImageNet (227x227)
+    /// Full version for ImageNet (227x227)
     fn build_full(config: AlexNetConfig) -> Self {
         let mut features = Sequential::named("AlexNet");
 
@@ -223,11 +223,11 @@ impl AlexNet {
         Self { features, config }
     }
 
-    /// Version moyenne pour images 64x64
+    /// Medium version for 64x64 images
     fn build_medium(config: AlexNetConfig) -> Self {
         let mut features = Sequential::named("AlexNet-Medium");
 
-        // Adapté pour 64x64
+        // Adapted for 64x64
         features = features.add_conv2d(Conv2D::new(config.in_channels, 64, 5, 1, 2));
         if config.use_batch_norm {
             features = features.add_batchnorm(BatchNorm2D::new(64));
@@ -260,11 +260,11 @@ impl AlexNet {
         Self { features, config }
     }
 
-    /// Version mini pour CIFAR-10 (32x32)
+    /// Mini version for CIFAR-10 (32x32)
     fn build_mini(config: AlexNetConfig) -> Self {
         let mut features = Sequential::named("AlexNet-Mini");
 
-        // Adapté pour 32x32
+        // Adapted for 32x32
         // Block 1
         features = features.add_conv2d(Conv2D::new(config.in_channels, 64, 3, 1, 1));
         if config.use_batch_norm {
@@ -301,17 +301,17 @@ impl AlexNet {
         Self { features, config }
     }
 
-    /// Propagation avant
+    /// Forward pass
     pub fn forward(&self, input: &Tensor4D) -> Tensor4D {
         self.features.forward(input)
     }
 
-    /// Nombre de paramètres (couches conv)
+    /// Number of parameters (conv layers)
     pub fn num_parameters(&self) -> usize {
         self.features.num_parameters()
     }
 
-    /// Affiche le résumé
+    /// Prints the summary
     pub fn summary(&self) {
         let input_shape = TensorShape::new(
             1,
@@ -322,7 +322,7 @@ impl AlexNet {
         self.features.summary(input_shape);
     }
 
-    /// Taille des features en sortie
+    /// Output feature size
     pub fn output_size(&self) -> usize {
         let input_shape = TensorShape::new(
             1,
@@ -335,10 +335,10 @@ impl AlexNet {
     }
 }
 
-/// Crée le classifieur FC pour AlexNet
+/// Creates the FC classifier for AlexNet
 pub fn create_alexnet_classifier(input_size: usize, num_classes: usize, dropout: Float) -> String {
     format!(
-        r#"// Classifieur FC pour AlexNet
+        r#"// FC Classifier for AlexNet
 // Input: {} features
 // Output: {} classes
 

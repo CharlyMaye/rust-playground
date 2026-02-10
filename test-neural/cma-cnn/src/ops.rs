@@ -1,7 +1,7 @@
-//! # Opérations CNN
+//! # CNN Operations
 //!
-//! Implémentation des opérations fondamentales pour les CNN:
-//! - im2col / col2im pour convolution efficace
+//! Implementation of fundamental operations for CNNs:
+//! - im2col / col2im for efficient convolution
 //! - Padding modes
 
 use crate::Float;
@@ -18,16 +18,16 @@ use crate::tensor::{Tensor4D, TensorShape};
 /// Mode de padding pour les convolutions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Padding {
-    /// Pas de padding (output plus petit)
+    /// No padding (smaller output)
     Valid,
-    /// Padding pour conserver la taille (output = input)
+    /// Padding to preserve size (output = input)
     Same,
-    /// Padding explicite
+    /// Explicit padding
     Fixed(usize),
 }
 
 impl Padding {
-    /// Calcule le padding nécessaire
+    /// Computes the required padding
     pub fn compute(&self, kernel_size: usize) -> usize {
         match self {
             Padding::Valid => 0,
@@ -37,32 +37,32 @@ impl Padding {
     }
 }
 
-/// Im2Col: Transforme une image en matrice de colonnes pour convolution efficace
+/// Im2Col: Transforms an image into a column matrix for efficient convolution
 ///
 /// # Principe (LeCun et al., 1998)
 ///
-/// Au lieu de faire des boucles nested pour la convolution, on réorganise
-/// les patches de l'image en colonnes, puis on fait une multiplication matricielle.
+/// Instead of using nested loops for convolution, we reorganize
+/// the image patches into columns, then perform a matrix multiplication.
 ///
-/// Pour une image 4x4 avec kernel 2x2:
+/// For a 4x4 image with 2x2 kernel:
 /// ```text
-/// Image:          Patches → Colonnes:
+/// Image:          Patches → Columns:
 /// [1 2 3 4]       [1 2]  [2 3]  [3 4]      [1 2 5 6]
-/// [5 6 7 8]   →   [5 6], [6 7], [7 8], ... [2 3 6 7]  ← chaque colonne = patch aplati
+/// [5 6 7 8]   →   [5 6], [6 7], [7 8], ... [2 3 6 7]  ← each column = flattened patch
 /// [9 ...  ]                                [...]
 /// ```
 ///
 /// Convolution = Weights × Im2Col(Input)
 ///
 /// # Arguments
-/// * `input` - Tenseur [batch, channels, height, width]
-/// * `kernel_size` - Taille du kernel (carré)
-/// * `stride` - Pas de déplacement
-/// * `padding` - Padding (zéros autour)
-/// * `batch_idx` - Index du batch à traiter
+/// * `input` - Tensor [batch, channels, height, width]
+/// * `kernel_size` - Kernel size (square)
+/// * `stride` - Step size
+/// * `padding` - Padding (surrounding zeros)
+/// * `batch_idx` - Batch index to process
 ///
 /// # Returns
-/// Matrice [kernel_size² × channels, out_height × out_width]
+/// Matrix [kernel_size² × channels, out_height × out_width]
 pub fn im2col_single(
     input: &Tensor4D,
     kernel_size: usize,
@@ -73,25 +73,25 @@ pub fn im2col_single(
     let shape = input.shape();
     let data = input.data();
 
-    // Dimensions de sortie
+    // Output dimensions
     let out_h = (shape.height + 2 * padding - kernel_size) / stride + 1;
     let out_w = (shape.width + 2 * padding - kernel_size) / stride + 1;
 
-    // Taille d'une colonne = kernel² × channels
+    // Column size = kernel² × channels
     let col_size = kernel_size * kernel_size * shape.channels;
-    // Nombre de colonnes = positions spatiales
+    // Number of columns = spatial positions
     let num_cols = out_h * out_w;
 
-    // Pré-alloue avec capacité exacte
+    // Pre-allocate with exact capacity
     let mut cols = Array2::zeros((col_size, num_cols));
     
-    // Optimisation cache-aware: réorganise les boucles pour accès mémoire contigus
-    // L'ordre channel -> kh -> kw est fixé par le format de sortie
-    // Mais on optimise les accès à data en parcourant par ligne de l'image
+    // Cache-aware optimization: reorder loops for contiguous memory access
+    // The channel -> kh -> kw order is fixed by the output format
+    // But we optimize data access by traversing per image row
     
     if padding == 0 {
-        // Cas sans padding - accès direct optimisé
-        // Parcours par (channel, kernel_row) pour meilleure localité cache
+        // No-padding case - optimized direct access
+        // Traversal by (channel, kernel_row) for better cache locality
         for c in 0..shape.channels {
             let c_offset = c * kernel_size * kernel_size;
             for kh in 0..kernel_size {
@@ -99,7 +99,7 @@ pub fn im2col_single(
                 for kw in 0..kernel_size {
                     let row_idx = row_base + kw;
                     
-                    // Parcours des positions de sortie
+                    // Traverse output positions
                     let mut col_idx = 0;
                     for oh in 0..out_h {
                         let ih = oh * stride + kh;
@@ -113,7 +113,7 @@ pub fn im2col_single(
             }
         }
     } else {
-        // Cas avec padding - vérification des bornes nécessaire
+        // Padding case - bounds checking required
         let h_max = shape.height + padding;
         let w_max = shape.width + padding;
         
@@ -151,7 +151,7 @@ pub fn im2col_single(
     cols
 }
 
-/// Im2Col pour tout le batch (retourne Vec de matrices pour chaque image)
+/// Im2Col for the entire batch (returns Vec of matrices for each image)
 #[allow(dead_code)]
 pub fn im2col(
     input: &Tensor4D,
@@ -165,9 +165,9 @@ pub fn im2col(
         .collect()
 }
 
-/// Col2Im: Inverse de im2col, utilisé pour le backward pass
+/// Col2Im: Inverse of im2col, used for the backward pass
 ///
-/// Reconstruit le gradient sur l'input à partir du gradient sur les colonnes.
+/// Reconstructs the input gradient from the column gradient.
 pub fn col2im(
     cols: &Array2<Float>,
     original_shape: TensorShape,
@@ -201,7 +201,7 @@ pub fn col2im(
                             let ih = oh * stride + kh;
                             let iw = ow * stride + kw;
 
-                            // Accumule (plusieurs patches peuvent se chevaucher)
+                            // Accumulate (multiple patches may overlap)
                             data[[b, c, ih, iw]] += cols[[row_idx, col_idx]];
                             row_idx += 1;
                         }
@@ -212,7 +212,7 @@ pub fn col2im(
         }
     }
 
-    // Retire le padding si nécessaire
+    // Remove padding if necessary
     if padding > 0 {
         let mut result = Array4::zeros((
             original_shape.batch.min(1),
@@ -237,12 +237,12 @@ pub fn col2im(
     }
 }
 
-/// Convolution 2D naïve (implémentation de référence pour les tests)
+/// Naive 2D Convolution (reference implementation for tests)
 ///
-/// Implémentation directe avec boucles imbriquées - O(B × Co × Ci × H × W × K²).
-/// Utilisée uniquement pour valider que `conv2d_im2col` donne les mêmes résultats.
+/// Direct implementation with nested loops - O(B × Co × Ci × H × W × K²).
+/// Used only to validate that `conv2d_im2col` produces the same results.
 ///
-/// **Note**: Ne pas utiliser en production, préférer `conv2d_im2col`.
+/// **Note**: Do not use in production, prefer `conv2d_im2col`.
 #[cfg(test)]
 pub fn conv2d_naive(
     input: &Tensor4D,
@@ -287,7 +287,7 @@ pub fn conv2d_naive(
                         }
                     }
 
-                    // Ajoute le biais
+                    // Add bias
                     if let Some(b_vec) = bias {
                         sum += b_vec[oc];
                     }
@@ -301,16 +301,16 @@ pub fn conv2d_naive(
     Tensor4D::from_array(output)
 }
 
-/// Convolution 2D optimisée avec im2col + multiplication matricielle (GEMM)
+/// Optimized 2D Convolution with im2col + matrix multiplication (GEMM)
 ///
-/// Cette implémentation est ~10-100x plus rapide que conv2d_naive car elle
-/// transforme la convolution en une seule multiplication matricielle.
+/// This implementation is ~10-100x faster than conv2d_naive because it
+/// transforms the convolution into a single matrix multiplication.
 ///
-/// # Principe
-/// 1. Transforme l'input en colonnes avec im2col: [K²×C, H'×W']
-/// 2. Reshape les poids en matrice: [Out_C, K²×C]  
-/// 3. Multiplie: Output = Weights × Im2Col(Input)
-/// 4. Reshape le résultat en [Batch, Out_C, H', W']
+/// # Principle
+/// 1. Transform the input into columns with im2col: [K²×C, H'×W']
+/// 2. Reshape weights into a matrix: [Out_C, K²×C]  
+/// 3. Multiply: Output = Weights × Im2Col(Input)
+/// 4. Reshape the result to [Batch, Out_C, H', W']
 pub fn conv2d_im2col(
     input: &Tensor4D,
     weights: &Array4<Float>, // [out_channels, in_channels, kH, kW]
@@ -325,7 +325,7 @@ pub fn conv2d_im2col(
     conv2d_im2col_sequential(input, weights, bias, stride, padding)
 }
 
-/// Version séquentielle de conv2d_im2col
+/// Sequential version of conv2d_im2col
 #[allow(dead_code)]
 fn conv2d_im2col_sequential(
     input: &Tensor4D,
@@ -353,7 +353,7 @@ fn conv2d_im2col_sequential(
 
     let mut output = Array4::zeros((in_shape.batch, out_channels, out_h, out_w));
 
-    // Traiter chaque image du batch
+    // Process each image in the batch
     for b in 0..in_shape.batch {
         // Im2col pour cette image: [K²×C, H'×W']
         let cols = im2col_single(input, kernel_h, stride, padding, b);
@@ -361,13 +361,13 @@ fn conv2d_im2col_sequential(
         // GEMM: [out_channels, K²×C] × [K²×C, H'×W'] = [out_channels, H'×W']
         let conv_result = weights_2d.dot(&cols);
 
-        // Optimisation: copie vectorisée avec reshape direct
+        // Optimization: vectorized copy with direct reshape
         for oc in 0..out_channels {
             let bias_val = bias.map_or(0.0, |b_arr| b_arr[oc]);
             let row = conv_result.row(oc);
             let mut out_slice = output.slice_mut(ndarray::s![b, oc, .., ..]);
             
-            // Copie directe avec ajout du biais
+            // Direct copy with bias addition
             for (i, out_val) in out_slice.iter_mut().enumerate() {
                 *out_val = row[i] + bias_val;
             }
@@ -377,7 +377,7 @@ fn conv2d_im2col_sequential(
     Tensor4D::from_array(output)
 }
 
-/// Version parallélisée de conv2d_im2col avec Rayon
+/// Parallelized version of conv2d_im2col with Rayon
 #[cfg(feature = "parallel")]
 fn conv2d_im2col_parallel(
     input: &Tensor4D,
@@ -403,7 +403,7 @@ fn conv2d_im2col_parallel(
         .into_shape_with_order((weight_rows, weight_cols))
         .expect("Failed to reshape weights");
 
-    // Traiter chaque image du batch en parallèle
+    // Process each image in the batch in parallel
     let batch_results: Vec<Array4<Float>> = (0..in_shape.batch)
         .into_par_iter()
         .map(|b| {
@@ -412,7 +412,7 @@ fn conv2d_im2col_parallel(
 
             let mut batch_output = Array4::zeros((1, out_channels, out_h, out_w));
             
-            // Optimisation: copie vectorisée par canal
+            // Optimization: vectorized copy per channel
             for oc in 0..out_channels {
                 let bias_val = bias.map_or(0.0, |bias_arr| bias_arr[oc]);
                 let row = conv_result.row(oc);
@@ -426,7 +426,7 @@ fn conv2d_im2col_parallel(
         })
         .collect();
 
-    // Concaténer les résultats
+    // Concatenate results
     let views: Vec<_> = batch_results.iter().map(|a| a.view()).collect();
     let output =
         ndarray::concatenate(Axis(0), &views).expect("Failed to concatenate batch results");
@@ -443,7 +443,7 @@ pub fn maxpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> (Tensor4D
     maxpool2d_sequential(input, pool_size, stride)
 }
 
-/// Version séquentielle de maxpool2d
+/// Sequential version of maxpool2d
 #[allow(dead_code)]
 fn maxpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> (Tensor4D, Array4<usize>) {
     let shape = input.shape();
@@ -453,7 +453,7 @@ fn maxpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> (T
     let out_w = (shape.width - pool_size) / stride + 1;
 
     let mut output = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
-    // Stocke les indices des max pour le backward
+    // Store max indices for backward pass
     let mut indices = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
     
     for b in 0..shape.batch {
@@ -463,11 +463,11 @@ fn maxpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> (T
                 for ow in 0..out_w {
                     let iw_base = ow * stride;
                     
-                    // Optimisation: première valeur comme initial
+                    // Optimization: first value as initial
                     let mut max_val = data[[b, c, ih_base, iw_base]];
                     let mut max_idx = 0usize;
 
-                    // Parcours linéaire de la fenêtre
+                    // Linear traversal of the window
                     for ph in 0..pool_size {
                         let ih = ih_base + ph;
                         for pw in 0..pool_size {
@@ -491,7 +491,7 @@ fn maxpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> (T
     (Tensor4D::from_array(output), indices)
 }
 
-/// Version parallèle de maxpool2d - parallélise sur batch × channels
+/// Parallel version of maxpool2d - parallelizes over batch × channels
 #[cfg(feature = "parallel")]
 fn maxpool2d_parallel(input: &Tensor4D, pool_size: usize, stride: usize) -> (Tensor4D, Array4<usize>) {
     let shape = input.shape();
@@ -500,7 +500,7 @@ fn maxpool2d_parallel(input: &Tensor4D, pool_size: usize, stride: usize) -> (Ten
     let out_h = (shape.height - pool_size) / stride + 1;
     let out_w = (shape.width - pool_size) / stride + 1;
 
-    // Parallélise sur les paires (batch, channel)
+    // Parallelize over (batch, channel) pairs
     let results: Vec<(usize, usize, Vec<Float>, Vec<usize>)> = (0..shape.batch)
         .into_par_iter()
         .flat_map(|b| {
@@ -536,7 +536,7 @@ fn maxpool2d_parallel(input: &Tensor4D, pool_size: usize, stride: usize) -> (Ten
         })
         .collect();
 
-    // Reconstruit les arrays
+    // Rebuild arrays
     let mut output = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
     let mut indices = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
     
@@ -561,7 +561,7 @@ pub fn avgpool2d(input: &Tensor4D, pool_size: usize, stride: usize) -> Tensor4D 
     avgpool2d_sequential(input, pool_size, stride)
 }
 
-/// Version séquentielle de avgpool2d
+/// Sequential version of avgpool2d
 #[allow(dead_code)]
 fn avgpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> Tensor4D {
     let shape = input.shape();
@@ -569,7 +569,7 @@ fn avgpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> Te
 
     let out_h = (shape.height - pool_size) / stride + 1;
     let out_w = (shape.width - pool_size) / stride + 1;
-    // Précalcul du diviseur (une seule fois)
+    // Precompute divisor (once)
     let pool_area_inv = 1.0 / (pool_size * pool_size) as Float;
 
     let mut output = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
@@ -582,7 +582,7 @@ fn avgpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> Te
                     let iw_base = ow * stride;
                     let mut sum = 0.0;
 
-                    // Boucle optimisée avec base précalculée
+                    // Optimized loop with precomputed base
                     for ph in 0..pool_size {
                         let ih = ih_base + ph;
                         for pw in 0..pool_size {
@@ -591,7 +591,7 @@ fn avgpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> Te
                         }
                     }
 
-                    // Multiplication au lieu de division (plus rapide)
+                    // Multiplication instead of division (faster)
                     output[[b, c, oh, ow]] = sum * pool_area_inv;
                 }
             }
@@ -601,7 +601,7 @@ fn avgpool2d_sequential(input: &Tensor4D, pool_size: usize, stride: usize) -> Te
     Tensor4D::from_array(output)
 }
 
-/// Version parallèle de avgpool2d
+/// Parallel version of avgpool2d
 #[cfg(feature = "parallel")]
 fn avgpool2d_parallel(input: &Tensor4D, pool_size: usize, stride: usize) -> Tensor4D {
     let shape = input.shape();
@@ -611,7 +611,7 @@ fn avgpool2d_parallel(input: &Tensor4D, pool_size: usize, stride: usize) -> Tens
     let out_w = (shape.width - pool_size) / stride + 1;
     let pool_area_inv = 1.0 / (pool_size * pool_size) as Float;
 
-    // Parallélise sur les paires (batch, channel)
+    // Parallelize over (batch, channel) pairs
     let results: Vec<(usize, usize, Vec<Float>)> = (0..shape.batch)
         .into_par_iter()
         .flat_map(|b| {
@@ -639,7 +639,7 @@ fn avgpool2d_parallel(input: &Tensor4D, pool_size: usize, stride: usize) -> Tens
         })
         .collect();
 
-    // Reconstruit l'array
+    // Rebuild array
     let mut output = Array4::zeros((shape.batch, shape.channels, out_h, out_w));
     for (b, c, vals) in results {
         for (i, val) in vals.into_iter().enumerate() {
@@ -654,8 +654,8 @@ fn avgpool2d_parallel(input: &Tensor4D, pool_size: usize, stride: usize) -> Tens
 
 /// Global Average Pooling 2D
 ///
-/// Réduit [batch, channels, H, W] → [batch, channels, 1, 1]
-/// Utilisé dans les architectures modernes (ResNet, EfficientNet)
+/// Reduces [batch, channels, H, W] → [batch, channels, 1, 1]
+/// Used in modern architectures (ResNet, EfficientNet)
 pub fn global_avgpool2d(input: &Tensor4D) -> Tensor4D {
     #[cfg(feature = "parallel")]
     return global_avgpool2d_parallel(input);
@@ -664,19 +664,19 @@ pub fn global_avgpool2d(input: &Tensor4D) -> Tensor4D {
     global_avgpool2d_sequential(input)
 }
 
-/// Version séquentielle de global_avgpool2d
+/// Sequential version of global_avgpool2d
 #[allow(dead_code)]
 fn global_avgpool2d_sequential(input: &Tensor4D) -> Tensor4D {
     let shape = input.shape();
     let data = input.data();
-    // Précalcul: multiplication au lieu de division
+    // Precompute: multiplication instead of division
     let spatial_size_inv = 1.0 / (shape.height * shape.width) as Float;
 
     let mut output = Array4::zeros((shape.batch, shape.channels, 1, 1));
 
     for b in 0..shape.batch {
         for c in 0..shape.channels {
-            // Optimisation: utilise le slicing ndarray + iter().sum()
+            // Optimization: uses ndarray slicing + iter().sum()
             let channel_slice = data.slice(ndarray::s![b, c, .., ..]);
             let sum: Float = channel_slice.iter().sum();
             output[[b, c, 0, 0]] = sum * spatial_size_inv;
@@ -686,14 +686,14 @@ fn global_avgpool2d_sequential(input: &Tensor4D) -> Tensor4D {
     Tensor4D::from_array(output)
 }
 
-/// Version parallèle de global_avgpool2d
+/// Parallel version of global_avgpool2d
 #[cfg(feature = "parallel")]
 fn global_avgpool2d_parallel(input: &Tensor4D) -> Tensor4D {
     let shape = input.shape();
     let data = input.data();
     let spatial_size_inv = 1.0 / (shape.height * shape.width) as Float;
 
-    // Parallélise sur (batch, channel)
+    // Parallelize over (batch, channel)
     let results: Vec<(usize, usize, Float)> = (0..shape.batch)
         .into_par_iter()
         .flat_map(|b| {
@@ -812,7 +812,7 @@ mod tests {
         // Output: 1x1x2x2
         assert_eq!(output.shape().height, 2);
         assert_eq!(output.shape().width, 2);
-        // Avec ce kernel, copie le coin supérieur gauche de chaque patch
+        // With this kernel, copies the top-left corner of each patch
         assert_eq!(out_data[[0, 0, 0, 0]], 1.0);
         assert_eq!(out_data[[0, 0, 0, 1]], 2.0);
         assert_eq!(out_data[[0, 0, 1, 0]], 4.0);

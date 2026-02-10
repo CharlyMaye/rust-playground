@@ -19,6 +19,7 @@ workspace: /workspace/test-neural/Cargo.toml
 warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
 package:   /workspace/test-neural/neural-wasm/iris/Cargo.toml
 workspace: /workspace/test-neural/Cargo.toml
+   Compiling cma-neural-network v0.1.0 (/workspace/test-neural/cma-neural-network)
 warning: unused variable: `weight_dims`
    --> cma-neural-network/src/trainer.rs:226:13
     |
@@ -30,67 +31,56 @@ warning: unused variable: `weight_dims`
 warning: unused variable: `bias_dims`
    --> cma-neural-network/src/trainer.rs:232:13
     |
-232 |         let bias_dims: Vec<_> = self.network.layers.iter().map(|l| l.biases.len()).collect();
+232 |         let bias_dims: Vec<_> = self.network.layers.iter().map(|l|...
     |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bias_dims`
 
+   Compiling cma-cnn v0.1.0 (/workspace/test-neural/cma-cnn)
+   Compiling cma-models v0.1.0 (/workspace/test-neural/cma-models)
+   Compiling cma-autograd v0.1.0 (/workspace/test-neural/cma-autograd)
 warning: `cma-neural-network` (lib) generated 2 warnings (run `cargo fix --lib -p cma-neural-network` to apply 2 suggestions)
+   Compiling neural-wasm-shared v0.1.0 (/workspace/test-neural/neural-wasm/shared)
    Compiling neural-wasm-mnist-resnet v0.1.0 (/workspace/test-neural/neural-wasm/mnist-resnet)
-    Finished `release` profile [optimized] target(s) in 0.83s
+    Finished `release` profile [optimized] target(s) in 5.78s
      Running `/workspace/test-neural/target/release/train_resnet`
 ╔══════════════════════════════════════════════════════════════╗
-║       ResNet-MNIST CNN (He et al., 2015) with Skip Conn      ║
+║     ResNet-MNIST: End-to-End CNN Training with Autograd     ║
 ╚══════════════════════════════════════════════════════════════╝
 
 📦 Preparing MNIST dataset...
 
    ✅ Loaded 70000 samples from CSV
    ✅ Features normalized (z-score)
-   ✅ Dataset shuffled
    Training: 56000 | Validation: 14000
 
-🔧 Building ResNet-MNIST using ResNetBuilder...
+🔧 Building ResNet-style CNN (autograd)...
 
-ResNet Architecture:
-├── Stem: Conv→BN→ReLU
-├── Stage 1: 2 × ResidualBlock(→16, stride=1)
-├── Stage 2: 2 × ResidualBlock(→32, stride=2)
-├── Stage 3: 2 × ResidualBlock(→64, stride=2)
-├── GlobalAvgPool → 64
-└── Total params: 174320
+Sequential model: 21 layers
+--------------------------------------------------
+  [ 0] Conv2D               (160 params)
+  [ 1] BatchNorm2D          (32 params)
+  [ 2] ReLU
+  [ 3] Conv2D               (2320 params)
+  [ 4] BatchNorm2D          (32 params)
+  [ 5] ReLU
+  [ 6] Conv2D               (4640 params)
+  [ 7] BatchNorm2D          (64 params)
+  [ 8] ReLU
+  [ 9] Conv2D               (9248 params)
+  [10] BatchNorm2D          (64 params)
+  [11] ReLU
+  [12] Conv2D               (18496 params)
+  [13] BatchNorm2D          (128 params)
+  [14] ReLU
+  [15] Conv2D               (36928 params)
+  [16] BatchNorm2D          (128 params)
+  [17] ReLU
+  [18] GlobalAvgPool2D
+  [19] Flatten
+  [20] Linear               (650 params)
+--------------------------------------------------
+Total parameters: 72890
+   Total parameters: 72890
 
-   FC Classifier: 64 → 64 → 10
+🏋️  Training end-to-end with autograd backprop...
 
-🏋️  Training (ResNet forward + FC backprop)...
-
-   📊 Extracting ResNet features...
-   ✅ Features extracted: 56000 training, 14000 validation
-🚀 Début de l'entraînement (500 epochs)
-Epoch 1/500 [0.2%] - train_loss: 2.302006 - val_loss: 2.301891 - ETA: 662s   Epoch 2/500 [0.4%] - train_loss: 2.302819 - val_loss: 2.302544 - ETA: 657s   Epoch 3/500 [0.6%] - train_loss: 2.301989 - val_loss: 2.302163 - ETA: 630s   Epoch 4/500 [0.8%] - train_loss: 2.301532 - val_loss: 2.301277 - ETA: 614s   Epoch 5/500 [1.0%] - train_loss: 2.301985 - val_loss: 2.302251 - ETA: 605s   Epoch 6/500 [1.2%] - train_loss: 2.301925 - val_loss: 2.302503 - ETA: 600s   Epoch 7/500 [1.4%] - train_loss: 2.301725 - val_loss: 2.301711 - ETA: 594s   Epoch 8/500 [1.6%] - train_loss: 2.301594 - val_loss: 2.301099 - ETA: 591s   Epoch 9/500 [1.8%] - train_loss: 2.302329 - val_loss: 2.301950 - ETA: 586s   Epoch 10/500 [2.0%] - train_loss: 2.301624 - val_loss: 2.301664 - ETA: 584s   
-Epoch 11/500 [2.2%] - train_loss: 2.301745 - val_loss: 2.301319 - ETA: 581s   Epoch 12/500 [2.4%] - train_loss: 2.303298 - val_loss: 2.303037 - ETA: 578s   Epoch 13/500 [2.6%] - train_loss: 2.302324 - val_loss: 2.301943 - ETA: 576s   Epoch 14/500 [2.8%] - train_loss: 2.301752 - val_loss: 2.301999 - ETA: 574s   Epoch 15/500 [3.0%] - train_loss: 2.302419 - val_loss: 2.302403 - ETA: 572s   Epoch 16/500 [3.2%] - train_loss: 2.302085 - val_loss: 2.301473 - ETA: 571s   Epoch 17/500 [3.4%] - train_loss: 2.301719 - val_loss: 2.301829 - ETA: 569s   Epoch 18/500 [3.6%] - train_loss: 2.302555 - val_loss: 2.301863 - ETA: 567s   Epoch 19/500 [3.8%] - train_loss: 2.302392 - val_loss: 2.301286 - ETA: 566s   Epoch 20/500 [4.0%] - train_loss: 2.302119 - val_loss: 2.301950 - ETA: 564s   
-Epoch 21/500 [4.2%] - train_loss: 2.302647 - val_loss: 2.302620 - ETA: 563s   Epoch 22/500 [4.4%] - train_loss: 2.302269 - val_loss: 2.302362 - ETA: 561s   Epoch 23/500 [4.6%] - train_loss: 2.302169 - val_loss: 2.301628 - ETA: 561s   Epoch 24/500 [4.8%] - train_loss: 2.302387 - val_loss: 2.301232 - ETA: 560s   Epoch 25/500 [5.0%] - train_loss: 2.301780 - val_loss: 2.301330 - ETA: 560s   
-📉 LR Scheduler: Epoch 25 - Plateau detected, reducing LR 0.010000 → 0.005000
-Epoch 26/500 [5.2%] - train_loss: 2.302136 - val_loss: 2.302120 - ETA: 559s   Epoch 27/500 [5.4%] - train_loss: 2.301694 - val_loss: 2.301060 - ETA: 557s   Epoch 28/500 [5.6%] - train_loss: 2.302136 - val_loss: 2.301639 - ETA: 556s   Epoch 29/500 [5.8%] - train_loss: 2.301232 - val_loss: 2.301587 - ETA: 554s   Epoch 30/500 [6.0%] - train_loss: 2.301798 - val_loss: 2.301451 - ETA: 553s   
-Epoch 31/500 [6.2%] - train_loss: 2.302109 - val_loss: 2.301893 - ETA: 552s   Epoch 32/500 [6.4%] - train_loss: 2.301871 - val_loss: 2.301467 - ETA: 550s   Epoch 33/500 [6.6%] - train_loss: 2.301311 - val_loss: 2.301743 - ETA: 549s   Epoch 34/500 [6.8%] - train_loss: 2.301652 - val_loss: 2.301284 - ETA: 548s   Epoch 35/500 [7.0%] - train_loss: 2.301553 - val_loss: 2.301419 - ETA: 546s   Epoch 36/500 [7.2%] - train_loss: 2.301674 - val_loss: 2.301568 - ETA: 545s   Epoch 37/500 [7.4%] - train_loss: 2.302069 - val_loss: 2.300875 - ETA: 545s   Epoch 38/500 [7.6%] - train_loss: 2.301333 - val_loss: 2.300876 - ETA: 543s   Epoch 39/500 [7.8%] - train_loss: 2.301212 - val_loss: 2.301183 - ETA: 543s   Epoch 40/500 [8.0%] - train_loss: 2.300881 - val_loss: 2.301405 - ETA: 541s   
-Epoch 41/500 [8.2%] - train_loss: 2.300765 - val_loss: 2.301487 - ETA: 540s   Epoch 42/500 [8.4%] - train_loss: 2.301508 - val_loss: 2.300959 - ETA: 538s   Epoch 43/500 [8.6%] - train_loss: 2.301309 - val_loss: 2.301520 - ETA: 539s   Epoch 44/500 [8.8%] - train_loss: 2.301507 - val_loss: 2.301434 - ETA: 537s   Epoch 45/500 [9.0%] - train_loss: 2.301888 - val_loss: 2.301654 - ETA: 536s   Epoch 46/500 [9.2%] - train_loss: 2.301393 - val_loss: 2.301198 - ETA: 537s   Epoch 47/500 [9.4%] - train_loss: 2.301525 - val_loss: 2.301580 - ETA: 536s   Epoch 48/500 [9.6%] - train_loss: 2.301381 - val_loss: 2.301792 - ETA: 534s   Epoch 49/500 [9.8%] - train_loss: 2.301439 - val_loss: 2.301413 - ETA: 533s   Epoch 50/500 [10.0%] - train_loss: 2.301054 - val_loss: 2.301296 - ETA: 532s   
-
-⚠️ EarlyStopping: Stopped at epoch 50 (best epoch: 0, loss: 2.301891)
-✅ Entraînement terminé en 60.33s
-
-   ✅ Training completed in 51 epochs
-   Final loss - Train: 2.301197 | Val: 2.301697
-
-📊 Evaluating...
-
-   ResNet-MNIST Classification Results:
-   ┌─────────────────────────────────────┐
-   │  Correct: 1586/14000 (11.33%)      │
-   └─────────────────────────────────────┘
-
-💾 Saving model...
-
-   ✅ Model saved to src/resnet_model.bin
-   📊 Accuracy: 11.33%
-
-╔══════════════════════════════════════════════════════════════╗
-║              ResNet-MNIST Training Complete! 🎉              ║
-╚══════════════════════════════════════════════════════════════╝
+Epoch   1/10: train_loss=1.2246, train_acc=74.33%, val_loss=0.4328, val_acc=92.54%

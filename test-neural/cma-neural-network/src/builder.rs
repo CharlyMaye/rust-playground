@@ -125,12 +125,12 @@ impl NetworkBuilder {
         let hidden_activations: Vec<Activation> =
             self.hidden_layers.iter().map(|(_, act)| *act).collect();
 
-        // Déterminer les initialisations
+        // Determine initializations
         let (hidden_inits, output_init) = if let Some(init) = self.weight_init {
-            // Utiliser la même initialisation pour toutes les couches
+            // Use the same initialization for all layers
             (vec![init; hidden_sizes.len()], init)
         } else {
-            // Initialisation automatique basée sur l'activation
+            // Automatic initialization based on activation
             let hidden_inits: Vec<WeightInit> = hidden_activations
                 .iter()
                 .map(|&act| WeightInit::for_activation(act))
@@ -151,7 +151,7 @@ impl NetworkBuilder {
             self.optimizer,
         );
 
-        // Appliquer dropout si configuré
+        // Apply dropout if configured
         if let Some(rate) = self.dropout_rate {
             use crate::network::DropoutConfig;
             let num_layers = network.layers.len();
@@ -160,7 +160,7 @@ impl NetworkBuilder {
             }
         }
 
-        // Appliquer régularisation (priorité: elastic_net > l2 > l1)
+        // Apply regularization (priority: elastic_net > l2 > l1)
         use crate::network::RegularizationType;
         if let Some((l1_ratio, lambda)) = self.elastic_net {
             network.regularization = RegularizationType::elastic_net(l1_ratio, lambda);

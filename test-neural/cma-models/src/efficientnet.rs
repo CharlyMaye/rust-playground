@@ -1,21 +1,21 @@
 //! # EfficientNet (Tan & Le, 2019)
 //!
-//! Architecture état de l'art utilisant le "compound scaling" pour équilibrer
-//! profondeur, largeur et résolution de manière optimale.
+//! State-of-the-art architecture using "compound scaling" to optimally balance
+//! depth, width, and resolution.
 //!
-//! ## Paper Original
+//! ## Original Paper
 //!
 //! **"EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks"**
 //! Mingxing Tan, Quoc V. Le
 //! ICML 2019
 //! https://arxiv.org/abs/1905.11946
 //!
-//! ## Innovation Clé: Compound Scaling
+//! ## Key Innovation: Compound Scaling
 //!
 //! Scaling traditionnel vs EfficientNet:
 //!
 //! ```text
-//! Traditionnel:          EfficientNet:
+//! Traditional:           EfficientNet:
 //! ┌─────────┐            ┌─────────────────────┐
 //! │ Deeper  │            │                     │
 //! │   OR    │     vs     │ Depth × Width ×     │
@@ -35,7 +35,7 @@
 //!
 //! ## Famille EfficientNet
 //!
-//! | Modèle | Resolution | Params | Top-1 Acc |
+//! | Model | Resolution | Params | Top-1 Acc |
 //! |--------|------------|--------|-----------|
 //! | B0 | 224 | 5.3M | 77.3% |
 //! | B1 | 240 | 7.8M | 79.2% |
@@ -85,18 +85,18 @@ use serde::{Deserialize, Serialize};
 
 use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, GlobalAvgPool2D, Layer, Sequential, Tensor4D};
 
-/// Configuration EfficientNet
+/// EfficientNet configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EfficientNetConfig {
-    /// Nombre de classes
+    /// Number of classes
     pub num_classes: usize,
-    /// Résolution d'entrée
+    /// Input resolution
     pub input_size: usize,
-    /// Canaux d'entrée
+    /// Input channels
     pub in_channels: usize,
-    /// Coefficient de largeur (width multiplier)
+    /// Width coefficient (width multiplier)
     pub width_mult: Float,
-    /// Coefficient de profondeur (depth multiplier)
+    /// Depth coefficient (depth multiplier)
     pub depth_mult: Float,
     /// Dropout rate
     pub dropout_rate: Float,
@@ -139,7 +139,7 @@ impl EfficientNetConfig {
         }
     }
 
-    /// Version mini pour CIFAR-10
+    /// Mini version for CIFAR-10
     pub fn cifar10() -> Self {
         Self {
             num_classes: 10,
@@ -151,12 +151,12 @@ impl EfficientNetConfig {
         }
     }
 
-    /// Applique le width multiplier
+    /// Applies the width multiplier
     fn scale_width(&self, channels: usize) -> usize {
         ((channels as Float * self.width_mult).ceil() as usize).max(1)
     }
 
-    /// Applique le depth multiplier
+    /// Applies the depth multiplier
     fn scale_depth(&self, num_layers: usize) -> usize {
         ((num_layers as Float * self.depth_mult).ceil() as usize).max(1)
     }
@@ -164,18 +164,18 @@ impl EfficientNetConfig {
 
 /// MBConv Block (Mobile Inverted Bottleneck Convolution)
 ///
-/// Utilisé dans MobileNetV2 et EfficientNet.
+/// Used in MobileNetV2 and EfficientNet.
 ///
 /// # Architecture
 ///
-/// 1. **Expansion**: Conv 1×1 pour augmenter les channels (si expand_ratio > 1)
-/// 2. **Depthwise**: Conv dépthwise (k×k par channel)
-/// 3. **Squeeze-Excitation**: Attention spatiale
-/// 4. **Projection**: Conv 1×1 pour réduire les channels
-/// 5. **Skip connection**: si stride=1 et in_ch == out_ch
+/// 1. **Expansion**: Conv 1×1 to increase channels (if expand_ratio > 1)
+/// 2. **Depthwise**: Depthwise conv (k×k per channel)
+/// 3. **Squeeze-Excitation**: Spatial attention
+/// 4. **Projection**: Conv 1×1 to reduce channels
+/// 5. **Skip connection**: if stride=1 and in_ch == out_ch
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MBConvBlock {
-    /// Expansion conv 1×1 (si expand_ratio > 1)
+    /// Expansion conv 1×1 (if expand_ratio > 1)
     pub expand_conv: Option<Sequential>,
     /// Depthwise conv
     pub depthwise_conv: Sequential,
@@ -193,15 +193,15 @@ pub struct MBConvBlock {
 }
 
 impl MBConvBlock {
-    /// Crée un bloc MBConv
+    /// Creates an MBConv block
     ///
     /// # Arguments
-    /// * `in_channels` - Canaux d'entrée
-    /// * `out_channels` - Canaux de sortie
-    /// * `kernel_size` - Taille du kernel depthwise (3 ou 5)
-    /// * `stride` - Stride (1 ou 2)
-    /// * `expand_ratio` - Ratio d'expansion (1 ou 6)
-    /// * `use_se` - Utiliser Squeeze-and-Excitation
+    /// * `in_channels` - Input channels
+    /// * `out_channels` - Output channels
+    /// * `kernel_size` - Depthwise kernel size (3 or 5)
+    /// * `stride` - Stride (1 or 2)
+    /// * `expand_ratio` - Expansion ratio (1 or 6)
+    /// * `use_se` - Use Squeeze-and-Excitation
     pub fn new(
         in_channels: usize,
         out_channels: usize,
@@ -226,8 +226,8 @@ impl MBConvBlock {
         };
 
         // Depthwise phase
-        // Note: On simule depthwise avec groups=expanded_channels
-        // Pour simplifier, on utilise une conv normale ici
+        // Note: We simulate depthwise with groups=expanded_channels
+        // For simplicity, we use a standard conv here
         let depthwise_conv = Sequential::new()
             .add_conv2d(
                 Conv2D::new(
@@ -257,7 +257,7 @@ impl MBConvBlock {
             .add_conv2d(Conv2D::new(expanded_channels, out_channels, 1, 1, 0).without_bias())
             .add_batchnorm(BatchNorm2D::new(out_channels));
 
-        // Skip connection si stride=1 et même channels
+        // Skip connection if stride=1 and same channels
         let use_skip = stride == 1 && in_channels == out_channels;
 
         Self {
@@ -301,7 +301,7 @@ impl MBConvBlock {
         x
     }
 
-    /// Nombre de paramètres
+    /// Number of parameters
     pub fn num_parameters(&self) -> usize {
         let mut params = 0;
 
@@ -320,7 +320,7 @@ impl MBConvBlock {
 
 /// Squeeze-and-Excitation Block
 ///
-/// Attention mechanism qui recalibre les feature maps par channel.
+/// Attention mechanism that recalibrates feature maps per channel.
 ///
 /// ```text
 /// x ──► GlobalAvgPool ──► FC ──► ReLU ──► FC ──► Sigmoid ──► Scale ──► out
@@ -329,9 +329,9 @@ impl MBConvBlock {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SqueezeExcitation {
-    /// FC pour réduction
-    pub fc1: Conv2D, // Implémenté comme Conv 1×1
-    /// FC pour expansion
+    /// FC for reduction
+    pub fc1: Conv2D, // Implemented as Conv 1×1
+    /// FC for expansion
     pub fc2: Conv2D,
     pub channels: usize,
     pub reduction: usize,
@@ -339,7 +339,7 @@ pub struct SqueezeExcitation {
 
 impl SqueezeExcitation {
     pub fn new(channels: usize, reduced_channels: usize) -> Self {
-        // Utilisé comme 1×1 conv sur 1×1 feature map
+        // Used as 1×1 conv on 1×1 feature map
         let fc1 = Conv2D::new(channels, reduced_channels, 1, 1, 0);
         let fc2 = Conv2D::new(reduced_channels, channels, 1, 1, 0);
 
@@ -389,7 +389,7 @@ impl SqueezeExcitation {
     }
 }
 
-/// EfficientNet-B0: Architecture baseline
+/// EfficientNet-B0: Baseline architecture
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EfficientNetB0 {
     /// Stem conv
@@ -403,14 +403,14 @@ pub struct EfficientNetB0 {
 }
 
 impl EfficientNetB0 {
-    /// Crée EfficientNet-B0 pour ImageNet
+    /// Creates EfficientNet-B0 for ImageNet
     pub fn new(num_classes: usize) -> Self {
         let mut config = EfficientNetConfig::b0();
         config.num_classes = num_classes;
         Self::with_config(config)
     }
 
-    /// Crée avec configuration
+    /// Creates with configuration
     pub fn with_config(config: EfficientNetConfig) -> Self {
         // Stem: Conv3×3, stride 2
         let stem_channels = config.scale_width(32);
@@ -486,7 +486,7 @@ impl EfficientNetB0 {
         self.head.forward(&x)
     }
 
-    /// Nombre de paramètres
+    /// Number of parameters
     pub fn num_parameters(&self) -> usize {
         let mut params = self.stem.num_parameters();
 
@@ -500,7 +500,7 @@ impl EfficientNetB0 {
         params
     }
 
-    /// Affiche le résumé
+    /// Prints the summary
     pub fn summary(&self) {
         println!("EfficientNet-B0");
         println!("{}", "=".repeat(50));
@@ -521,7 +521,7 @@ impl EfficientNetB0 {
         println!("Total params: {}", self.num_parameters());
     }
 
-    /// Taille de sortie (features)
+    /// Output size (features)
     pub fn output_size(&self) -> usize {
         self.config.scale_width(1280)
     }

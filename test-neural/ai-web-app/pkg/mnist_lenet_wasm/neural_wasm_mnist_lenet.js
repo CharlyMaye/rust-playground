@@ -15,7 +15,6 @@ export class MnistLeNetNetwork {
         wasm.__wbg_mnistlenetnetwork_free(ptr, 0);
     }
     /**
-     * Get architecture summary
      * @returns {string}
      */
     get_architecture() {
@@ -31,7 +30,6 @@ export class MnistLeNetNetwork {
         }
     }
     /**
-     * Get class names (digits 0-9)
      * @returns {string}
      */
     get_class_names() {
@@ -47,7 +45,6 @@ export class MnistLeNetNetwork {
         }
     }
     /**
-     * Get class probabilities for 784 pixels
      * @param {Float32Array} pixels
      * @returns {string}
      */
@@ -66,7 +63,6 @@ export class MnistLeNetNetwork {
         }
     }
     /**
-     * Get FC classifier weights and biases as JSON
      * @returns {string}
      */
     get_weights() {
@@ -82,7 +78,6 @@ export class MnistLeNetNetwork {
         }
     }
     /**
-     * Get model info with accuracy and metadata
      * @returns {string}
      */
     model_info() {
@@ -110,9 +105,6 @@ export class MnistLeNetNetwork {
         return this;
     }
     /**
-     * Predict MNIST digit from pixel array using LeNet-5 CNN
-     * Accepts 784 pixels (28x28 image)
-     * Returns JSON with digit prediction (0-9), probabilities, and confidence
      * @param {Float32Array} pixels
      * @returns {string}
      */
@@ -131,7 +123,6 @@ export class MnistLeNetNetwork {
         }
     }
     /**
-     * Test with sample MNIST digits
      * @returns {string}
      */
     test_all() {
@@ -149,9 +140,6 @@ export class MnistLeNetNetwork {
 }
 if (Symbol.dispose) MnistLeNetNetwork.prototype[Symbol.dispose] = MnistLeNetNetwork.prototype.free;
 
-/**
- * Initialize the module
- */
 export function main() {
     wasm.main();
 }

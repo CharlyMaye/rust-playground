@@ -4,6 +4,13 @@ Ce projet est une bibliothèque de réseaux de neurones en Rust, conçue pour la
 
 ## 🎯 Principes Fondamentaux
 
+### 0. English Only
+
+- **All code in English** : variable names, function names, type names, struct fields
+- **All comments in English** : `//`, `///`, `//!`, doc comments, TODOs
+- **All strings in English** : error messages, log messages, println output
+- **No French anywhere in source code**
+
 ### 1. Clean Code
 
 - **Noms explicites** : Utiliser des noms de variables, fonctions et types descriptifs
@@ -12,6 +19,21 @@ Ce projet est une bibliothèque de réseaux de neurones en Rust, conçue pour la
 - **DRY** : Ne pas répéter le code, factoriser
 - **Documentation** : Documenter les fonctions publiques avec `///`
 - **Tests** : Chaque fonctionnalité doit avoir des tests unitaires
+
+### 2. Builder Pattern Obligatoire
+
+- **Toujours privilégier le pattern Builder** pour la construction d'objets complexes (modèles, trainers, configs)
+- **API fluide** : chaîner les méthodes `.method()` plutôt qu'exposer des fonctions avec beaucoup de paramètres
+- **Pas de fonctions à 4+ arguments** : si une fonction a trop de paramètres, créer un builder
+- **Pas de backward compatibility** : quand un builder remplace une ancienne API, supprimer l'ancienne API entièrement (ne pas garder les deux)
+
+### 3. Refactoring Complet
+
+- **Jamais de demi-refacto** : une refactorisation doit être menée à terme — tous les call sites, tests, exports et documentation doivent être mis à jour
+- **Supprimer le code mort** : après refacto, supprimer les anciennes fonctions, structs et exports devenus inutiles. Ne pas les garder "au cas où"
+- **Pas de `pub` inutile** : si un symbole n'est plus utilisé en dehors du module, retirer `pub` ou le supprimer
+- **Mettre à jour les tests** : les tests doivent utiliser la nouvelle API, pas l'ancienne
+- **Ne jamais simplifier en supprimant des fonctionnalités** : une refacto améliore le design sans réduire les capacités
 
 ### 2. Performance First
 

@@ -21,6 +21,7 @@ neural-wasm-shared = { path = "../shared" }
 cma-neural-network = { path = "../../cma-neural-network" }
 cma-cnn = { path = "../../cma-cnn" }
 cma-models = { path = "../../cma-models" }
+cma-autograd = { path = "../../cma-autograd", features = ["export"], optional = true }
 ndarray = { version = "0.17.1", features = ["serde"] }
 bincode = "1.3"
 console_error_panic_hook = { version = "0.1", optional = true }
@@ -33,7 +34,7 @@ chrono = { version = "0.4", optional = true }
 [features]
 default = ["console_error_panic_hook"]
 # Training feature enables CSV loading, chrono, and parallel processing
-training = ["csv", "chrono", "cma-cnn/parallel", "cma-neural-network/parallel"]
+training = ["csv", "chrono", "cma-cnn/parallel", "cma-neural-network/parallel", "cma-autograd"]
 
 [profile.release]
 opt-level = "s"

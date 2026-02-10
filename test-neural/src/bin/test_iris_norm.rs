@@ -13,7 +13,7 @@ fn main() {
         println!("   Means: {:?}", norm.means);
         println!("   Stds: {:?}", norm.stds);
 
-        // Test avec Setosa typique
+        // Test with typical Setosa
         let raw = [5.0 as Float, 3.5, 1.4, 0.2];
         let normalized = norm.normalize(&raw);
         println!("\n🌸 Setosa test (5.0, 3.5, 1.4, 0.2):");
@@ -22,7 +22,7 @@ fn main() {
             normalized[0], normalized[1], normalized[2], normalized[3]
         );
 
-        // Prédiction
+        // Prediction
         let input = array![normalized[0], normalized[1], normalized[2], normalized[3]];
         let output = model.network.predict(&input);
         println!(

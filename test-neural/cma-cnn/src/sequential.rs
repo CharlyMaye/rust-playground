@@ -1,6 +1,6 @@
 //! # Sequential Container
 //!
-//! Container pour empiler des couches séquentiellement.
+//! Container for stacking layers sequentially.
 //!
 //! ## Exemple
 //!
@@ -22,7 +22,7 @@ use crate::layers::{
 };
 use crate::tensor::{Tensor4D, TensorShape};
 
-/// Couche boxée pour stockage hétérogène
+/// Boxed layer for heterogeneous storage
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BoxedLayer {
     Conv2D(Conv2D),
@@ -50,11 +50,11 @@ impl BoxedLayer {
     }
 }
 
-/// Container séquentiel pour empiler des couches
+/// Sequential container for stacking layers
 ///
 /// # Architecture
 ///
-/// Les couches sont exécutées dans l'ordre d'ajout:
+/// Layers are executed in the order they were added:
 /// ```text
 /// Input → Layer1 → Layer2 → ... → LayerN → Output
 /// ```
@@ -77,12 +77,12 @@ impl BoxedLayer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Sequential {
     layers: Vec<BoxedLayer>,
-    /// Nom du modèle (pour debug/logging)
+    /// Model name (for debug/logging)
     name: String,
 }
 
 impl Sequential {
-    /// Crée un nouveau Sequential vide
+    /// Creates a new empty Sequential
     pub fn new() -> Self {
         Self {
             layers: Vec::new(),
@@ -90,7 +90,7 @@ impl Sequential {
         }
     }
 
-    /// Crée un Sequential avec un nom personnalisé
+    /// Creates a Sequential with a custom name
     pub fn named(name: &str) -> Self {
         Self {
             layers: Vec::new(),
@@ -98,56 +98,56 @@ impl Sequential {
         }
     }
 
-    /// Ajoute une couche Conv2D
+    /// Adds a Conv2D layer
     pub fn add_conv2d(mut self, layer: Conv2D) -> Self {
         self.layers.push(BoxedLayer::Conv2D(layer));
         self
     }
 
-    /// Ajoute une couche MaxPool2D
+    /// Adds a MaxPool2D layer
     pub fn add_maxpool(mut self, layer: MaxPool2D) -> Self {
         self.layers.push(BoxedLayer::MaxPool2D(layer));
         self
     }
 
-    /// Ajoute une couche AvgPool2D
+    /// Adds an AvgPool2D layer
     pub fn add_avgpool(mut self, layer: AvgPool2D) -> Self {
         self.layers.push(BoxedLayer::AvgPool2D(layer));
         self
     }
 
-    /// Ajoute une couche GlobalAvgPool2D
+    /// Adds a GlobalAvgPool2D layer
     pub fn add_global_avgpool(mut self) -> Self {
         self.layers
             .push(BoxedLayer::GlobalAvgPool2D(GlobalAvgPool2D::new()));
         self
     }
 
-    /// Ajoute une couche BatchNorm2D
+    /// Adds a BatchNorm2D layer
     pub fn add_batchnorm(mut self, layer: BatchNorm2D) -> Self {
         self.layers.push(BoxedLayer::BatchNorm2D(layer));
         self
     }
 
-    /// Ajoute une couche Dropout2D
+    /// Adds a Dropout2D layer
     pub fn add_dropout(mut self, layer: Dropout2D) -> Self {
         self.layers.push(BoxedLayer::Dropout2D(layer));
         self
     }
 
-    /// Ajoute une couche Flatten
+    /// Adds a Flatten layer
     pub fn add_flatten(mut self) -> Self {
         self.layers.push(BoxedLayer::Flatten(Flatten::new()));
         self
     }
 
-    /// Ajoute une couche d'activation
+    /// Adds an activation layer
     pub fn add_activation(mut self, layer: ActivationLayer) -> Self {
         self.layers.push(BoxedLayer::Activation(layer));
         self
     }
 
-    /// Raccourci: Conv2D + ReLU
+    /// Shortcut: Conv2D + ReLU
     pub fn add_conv_relu(
         self,
         in_ch: usize,
@@ -160,7 +160,7 @@ impl Sequential {
             .add_activation(ActivationLayer::relu())
     }
 
-    /// Raccourci: Conv2D + BatchNorm + ReLU
+    /// Shortcut: Conv2D + BatchNorm + ReLU
     pub fn add_conv_bn_relu(
         self,
         in_ch: usize,
@@ -174,12 +174,12 @@ impl Sequential {
             .add_activation(ActivationLayer::relu())
     }
 
-    /// Propagation avant (version avec référence, clone nécessaire)
+    /// Forward propagation (reference version, clone required)
     pub fn forward(&self, input: &Tensor4D) -> Tensor4D {
         self.forward_owned(input.clone())
     }
 
-    /// Propagation avant optimisée (prend ownership, évite le clone)
+    /// Optimized forward propagation (takes ownership, avoids clone)
     pub fn forward_owned(&self, input: Tensor4D) -> Tensor4D {
         let mut x = input;
         for layer in &self.layers {
@@ -188,19 +188,19 @@ impl Sequential {
         x
     }
 
-    /// Propagation avant par batch avec réutilisation mémoire
+    /// Batch forward propagation with memory reuse
     ///
-    /// Optimisé pour l'inférence sur plusieurs batches consécutifs.
-    /// Évite les allocations répétées en traitant les données in-place.
+    /// Optimized for inference over multiple consecutive batches.
+    /// Avoids repeated allocations by processing data in-place.
     ///
     /// # Arguments
-    /// * `inputs` - Itérateur sur les tenseurs d'entrée
-    /// * `callback` - Fonction appelée avec chaque résultat (évite de stocker tous les résultats)
+    /// * `inputs` - Iterator over input tensors
+    /// * `callback` - Function called with each result (avoids storing all results)
     ///
     /// # Exemple
     /// ```rust,ignore
     /// model.forward_batches(test_data.iter(), |batch_idx, output| {
-    ///     // Traite chaque sortie sans stocker toutes en mémoire
+    ///     // Process each output without storing all in memory
     ///     predictions.extend(output.data().iter().copied());
     /// });
     /// ```
@@ -215,10 +215,10 @@ impl Sequential {
         }
     }
 
-    /// Propagation avant avec collecte des résultats
+    /// Forward propagation with result collection
     ///
-    /// Version pratique qui retourne tous les résultats.
-    /// Pour de très grands datasets, préférer `forward_batches` avec callback.
+    /// Convenient version that returns all results.
+    /// For very large datasets, prefer `forward_batches` with callback.
     pub fn forward_all<I>(&self, inputs: I) -> Vec<Tensor4D>
     where
         I: Iterator<Item = Tensor4D>,
@@ -226,7 +226,7 @@ impl Sequential {
         inputs.map(|input| self.forward_owned(input)).collect()
     }
 
-    /// Nombre total de paramètres
+    /// Total parameter count
     pub fn num_parameters(&self) -> usize {
         self.layers
             .iter()
@@ -234,12 +234,12 @@ impl Sequential {
             .sum()
     }
 
-    /// Nombre de couches
+    /// Number of layers
     pub fn num_layers(&self) -> usize {
         self.layers.len()
     }
 
-    /// Calcule la shape de sortie pour une shape d'entrée donnée
+    /// Computes the output shape for a given input shape
     pub fn output_shape(&self, input_shape: TensorShape) -> TensorShape {
         let mut shape = input_shape;
         for layer in &self.layers {
@@ -248,7 +248,7 @@ impl Sequential {
         shape
     }
 
-    /// Affiche un résumé du modèle (style Keras)
+    /// Prints a model summary (Keras style)
     pub fn summary(&self, input_shape: TensorShape) {
         println!("Model: {}", self.name);
         println!("{}", "=".repeat(70));
@@ -282,7 +282,7 @@ impl Sequential {
         println!("{}", "=".repeat(70));
     }
 
-    /// Passe en mode évaluation (désactive dropout, utilise running stats pour BatchNorm)
+    /// Switches to evaluation mode (disables dropout, uses running stats for BatchNorm)
     pub fn eval_mode(&mut self) {
         for layer in &mut self.layers {
             match layer {
@@ -293,7 +293,7 @@ impl Sequential {
         }
     }
 
-    /// Passe en mode entraînement
+    /// Switches to training mode
     pub fn train_mode(&mut self) {
         for layer in &mut self.layers {
             match layer {
@@ -304,7 +304,7 @@ impl Sequential {
         }
     }
 
-    /// Accès aux couches
+    /// Access to layers
     pub fn layers(&self) -> &[BoxedLayer] {
         &self.layers
     }

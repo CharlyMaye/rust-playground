@@ -1,7 +1,7 @@
-//! # Exemple AlexNet: Révolution Deep Learning (Krizhevsky et al., 2012)
+//! # AlexNet Example: Deep Learning Revolution (Krizhevsky et al., 2012)
 //!
-//! Cet exemple reproduit l'architecture AlexNet qui a déclenché la révolution
-//! du Deep Learning en gagnant le challenge ImageNet LSVRC-2012.
+//! This example reproduces the AlexNet architecture that triggered the revolution
+//! of Deep Learning by winning the ImageNet LSVRC-2012 challenge.
 //!
 //! ## Paper Citation
 //!
@@ -15,23 +15,23 @@
 //! }
 //! ```
 //!
-//! ## Impact Historique
+//! ## Historical Impact
 //!
-//! AlexNet a réduit le top-5 error de 26% à 15.3% sur ImageNet, une amélioration
-//! sans précédent qui a convaincu la communauté de la puissance du deep learning.
+//! AlexNet reduced the top-5 error from 26% to 15.3% on ImageNet, an unprecedented
+//! improvement that convinced the community of the power of deep learning.
 //!
-//! ## Architecture Originale
+//! ## Original Architecture
 //!
 //! ```text
 //! ┌─────────────────────────────────────────────────────────────────────────┐
-//! │ INPUT: 227×227×3 RGB image (redimensionnée depuis 256×256)              │
+//! │ INPUT: 227×227×3 RGB image (resized from 256×256)                       │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ CONV1: 96 kernels 11×11, stride 4                                       │
 //! │        Output: 55×55×96                                                 │
-//! │        Paramètres: 11×11×3×96 + 96 = 34,944                             │
-//! │        + ReLU (première utilisation massive!)                           │
+//! │        Parameters: 11×11×3×96 + 96 = 34,944                            │
+//! │        + ReLU (first massive use!)                                      │
 //! │        + LRN (Local Response Normalization)                             │
 //! │        + MaxPool 3×3, stride 2 → 27×27×96                               │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
@@ -39,29 +39,29 @@
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ CONV2: 256 kernels 5×5, padding 2                                       │
 //! │        Output: 27×27×256                                                │
-//! │        Paramètres: 5×5×96×256 + 256 = 614,656                           │
-//! │        Note: Dans le paper, split sur 2 GPUs (48 channels chacun)       │
+//! │        Parameters: 5×5×96×256 + 256 = 614,656                          │
+//! │        Note: In the paper, split across 2 GPUs (48 channels each)      │
 //! │        + ReLU + LRN + MaxPool 3×3/2 → 13×13×256                         │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ CONV3: 384 kernels 3×3, padding 1                                       │
 //! │        Output: 13×13×384                                                │
-//! │        Paramètres: 3×3×256×384 + 384 = 885,120                          │
-//! │        + ReLU (pas de pooling après Conv3)                              │
+//! │        Parameters: 3×3×256×384 + 384 = 885,120                         │
+//! │        + ReLU (no pooling after Conv3)                                  │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ CONV4: 384 kernels 3×3, padding 1                                       │
 //! │        Output: 13×13×384                                                │
-//! │        Paramètres: 3×3×384×384 + 384 = 1,327,488                        │
+//! │        Parameters: 3×3×384×384 + 384 = 1,327,488                       │
 //! │        + ReLU                                                           │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ CONV5: 256 kernels 3×3, padding 1                                       │
 //! │        Output: 13×13×256                                                │
-//! │        Paramètres: 3×3×384×256 + 256 = 884,992                          │
+//! │        Parameters: 3×3×384×256 + 256 = 884,992                         │
 //! │        + ReLU + MaxPool 3×3/2 → 6×6×256                                 │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
@@ -71,34 +71,34 @@
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ FC6: 9,216 → 4,096                                                      │
-//! │      Paramètres: 9,216×4,096 + 4,096 = 37,752,832                       │
+//! │      Parameters: 9,216×4,096 + 4,096 = 37,752,832                      │
 //! │      + ReLU + Dropout(0.5)                                              │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ FC7: 4,096 → 4,096                                                      │
-//! │      Paramètres: 4,096×4,096 + 4,096 = 16,781,312                       │
+//! │      Parameters: 4,096×4,096 + 4,096 = 16,781,312                      │
 //! │      + ReLU + Dropout(0.5)                                              │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ FC8: 4,096 → 1,000 (ImageNet classes)                                   │
-//! │      Paramètres: 4,096×1,000 + 1,000 = 4,097,000                        │
+//! │      Parameters: 4,096×1,000 + 1,000 = 4,097,000                       │
 //! │      + Softmax                                                          │
 //! └─────────────────────────────────────────────────────────────────────────┘
 //!
-//! TOTAL: ~62 millions de paramètres
+//! TOTAL: ~62 million parameters
 //! - Conv layers: ~3.7M (6%)
 //! - FC layers: ~58.6M (94%)
 //! ```
 //!
-//! ## Innovations Clés (2012)
+//! ## Key Innovations (2012)
 //!
-//! 1. **ReLU**: Première utilisation massive, 6× plus rapide que tanh
-//! 2. **Dropout**: Première régularisation efficace contre l'overfitting
-//! 3. **GPU Training**: Parallélisation sur 2 NVIDIA GTX 580 (3GB chacun)
+//! 1. **ReLU**: First massive use, 6× faster than tanh
+//! 2. **Dropout**: First effective regularization against overfitting
+//! 3. **GPU Training**: Parallelization across 2 NVIDIA GTX 580 (3GB each)
 //! 4. **Data Augmentation**: Random crops, flips, color augmentation
-//! 5. **Local Response Normalization**: Normalisation locale (remplacé par BatchNorm)
+//! 5. **Local Response Normalization**: Local normalization (replaced by BatchNorm)
 
 use cma_cnn::{Tensor4D, TensorShape};
 use cma_models::alexnet::{AlexNet, AlexNetConfig};
@@ -111,7 +111,7 @@ fn main() {
     println!();
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Version CIFAR-10 (32×32) - Utilisable sur CPU
+    // CIFAR-10 version (32×32) - Usable on CPU
     // ═══════════════════════════════════════════════════════════════════════
 
     println!("┌─────────────────────────────────────────────────────────────────┐");
@@ -121,7 +121,7 @@ fn main() {
 
     let alexnet_cifar = AlexNet::with_config(AlexNetConfig::cifar10());
 
-    println!("Architecture (adaptée pour 32×32):");
+    println!("Architecture (adapted for 32×32):");
     alexnet_cifar.summary();
 
     // Forward pass
@@ -132,18 +132,18 @@ fn main() {
     println!("Forward pass:");
     println!("  Input:  [16, 3, 32, 32] (batch=16, RGB, 32×32)");
     println!(
-        "  Output: {:?} (features pour classifieur FC)",
+        "  Output: {:?} (features for FC classifier)",
         features.shape()
     );
-    println!("  Paramètres (conv): {}", alexnet_cifar.num_parameters());
+    println!("  Parameters (conv): {}", alexnet_cifar.num_parameters());
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Version Medium (64×64)
+    // Medium version (64×64)
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ AlexNet-Medium: Pour images 64×64                               │");
+    println!("│ AlexNet-Medium: For 64×64 images                                │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
 
@@ -155,70 +155,70 @@ fn main() {
     println!("Forward pass:");
     println!("  Input:  [4, 3, 64, 64]");
     println!("  Output: {:?}", features_64.shape());
-    println!("  Paramètres: {}", alexnet_medium.num_parameters());
+    println!("  Parameters: {}", alexnet_medium.num_parameters());
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Innovations du Paper
+    // Paper Innovations
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Innovations Clés du Paper (2012)                                │");
+    println!("│ Key Innovations of the Paper (2012)                              │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
 
-    println!("1. ReLU (Section 3.1 du paper):");
+    println!("1. ReLU (Section 3.1 of the paper):");
     println!("   ─────────────────────────────────────────────────────");
     println!("   \"Deep convolutional neural networks with ReLUs train");
     println!("    several times faster than their equivalents with tanh units.\"");
     println!();
     println!("   f(x) = max(0, x)");
     println!();
-    println!("   Avantages:");
-    println!("   - Pas de saturation pour x > 0");
-    println!("   - Gradient constant = 1 (pas de vanishing)");
-    println!("   - Calcul très simple (pas d'exp)");
+    println!("   Advantages:");
+    println!("   - No saturation for x > 0");
+    println!("   - Constant gradient = 1 (no vanishing)");
+    println!("   - Very simple computation (no exp)");
     println!();
 
-    println!("2. Dropout (Section 4.2 du paper):");
+    println!("2. Dropout (Section 4.2 of the paper):");
     println!("   ─────────────────────────────────────────────────────");
     println!("   \"Dropout consists of setting to zero the output of each");
     println!("    hidden neuron with probability 0.5.\"");
     println!();
-    println!("   Proposé par Hinton, co-auteur du paper.");
-    println!("   Appliqué dans FC6 et FC7 (pas dans les conv).");
-    println!("   Réduit l'overfitting sans augmenter le dataset.");
+    println!("   Proposed by Hinton, co-author of the paper.");
+    println!("   Applied in FC6 and FC7 (not in conv layers).");
+    println!("   Reduces overfitting without augmenting the dataset.");
     println!();
 
-    println!("3. Training sur 2 GPUs (Section 3.2 du paper):");
+    println!("3. Training on 2 GPUs (Section 3.2 of the paper):");
     println!("   ─────────────────────────────────────────────────────");
     println!("   \"Spreading the net across two GPUs...allows us to train");
     println!("    larger networks in the same time.\"");
     println!();
     println!("   - GTX 580: 3GB RAM, ~1.5 TFLOPS");
-    println!("   - Split des feature maps entre les 2 GPUs");
-    println!("   - Communication inter-GPU seulement à certaines couches");
+    println!("   - Feature maps split between the 2 GPUs");
+    println!("   - Inter-GPU communication only at certain layers");
     println!();
 
     println!("4. Local Response Normalization (Section 3.3):");
     println!("   ─────────────────────────────────────────────────────");
-    println!("   Remplacé par BatchNorm dans les architectures modernes.");
-    println!("   Notre implémentation utilise BatchNorm (plus efficace).");
+    println!("   Replaced by BatchNorm in modern architectures.");
+    println!("   Our implementation uses BatchNorm (more efficient).");
     println!();
 
     println!("5. Data Augmentation (Section 4.1):");
     println!("   ─────────────────────────────────────────────────────");
-    println!("   - Random crops 224×224 depuis 256×256");
+    println!("   - Random crops 224×224 from 256×256");
     println!("   - Horizontal flips");
     println!("   - PCA color augmentation (\"Fancy PCA\")");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Classifieur FC
+    // FC Classifier
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Classifieur FC (cma-neural-network)                             │");
+    println!("│ FC Classifier (cma-neural-network)                              │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("```rust");
@@ -227,7 +227,7 @@ fn main() {
     );
     println!();
     println!(
-        "// Pour AlexNet-Mini (CIFAR-10): {} features → 10 classes",
+        "// For AlexNet-Mini (CIFAR-10): {} features → 10 classes",
         features.shape().width
     );
     println!(
@@ -245,52 +245,52 @@ fn main() {
     println!("```");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Résultats du Paper
+    // Paper Results
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Résultats du Paper (ILSVRC-2012)                                │");
+    println!("│ Paper Results (ILSVRC-2012)                                     │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("┌────────────────────┬────────────┬────────────┬─────────────────┐");
-    println!("│ Méthode            │ Top-1 Err  │ Top-5 Err  │ Notes           │");
+    println!("│ Method             │ Top-1 Err  │ Top-5 Err  │ Notes           │");
     println!("├────────────────────┼────────────┼────────────┼─────────────────┤");
     println!("│ AlexNet (1 CNN)    │ 40.7%      │ 18.2%      │ Single model    │");
     println!("│ AlexNet (5 CNNs)   │ 38.1%      │ 16.4%      │ Ensemble        │");
     println!("│ AlexNet (7 CNNs)*  │ 36.7%      │ 15.3%      │ WINNER          │");
     println!("├────────────────────┼────────────┼────────────┼─────────────────┤");
-    println!("│ 2ème place (2012)  │ -          │ 26.2%      │ Non-DL method   │");
+    println!("│ 2nd place (2012)   │ -          │ 26.2%      │ Non-DL method   │");
     println!("└────────────────────┴────────────┴────────────┴─────────────────┘");
     println!();
-    println!("* Avec multi-crop averaging et ensemble de modèles");
+    println!("* With multi-crop averaging and model ensemble");
     println!();
-    println!("Amélioration: 26.2% → 15.3% = réduction de 41% de l'erreur!");
+    println!("Improvement: 26.2% → 15.3% = 41% error reduction!");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Héritage
+    // Legacy
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Héritage d'AlexNet                                              │");
+    println!("│ AlexNet's Legacy                                                │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
-    println!("AlexNet a influencé directement:");
-    println!("- VGG (2014): Plus profond, kernels 3×3 uniquement");
+    println!("AlexNet directly influenced:");
+    println!("- VGG (2014): Deeper, 3×3 kernels only");
     println!("- GoogLeNet (2014): Inception modules");
     println!("- ResNet (2015): Skip connections");
-    println!("- Tous les CNN modernes");
+    println!("- All modern CNNs");
     println!();
-    println!("Le succès d'AlexNet a:");
-    println!("- Relancé l'intérêt pour le deep learning");
-    println!("- Démontré l'importance du GPU computing");
-    println!("- Établi les CNN comme standard en vision");
-    println!("- Conduit à l'ère actuelle de l'IA");
+    println!("AlexNet's success has:");
+    println!("- Renewed interest in deep learning");
+    println!("- Demonstrated the importance of GPU computing");
+    println!("- Established CNNs as the standard in computer vision");
+    println!("- Led to the current era of AI");
 
     println!();
     println!("═══════════════════════════════════════════════════════════════════");
-    println!("  Fin de l'exemple AlexNet");
+    println!("  End of AlexNet example");
     println!("═══════════════════════════════════════════════════════════════════");
 }
 

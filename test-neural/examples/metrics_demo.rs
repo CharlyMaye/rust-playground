@@ -72,7 +72,7 @@ fn main() {
     println!("  {}", metrics.summary());
     println!();
     
-    // Matrice de confusion
+    // Confusion matrix
     println!("5. Confusion Matrix:");
     let conf_matrix = confusion_matrix_binary(&predictions, &targets, 0.5);
     println!("{}", format_confusion_matrix(&conf_matrix, Some(&["Neg", "Pos"])));
@@ -83,7 +83,7 @@ fn main() {
     println!("  AUC: {:.4} (1.0 = perfect, 0.5 = random)", auc);
     println!();
     
-    // Test avec différents seuils
+    // Test with different thresholds
     println!("7. Accuracy at Different Thresholds:");
     for threshold in [0.3, 0.4, 0.5, 0.6, 0.7] {
         let acc = accuracy(&predictions, &targets, threshold);

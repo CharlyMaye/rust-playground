@@ -36,124 +36,86 @@ warning: unused variable: `bias_dims`
 warning: `cma-neural-network` (lib) generated 2 warnings (run `cargo fix --lib -p cma-neural-network` to apply 2 suggestions)
    Compiling cma-cnn v0.1.0 (/workspace/test-neural/cma-cnn)
    Compiling cma-models v0.1.0 (/workspace/test-neural/cma-models)
+   Compiling cma-autograd v0.1.0 (/workspace/test-neural/cma-autograd)
    Compiling neural-wasm-shared v0.1.0 (/workspace/test-neural/neural-wasm/shared)
    Compiling neural-wasm-mnist-lenet v0.1.0 (/workspace/test-neural/neural-wasm/mnist-lenet)
-warning: unused imports: `Flatten` and `MaxPool2D`
-  --> neural-wasm/mnist-lenet/src/train_lenet.rs:18:41
-   |
-18 |     ActivationLayer, AvgPool2D, Conv2D, Flatten, Layer, MaxPool2D, Sequential, Tensor4D,
-   |                                         ^^^^^^^         ^^^^^^^^^
-   |
-   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
-
-warning: unused import: `Layer`
-  --> neural-wasm/mnist-lenet/src/train_lenet.rs:18:50
-   |
-18 |     ActivationLayer, AvgPool2D, Conv2D, Flatten, Layer, MaxPool2D, Sequential, Tensor4D,
-   |                                                  ^^^^^
-
-warning: `neural-wasm-mnist-lenet` (bin "train_lenet") generated 2 warnings (run `cargo fix --bin "train_lenet" -p neural-wasm-mnist-lenet` to apply 1 suggestion)
-    Finished `release` profile [optimized] target(s) in 3.06s
+    Finished `release` profile [optimized] target(s) in 4.46s
      Running `/workspace/test-neural/target/release/train_lenet`
 ╔══════════════════════════════════════════════════════════════╗
-║     LeNet-5 CNN for MNIST - Training (LeCun et al., 1998)    ║
+║     LeNet-5: End-to-End CNN Training with Autograd           ║
 ╚══════════════════════════════════════════════════════════════╝
 
 📦 Preparing MNIST dataset...
 
    ✅ Loaded 70000 samples from CSV
    ✅ Features normalized (z-score)
-   ✅ Dataset shuffled
-   Training samples: 56000 (80%)
-   Validation samples: 14000 (20%)
+   Training: 56000 | Validation: 14000
 
-🔧 Building LeNet-5 CNN...
+🔧 Building LeNet-5 CNN (autograd)...
 
-   CNN Architecture:
-Model: Sequential
-======================================================================
-Layer (type)                           Output Shape         Param #
-======================================================================
-Conv2D(1 → 6, 5x5, stride=1, pad=2) (0)       [1, 6, 28, 28]             156
-ReLU (1)                             [1, 6, 28, 28]               0
-AvgPool2D(2x2, stride=2) (2)         [1, 6, 14, 14]               0
-Conv2D(6 → 16, 5x5, stride=1, pad=0) (3)      [1, 16, 10, 10]            2416
-ReLU (4)                            [1, 16, 10, 10]               0
-AvgPool2D(2x2, stride=2) (5)          [1, 16, 5, 5]               0
-Conv2D(16 → 120, 5x5, stride=1, pad=0) (6)       [1, 120, 1, 1]           48120
-ReLU (7)                             [1, 120, 1, 1]               0
-Flatten (8)                          [1, 1, 1, 120]               0
-======================================================================
-Total params: 50692
-Trainable params: 50692
-Non-trainable params: 0
-======================================================================
+Sequential model: 10 layers
+--------------------------------------------------
+  [ 0] Conv2D               (156 params)
+  [ 1] ReLU
+  [ 2] AvgPool2D
+  [ 3] Conv2D               (2416 params)
+  [ 4] ReLU
+  [ 5] AvgPool2D
+  [ 6] Conv2D               (48120 params)
+  [ 7] ReLU
+  [ 8] Flatten
+  [ 9] Linear               (1210 params)
+--------------------------------------------------
+Total parameters: 51902
+   Total parameters: 51902
 
-   Flattened output size: 120
-   FC Classifier: 120 → 84 → 10
+🏋️  Training end-to-end with autograd backprop...
 
-🏋️  Training (CNN forward + FC backprop)...
+Epoch   1/10: train_loss=0.2080, train_acc=93.83%, val_loss=0.1002, val_acc=96.86%
+Epoch   2/10: train_loss=0.0738, train_acc=97.71%, val_loss=0.0697, val_acc=97.82%
+Epoch   3/10: train_loss=0.0506, train_acc=98.46%, val_loss=0.0615, val_acc=98.14%
+Epoch   4/10: train_loss=0.0390, train_acc=98.77%, val_loss=0.0472, val_acc=98.59%
+Epoch   5/10: train_loss=0.0314, train_acc=98.95%, val_loss=0.0447, val_acc=98.66%
+Epoch   6/10: train_loss=0.0263, train_acc=99.18%, val_loss=0.0429, val_acc=98.72%
+Epoch   7/10: train_loss=0.0232, train_acc=99.27%, val_loss=0.0342, val_acc=98.99%
+Epoch   8/10: train_loss=0.0191, train_acc=99.37%, val_loss=0.0401, val_acc=98.78%
+Epoch   9/10: train_loss=0.0189, train_acc=99.38%, val_loss=0.0355, val_acc=99.05%
+Epoch  10/10: train_loss=0.0152, train_acc=99.49%, val_loss=0.0399, val_acc=98.88%
+Early stopping at epoch 10 (patience=3)
 
-   📊 Extracting CNN features...
-   ✅ Features extracted: 56000 training, 14000 validation
+   ✅ Autograd training done — 10 epochs
+   Train loss: 0.0152 | Val loss: 0.0399
+   Val accuracy: 98.88%
+
+🔄 Exporting trained CNN to cma-cnn format...
+
+   ✅ CNN exported (9 layers)
+
+📊 Extracting features with trained CNN...
+
+   ✅ Features: 120D, 56000 train, 14000 val
+
+🎯 Training FC classifier on trained CNN features...
+
 🚀 Début de l'entraînement (500 epochs)
-Epoch 1/500 [0.2%] - train_loss: 0.281080 - val_loss: 0.298209 - ETA: 1118s   Epoch 2/500 [0.4%] - train_loss: 0.245789 - val_loss: 0.265287 - ETA: 1093s   Epoch 3/500 [0.6%] - train_loss: 0.249165 - val_loss: 0.271583 - ETA: 1094s   Epoch 4/500 [0.8%] - train_loss: 0.247227 - val_loss: 0.261055 - ETA: 1095s   Epoch 5/500 [1.0%] - train_loss: 0.236928 - val_loss: 0.252091 - ETA: 1096s   Epoch 6/500 [1.2%] - train_loss: 0.226709 - val_loss: 0.248949 - ETA: 1095s   Epoch 7/500 [1.4%] - train_loss: 0.233429 - val_loss: 0.250362 - ETA: 1090s   Epoch 8/500 [1.6%] - train_loss: 0.221709 - val_loss: 0.246611 - ETA: 1100s   Epoch 9/500 [1.8%] - train_loss: 0.223733 - val_loss: 0.241435 - ETA: 1094s   Epoch 10/500 [2.0%] - train_loss: 0.230084 - val_loss: 0.247441 - ETA: 1089s   
-Epoch 11/500 [2.2%] - train_loss: 0.215433 - val_loss: 0.247450 - ETA: 1084s   Epoch 12/500 [2.4%] - train_loss: 0.246664 - val_loss: 0.274344 - ETA: 1081s   Epoch 13/500 [2.6%] - train_loss: 0.208431 - val_loss: 0.234862 - ETA: 1142s   Epoch 14/500 [2.8%] - train_loss: 0.243818 - val_loss: 0.272796 - ETA: 1147s   Epoch 15/500 [3.0%] - train_loss: 0.222678 - val_loss: 0.247558 - ETA: 1139s   Epoch 16/500 [3.2%] - train_loss: 0.207954 - val_loss: 0.239261 - ETA: 1138s   Epoch 17/500 [3.4%] - train_loss: 0.221911 - val_loss: 0.249764 - ETA: 1135s   Epoch 18/500 [3.6%] - train_loss: 0.205692 - val_loss: 0.230041 - ETA: 1130s   Epoch 19/500 [3.8%] - train_loss: 0.218864 - val_loss: 0.240077 - ETA: 1123s   Epoch 20/500 [4.0%] - train_loss: 0.214907 - val_loss: 0.245311 - ETA: 1118s   
-Epoch 21/500 [4.2%] - train_loss: 0.199644 - val_loss: 0.230972 - ETA: 1115s   Epoch 22/500 [4.4%] - train_loss: 0.206621 - val_loss: 0.240676 - ETA: 1113s   Epoch 23/500 [4.6%] - train_loss: 0.214733 - val_loss: 0.241149 - ETA: 1109s   Epoch 24/500 [4.8%] - train_loss: 0.223068 - val_loss: 0.254934 - ETA: 1107s   Epoch 25/500 [5.0%] - train_loss: 0.202640 - val_loss: 0.235146 - ETA: 1102s   Epoch 26/500 [5.2%] - train_loss: 0.197538 - val_loss: 0.220560 - ETA: 1097s   Epoch 27/500 [5.4%] - train_loss: 0.199674 - val_loss: 0.240203 - ETA: 1096s   Epoch 28/500 [5.6%] - train_loss: 0.201183 - val_loss: 0.232944 - ETA: 1091s   Epoch 29/500 [5.8%] - train_loss: 0.190395 - val_loss: 0.222446 - ETA: 1088s   Epoch 30/500 [6.0%] - train_loss: 0.203062 - val_loss: 0.245533 - ETA: 1084s   
-Epoch 31/500 [6.2%] - train_loss: 0.194821 - val_loss: 0.226988 - ETA: 1084s   Epoch 32/500 [6.4%] - train_loss: 0.188215 - val_loss: 0.218655 - ETA: 1082s   Epoch 33/500 [6.6%] - train_loss: 0.203867 - val_loss: 0.234124 - ETA: 1080s   Epoch 34/500 [6.8%] - train_loss: 0.194106 - val_loss: 0.230784 - ETA: 1077s   Epoch 35/500 [7.0%] - train_loss: 0.187934 - val_loss: 0.226516 - ETA: 1074s   Epoch 36/500 [7.2%] - train_loss: 0.190005 - val_loss: 0.230140 - ETA: 1071s   Epoch 37/500 [7.4%] - train_loss: 0.204575 - val_loss: 0.251784 - ETA: 1068s   Epoch 38/500 [7.6%] - train_loss: 0.193253 - val_loss: 0.230559 - ETA: 1065s   Epoch 39/500 [7.8%] - train_loss: 0.197484 - val_loss: 0.238267 - ETA: 1062s   Epoch 40/500 [8.0%] - train_loss: 0.193574 - val_loss: 0.233344 - ETA: 1058s   
-Epoch 41/500 [8.2%] - train_loss: 0.198001 - val_loss: 0.239141 - ETA: 1055s   Epoch 42/500 [8.4%] - train_loss: 0.174254 - val_loss: 0.220207 - ETA: 1053s   Epoch 43/500 [8.6%] - train_loss: 0.203592 - val_loss: 0.235733 - ETA: 1051s   Epoch 44/500 [8.8%] - train_loss: 0.201355 - val_loss: 0.242139 - ETA: 1048s   Epoch 45/500 [9.0%] - train_loss: 0.198992 - val_loss: 0.239889 - ETA: 1045s   Epoch 46/500 [9.2%] - train_loss: 0.182169 - val_loss: 0.224407 - ETA: 1043s   Epoch 47/500 [9.4%] - train_loss: 0.192537 - val_loss: 0.229379 - ETA: 1040s   Epoch 48/500 [9.6%] - train_loss: 0.210389 - val_loss: 0.244909 - ETA: 1038s   Epoch 49/500 [9.8%] - train_loss: 0.175618 - val_loss: 0.217574 - ETA: 1036s   Epoch 50/500 [10.0%] - train_loss: 0.202905 - val_loss: 0.236748 - ETA: 1033s   
-Epoch 51/500 [10.2%] - train_loss: 0.192531 - val_loss: 0.235672 - ETA: 1032s   Epoch 52/500 [10.4%] - train_loss: 0.172846 - val_loss: 0.219754 - ETA: 1031s   Epoch 53/500 [10.6%] - train_loss: 0.185123 - val_loss: 0.225688 - ETA: 1028s   Epoch 54/500 [10.8%] - train_loss: 0.194300 - val_loss: 0.234028 - ETA: 1025s   Epoch 55/500 [11.0%] - train_loss: 0.186383 - val_loss: 0.225291 - ETA: 1022s   Epoch 56/500 [11.2%] - train_loss: 0.198638 - val_loss: 0.238341 - ETA: 1020s   Epoch 57/500 [11.4%] - train_loss: 0.186068 - val_loss: 0.226436 - ETA: 1018s   Epoch 58/500 [11.6%] - train_loss: 0.184771 - val_loss: 0.224968 - ETA: 1015s   Epoch 59/500 [11.8%] - train_loss: 0.198649 - val_loss: 0.246387 - ETA: 1013s   Epoch 60/500 [12.0%] - train_loss: 0.184211 - val_loss: 0.226286 - ETA: 1011s   
-Epoch 61/500 [12.2%] - train_loss: 0.180204 - val_loss: 0.226662 - ETA: 1008s   Epoch 62/500 [12.4%] - train_loss: 0.184916 - val_loss: 0.231915 - ETA: 1005s   Epoch 63/500 [12.6%] - train_loss: 0.186801 - val_loss: 0.234140 - ETA: 1002s   Epoch 64/500 [12.8%] - train_loss: 0.191939 - val_loss: 0.227581 - ETA: 1000s   Epoch 65/500 [13.0%] - train_loss: 0.183517 - val_loss: 0.227222 - ETA: 997s   Epoch 66/500 [13.2%] - train_loss: 0.209688 - val_loss: 0.241317 - ETA: 995s   Epoch 67/500 [13.4%] - train_loss: 0.175940 - val_loss: 0.222748 - ETA: 992s   Epoch 68/500 [13.6%] - train_loss: 0.178940 - val_loss: 0.225259 - ETA: 990s   Epoch 69/500 [13.8%] - train_loss: 0.188836 - val_loss: 0.227564 - ETA: 987s   Epoch 70/500 [14.0%] - train_loss: 0.195967 - val_loss: 0.240560 - ETA: 984s   
-Epoch 71/500 [14.2%] - train_loss: 0.190051 - val_loss: 0.228769 - ETA: 981s   Epoch 72/500 [14.4%] - train_loss: 0.168675 - val_loss: 0.219242 - ETA: 978s   Epoch 73/500 [14.6%] - train_loss: 0.175421 - val_loss: 0.217729 - ETA: 976s   
-📉 LR Scheduler: Epoch 73 - Plateau detected, reducing LR 0.010000 → 0.005000
-Epoch 74/500 [14.8%] - train_loss: 0.192141 - val_loss: 0.236815 - ETA: 973s   Epoch 75/500 [15.0%] - train_loss: 0.156736 - val_loss: 0.200967 - ETA: 970s   Epoch 76/500 [15.2%] - train_loss: 0.153701 - val_loss: 0.201344 - ETA: 967s   Epoch 77/500 [15.4%] - train_loss: 0.163803 - val_loss: 0.207784 - ETA: 965s   Epoch 78/500 [15.6%] - train_loss: 0.157995 - val_loss: 0.207201 - ETA: 962s   Epoch 79/500 [15.8%] - train_loss: 0.151303 - val_loss: 0.199475 - ETA: 959s   Epoch 80/500 [16.0%] - train_loss: 0.147415 - val_loss: 0.199321 - ETA: 957s   
-Epoch 81/500 [16.2%] - train_loss: 0.149638 - val_loss: 0.200135 - ETA: 954s   Epoch 82/500 [16.4%] - train_loss: 0.152090 - val_loss: 0.204269 - ETA: 951s   Epoch 83/500 [16.6%] - train_loss: 0.153672 - val_loss: 0.205408 - ETA: 949s   Epoch 84/500 [16.8%] - train_loss: 0.143278 - val_loss: 0.194343 - ETA: 948s   Epoch 85/500 [17.0%] - train_loss: 0.142142 - val_loss: 0.194396 - ETA: 946s   Epoch 86/500 [17.2%] - train_loss: 0.144362 - val_loss: 0.197597 - ETA: 944s   Epoch 87/500 [17.4%] - train_loss: 0.155007 - val_loss: 0.203451 - ETA: 941s   Epoch 88/500 [17.6%] - train_loss: 0.140981 - val_loss: 0.199023 - ETA: 938s   Epoch 89/500 [17.8%] - train_loss: 0.146280 - val_loss: 0.199203 - ETA: 936s   Epoch 90/500 [18.0%] - train_loss: 0.143007 - val_loss: 0.201922 - ETA: 934s   
-Epoch 91/500 [18.2%] - train_loss: 0.150024 - val_loss: 0.202045 - ETA: 931s   Epoch 92/500 [18.4%] - train_loss: 0.138412 - val_loss: 0.192961 - ETA: 929s   Epoch 93/500 [18.6%] - train_loss: 0.148096 - val_loss: 0.203414 - ETA: 926s   Epoch 94/500 [18.8%] - train_loss: 0.142046 - val_loss: 0.198614 - ETA: 924s   Epoch 95/500 [19.0%] - train_loss: 0.152534 - val_loss: 0.207247 - ETA: 922s   Epoch 96/500 [19.2%] - train_loss: 0.147965 - val_loss: 0.206300 - ETA: 919s   Epoch 97/500 [19.4%] - train_loss: 0.148030 - val_loss: 0.208494 - ETA: 917s   Epoch 98/500 [19.6%] - train_loss: 0.140404 - val_loss: 0.194342 - ETA: 914s   Epoch 99/500 [19.8%] - train_loss: 0.142842 - val_loss: 0.196767 - ETA: 912s   Epoch 100/500 [20.0%] - train_loss: 0.135406 - val_loss: 0.189962 - ETA: 910s   
-Epoch 101/500 [20.2%] - train_loss: 0.142734 - val_loss: 0.202922 - ETA: 907s   Epoch 102/500 [20.4%] - train_loss: 0.133368 - val_loss: 0.189709 - ETA: 905s   Epoch 103/500 [20.6%] - train_loss: 0.153657 - val_loss: 0.206073 - ETA: 902s   Epoch 104/500 [20.8%] - train_loss: 0.145259 - val_loss: 0.201669 - ETA: 900s   Epoch 105/500 [21.0%] - train_loss: 0.140901 - val_loss: 0.197950 - ETA: 897s   Epoch 106/500 [21.2%] - train_loss: 0.146839 - val_loss: 0.206036 - ETA: 895s   Epoch 107/500 [21.4%] - train_loss: 0.137524 - val_loss: 0.195443 - ETA: 892s   Epoch 108/500 [21.6%] - train_loss: 0.138357 - val_loss: 0.194755 - ETA: 891s   Epoch 109/500 [21.8%] - train_loss: 0.145115 - val_loss: 0.203060 - ETA: 888s   Epoch 110/500 [22.0%] - train_loss: 0.142377 - val_loss: 0.194954 - ETA: 885s   
-Epoch 111/500 [22.2%] - train_loss: 0.141065 - val_loss: 0.200414 - ETA: 883s   Epoch 112/500 [22.4%] - train_loss: 0.137457 - val_loss: 0.196254 - ETA: 881s   Epoch 113/500 [22.6%] - train_loss: 0.138042 - val_loss: 0.200198 - ETA: 878s   Epoch 114/500 [22.8%] - train_loss: 0.150072 - val_loss: 0.210355 - ETA: 875s   Epoch 115/500 [23.0%] - train_loss: 0.140475 - val_loss: 0.206185 - ETA: 873s   Epoch 116/500 [23.2%] - train_loss: 0.135987 - val_loss: 0.195295 - ETA: 870s   Epoch 117/500 [23.4%] - train_loss: 0.139337 - val_loss: 0.193720 - ETA: 868s   Epoch 118/500 [23.6%] - train_loss: 0.136038 - val_loss: 0.194880 - ETA: 866s   Epoch 119/500 [23.8%] - train_loss: 0.139000 - val_loss: 0.195483 - ETA: 863s   Epoch 120/500 [24.0%] - train_loss: 0.147840 - val_loss: 0.202195 - ETA: 861s   
-Epoch 121/500 [24.2%] - train_loss: 0.138292 - val_loss: 0.195565 - ETA: 859s   Epoch 122/500 [24.4%] - train_loss: 0.131998 - val_loss: 0.192716 - ETA: 856s   Epoch 123/500 [24.6%] - train_loss: 0.144199 - val_loss: 0.202984 - ETA: 854s   Epoch 124/500 [24.8%] - train_loss: 0.132870 - val_loss: 0.198149 - ETA: 851s   
-📉 LR Scheduler: Epoch 124 - Plateau detected, reducing LR 0.005000 → 0.002500
-Epoch 125/500 [25.0%] - train_loss: 0.139679 - val_loss: 0.195391 - ETA: 849s   Epoch 126/500 [25.2%] - train_loss: 0.129576 - val_loss: 0.191734 - ETA: 847s   Epoch 127/500 [25.4%] - train_loss: 0.127131 - val_loss: 0.190026 - ETA: 844s   Epoch 128/500 [25.6%] - train_loss: 0.121867 - val_loss: 0.185084 - ETA: 842s   Epoch 129/500 [25.8%] - train_loss: 0.127213 - val_loss: 0.189817 - ETA: 840s   Epoch 130/500 [26.0%] - train_loss: 0.123743 - val_loss: 0.186078 - ETA: 837s   
-Epoch 131/500 [26.2%] - train_loss: 0.125220 - val_loss: 0.186996 - ETA: 835s   Epoch 132/500 [26.4%] - train_loss: 0.124512 - val_loss: 0.187764 - ETA: 832s   Epoch 133/500 [26.6%] - train_loss: 0.122854 - val_loss: 0.187328 - ETA: 830s   Epoch 134/500 [26.8%] - train_loss: 0.122403 - val_loss: 0.190050 - ETA: 827s   Epoch 135/500 [27.0%] - train_loss: 0.123748 - val_loss: 0.190035 - ETA: 825s   Epoch 136/500 [27.2%] - train_loss: 0.122145 - val_loss: 0.188895 - ETA: 823s   Epoch 137/500 [27.4%] - train_loss: 0.121446 - val_loss: 0.187821 - ETA: 820s   Epoch 138/500 [27.6%] - train_loss: 0.121021 - val_loss: 0.184154 - ETA: 818s   Epoch 139/500 [27.8%] - train_loss: 0.124349 - val_loss: 0.186806 - ETA: 816s   Epoch 140/500 [28.0%] - train_loss: 0.121763 - val_loss: 0.188143 - ETA: 813s   
-Epoch 141/500 [28.2%] - train_loss: 0.120480 - val_loss: 0.188475 - ETA: 811s   Epoch 142/500 [28.4%] - train_loss: 0.121188 - val_loss: 0.188513 - ETA: 808s   Epoch 143/500 [28.6%] - train_loss: 0.121386 - val_loss: 0.187425 - ETA: 806s   Epoch 144/500 [28.8%] - train_loss: 0.117456 - val_loss: 0.185902 - ETA: 804s   Epoch 145/500 [29.0%] - train_loss: 0.119293 - val_loss: 0.187396 - ETA: 801s   Epoch 146/500 [29.2%] - train_loss: 0.121523 - val_loss: 0.185670 - ETA: 799s   Epoch 147/500 [29.4%] - train_loss: 0.120027 - val_loss: 0.182186 - ETA: 796s   Epoch 148/500 [29.6%] - train_loss: 0.119567 - val_loss: 0.184707 - ETA: 794s   Epoch 149/500 [29.8%] - train_loss: 0.119787 - val_loss: 0.185742 - ETA: 792s   Epoch 150/500 [30.0%] - train_loss: 0.118781 - val_loss: 0.183892 - ETA: 790s   
-Epoch 151/500 [30.2%] - train_loss: 0.118218 - val_loss: 0.184763 - ETA: 787s   Epoch 152/500 [30.4%] - train_loss: 0.122620 - val_loss: 0.186659 - ETA: 785s   Epoch 153/500 [30.6%] - train_loss: 0.121785 - val_loss: 0.188407 - ETA: 783s   Epoch 154/500 [30.8%] - train_loss: 0.120293 - val_loss: 0.188057 - ETA: 780s   Epoch 155/500 [31.0%] - train_loss: 0.122522 - val_loss: 0.186638 - ETA: 778s   Epoch 156/500 [31.2%] - train_loss: 0.120607 - val_loss: 0.184229 - ETA: 776s   Epoch 157/500 [31.4%] - train_loss: 0.122005 - val_loss: 0.189373 - ETA: 773s   Epoch 158/500 [31.6%] - train_loss: 0.120750 - val_loss: 0.190148 - ETA: 771s   Epoch 159/500 [31.8%] - train_loss: 0.121260 - val_loss: 0.186445 - ETA: 768s   Epoch 160/500 [32.0%] - train_loss: 0.118229 - val_loss: 0.187100 - ETA: 766s   
-Epoch 161/500 [32.2%] - train_loss: 0.123210 - val_loss: 0.190971 - ETA: 764s   Epoch 162/500 [32.4%] - train_loss: 0.117553 - val_loss: 0.185636 - ETA: 761s   Epoch 163/500 [32.6%] - train_loss: 0.116647 - val_loss: 0.186936 - ETA: 759s   Epoch 164/500 [32.8%] - train_loss: 0.124390 - val_loss: 0.190651 - ETA: 757s   Epoch 165/500 [33.0%] - train_loss: 0.121039 - val_loss: 0.188264 - ETA: 754s   Epoch 166/500 [33.2%] - train_loss: 0.118663 - val_loss: 0.186360 - ETA: 752s   Epoch 167/500 [33.4%] - train_loss: 0.118934 - val_loss: 0.188874 - ETA: 750s   Epoch 168/500 [33.6%] - train_loss: 0.115796 - val_loss: 0.185483 - ETA: 748s   Epoch 169/500 [33.8%] - train_loss: 0.116589 - val_loss: 0.187398 - ETA: 745s   Epoch 170/500 [34.0%] - train_loss: 0.116763 - val_loss: 0.189902 - ETA: 744s   
-Epoch 171/500 [34.2%] - train_loss: 0.117836 - val_loss: 0.186287 - ETA: 742s   
-📉 LR Scheduler: Epoch 171 - Plateau detected, reducing LR 0.002500 → 0.001250
-Epoch 172/500 [34.4%] - train_loss: 0.119646 - val_loss: 0.193045 - ETA: 739s   Epoch 173/500 [34.6%] - train_loss: 0.112841 - val_loss: 0.185400 - ETA: 737s   Epoch 174/500 [34.8%] - train_loss: 0.111052 - val_loss: 0.183538 - ETA: 735s   Epoch 175/500 [35.0%] - train_loss: 0.110572 - val_loss: 0.185056 - ETA: 733s   Epoch 176/500 [35.2%] - train_loss: 0.111008 - val_loss: 0.184577 - ETA: 731s   Epoch 177/500 [35.4%] - train_loss: 0.111966 - val_loss: 0.187413 - ETA: 728s   Epoch 178/500 [35.6%] - train_loss: 0.110611 - val_loss: 0.183015 - ETA: 726s   Epoch 179/500 [35.8%] - train_loss: 0.111931 - val_loss: 0.183442 - ETA: 724s   Epoch 180/500 [36.0%] - train_loss: 0.111292 - val_loss: 0.183898 - ETA: 722s   
-Epoch 181/500 [36.2%] - train_loss: 0.111863 - val_loss: 0.185500 - ETA: 720s   Epoch 182/500 [36.4%] - train_loss: 0.110644 - val_loss: 0.185831 - ETA: 717s   Epoch 183/500 [36.6%] - train_loss: 0.111139 - val_loss: 0.183270 - ETA: 715s   Epoch 184/500 [36.8%] - train_loss: 0.113448 - val_loss: 0.184987 - ETA: 713s   Epoch 185/500 [37.0%] - train_loss: 0.111025 - val_loss: 0.185355 - ETA: 711s   Epoch 186/500 [37.2%] - train_loss: 0.113994 - val_loss: 0.184764 - ETA: 709s   Epoch 187/500 [37.4%] - train_loss: 0.108519 - val_loss: 0.183596 - ETA: 707s   Epoch 188/500 [37.6%] - train_loss: 0.110133 - val_loss: 0.184100 - ETA: 704s   Epoch 189/500 [37.8%] - train_loss: 0.107851 - val_loss: 0.182988 - ETA: 702s   Epoch 190/500 [38.0%] - train_loss: 0.109545 - val_loss: 0.182227 - ETA: 700s   
-Epoch 191/500 [38.2%] - train_loss: 0.109935 - val_loss: 0.182581 - ETA: 698s   Epoch 192/500 [38.4%] - train_loss: 0.108408 - val_loss: 0.180579 - ETA: 696s   Epoch 193/500 [38.6%] - train_loss: 0.110624 - val_loss: 0.181872 - ETA: 693s   Epoch 194/500 [38.8%] - train_loss: 0.108646 - val_loss: 0.182897 - ETA: 691s   Epoch 195/500 [39.0%] - train_loss: 0.110262 - val_loss: 0.183189 - ETA: 689s   Epoch 196/500 [39.2%] - train_loss: 0.110600 - val_loss: 0.183967 - ETA: 687s   Epoch 197/500 [39.4%] - train_loss: 0.109293 - val_loss: 0.182707 - ETA: 684s   Epoch 198/500 [39.6%] - train_loss: 0.109808 - val_loss: 0.185267 - ETA: 682s   Epoch 199/500 [39.8%] - train_loss: 0.110530 - val_loss: 0.184238 - ETA: 680s   Epoch 200/500 [40.0%] - train_loss: 0.109504 - val_loss: 0.184898 - ETA: 678s   
-Epoch 201/500 [40.2%] - train_loss: 0.110223 - val_loss: 0.182798 - ETA: 676s   Epoch 202/500 [40.4%] - train_loss: 0.110367 - val_loss: 0.182940 - ETA: 673s   Epoch 203/500 [40.6%] - train_loss: 0.108181 - val_loss: 0.182540 - ETA: 671s   Epoch 204/500 [40.8%] - train_loss: 0.110721 - val_loss: 0.181091 - ETA: 669s   Epoch 205/500 [41.0%] - train_loss: 0.111316 - val_loss: 0.180914 - ETA: 667s   Epoch 206/500 [41.2%] - train_loss: 0.108921 - val_loss: 0.185054 - ETA: 664s   Epoch 207/500 [41.4%] - train_loss: 0.107610 - val_loss: 0.182477 - ETA: 662s   Epoch 208/500 [41.6%] - train_loss: 0.108195 - val_loss: 0.180380 - ETA: 660s   Epoch 209/500 [41.8%] - train_loss: 0.109313 - val_loss: 0.181370 - ETA: 658s   Epoch 210/500 [42.0%] - train_loss: 0.109828 - val_loss: 0.184259 - ETA: 655s   
-Epoch 211/500 [42.2%] - train_loss: 0.107911 - val_loss: 0.180912 - ETA: 653s   Epoch 212/500 [42.4%] - train_loss: 0.110466 - val_loss: 0.183140 - ETA: 651s   Epoch 213/500 [42.6%] - train_loss: 0.105895 - val_loss: 0.185321 - ETA: 648s   Epoch 214/500 [42.8%] - train_loss: 0.106240 - val_loss: 0.184076 - ETA: 646s   Epoch 215/500 [43.0%] - train_loss: 0.110783 - val_loss: 0.181588 - ETA: 644s   Epoch 216/500 [43.2%] - train_loss: 0.108188 - val_loss: 0.180031 - ETA: 642s   
-📉 LR Scheduler: Epoch 216 - Plateau detected, reducing LR 0.001250 → 0.000625
-Epoch 217/500 [43.4%] - train_loss: 0.108023 - val_loss: 0.182107 - ETA: 639s   Epoch 218/500 [43.6%] - train_loss: 0.103992 - val_loss: 0.179563 - ETA: 637s   Epoch 219/500 [43.8%] - train_loss: 0.104796 - val_loss: 0.182705 - ETA: 635s   Epoch 220/500 [44.0%] - train_loss: 0.105385 - val_loss: 0.183892 - ETA: 632s   
-Epoch 221/500 [44.2%] - train_loss: 0.104517 - val_loss: 0.184206 - ETA: 630s   Epoch 222/500 [44.4%] - train_loss: 0.104141 - val_loss: 0.180514 - ETA: 628s   Epoch 223/500 [44.6%] - train_loss: 0.104731 - val_loss: 0.181605 - ETA: 625s   Epoch 224/500 [44.8%] - train_loss: 0.104466 - val_loss: 0.181379 - ETA: 623s   Epoch 225/500 [45.0%] - train_loss: 0.104857 - val_loss: 0.182684 - ETA: 621s   Epoch 226/500 [45.2%] - train_loss: 0.103138 - val_loss: 0.181262 - ETA: 618s   Epoch 227/500 [45.4%] - train_loss: 0.104040 - val_loss: 0.182243 - ETA: 616s   Epoch 228/500 [45.6%] - train_loss: 0.104925 - val_loss: 0.180779 - ETA: 614s   Epoch 229/500 [45.8%] - train_loss: 0.103911 - val_loss: 0.181073 - ETA: 611s   Epoch 230/500 [46.0%] - train_loss: 0.104156 - val_loss: 0.182568 - ETA: 609s   
-Epoch 231/500 [46.2%] - train_loss: 0.103239 - val_loss: 0.181541 - ETA: 607s   Epoch 232/500 [46.4%] - train_loss: 0.104291 - val_loss: 0.182313 - ETA: 605s   Epoch 233/500 [46.6%] - train_loss: 0.103564 - val_loss: 0.179398 - ETA: 603s   Epoch 234/500 [46.8%] - train_loss: 0.104998 - val_loss: 0.182303 - ETA: 600s   Epoch 235/500 [47.0%] - train_loss: 0.104416 - val_loss: 0.182137 - ETA: 598s   Epoch 236/500 [47.2%] - train_loss: 0.103870 - val_loss: 0.182418 - ETA: 596s   Epoch 237/500 [47.4%] - train_loss: 0.104586 - val_loss: 0.183001 - ETA: 593s   Epoch 238/500 [47.6%] - train_loss: 0.103887 - val_loss: 0.181470 - ETA: 591s   Epoch 239/500 [47.8%] - train_loss: 0.103549 - val_loss: 0.183423 - ETA: 589s   Epoch 240/500 [48.0%] - train_loss: 0.105757 - val_loss: 0.183635 - ETA: 586s   
-Epoch 241/500 [48.2%] - train_loss: 0.104473 - val_loss: 0.182395 - ETA: 584s   Epoch 242/500 [48.4%] - train_loss: 0.102885 - val_loss: 0.184195 - ETA: 582s   
-📉 LR Scheduler: Epoch 242 - Plateau detected, reducing LR 0.000625 → 0.000312
-Epoch 243/500 [48.6%] - train_loss: 0.103579 - val_loss: 0.181649 - ETA: 579s   Epoch 244/500 [48.8%] - train_loss: 0.102380 - val_loss: 0.181544 - ETA: 577s   Epoch 245/500 [49.0%] - train_loss: 0.101823 - val_loss: 0.181378 - ETA: 575s   Epoch 246/500 [49.2%] - train_loss: 0.103339 - val_loss: 0.181309 - ETA: 572s   Epoch 247/500 [49.4%] - train_loss: 0.101679 - val_loss: 0.181471 - ETA: 570s   Epoch 248/500 [49.6%] - train_loss: 0.102518 - val_loss: 0.181626 - ETA: 568s   Epoch 249/500 [49.8%] - train_loss: 0.102182 - val_loss: 0.181456 - ETA: 565s   Epoch 250/500 [50.0%] - train_loss: 0.101482 - val_loss: 0.181231 - ETA: 563s   
-Epoch 251/500 [50.2%] - train_loss: 0.101558 - val_loss: 0.180855 - ETA: 561s   Epoch 252/500 [50.4%] - train_loss: 0.101738 - val_loss: 0.181202 - ETA: 558s   Epoch 253/500 [50.6%] - train_loss: 0.101270 - val_loss: 0.182058 - ETA: 556s   Epoch 254/500 [50.8%] - train_loss: 0.102401 - val_loss: 0.181225 - ETA: 554s   Epoch 255/500 [51.0%] - train_loss: 0.102567 - val_loss: 0.182274 - ETA: 552s   Epoch 256/500 [51.2%] - train_loss: 0.102162 - val_loss: 0.181193 - ETA: 549s   Epoch 257/500 [51.4%] - train_loss: 0.102542 - val_loss: 0.181515 - ETA: 547s   Epoch 258/500 [51.6%] - train_loss: 0.101672 - val_loss: 0.180611 - ETA: 545s   Epoch 259/500 [51.8%] - train_loss: 0.101334 - val_loss: 0.181698 - ETA: 542s   Epoch 260/500 [52.0%] - train_loss: 0.101038 - val_loss: 0.181603 - ETA: 540s   
-Epoch 261/500 [52.2%] - train_loss: 0.101586 - val_loss: 0.181794 - ETA: 538s   Epoch 262/500 [52.4%] - train_loss: 0.102037 - val_loss: 0.182563 - ETA: 536s   Epoch 263/500 [52.6%] - train_loss: 0.103048 - val_loss: 0.181335 - ETA: 533s   Epoch 264/500 [52.8%] - train_loss: 0.101250 - val_loss: 0.181754 - ETA: 531s   Epoch 265/500 [53.0%] - train_loss: 0.100953 - val_loss: 0.182310 - ETA: 529s   Epoch 266/500 [53.2%] - train_loss: 0.101320 - val_loss: 0.181778 - ETA: 526s   Epoch 267/500 [53.4%] - train_loss: 0.101366 - val_loss: 0.181058 - ETA: 524s   
-📉 LR Scheduler: Epoch 267 - Plateau detected, reducing LR 0.000312 → 0.000156
+Epoch 1/500 [0.2%] - train_loss: 0.018502 - val_loss: 0.048882 - ETA: 1091s   Epoch 2/500 [0.4%] - train_loss: 0.012219 - val_loss: 0.041622 - ETA: 1189s   Epoch 3/500 [0.6%] - train_loss: 0.009235 - val_loss: 0.042305 - ETA: 1164s   Epoch 4/500 [0.8%] - train_loss: 0.006845 - val_loss: 0.043689 - ETA: 1142s   Epoch 5/500 [1.0%] - train_loss: 0.006829 - val_loss: 0.045184 - ETA: 1127s   Epoch 6/500 [1.2%] - train_loss: 0.005501 - val_loss: 0.044991 - ETA: 1119s   Epoch 7/500 [1.4%] - train_loss: 0.004351 - val_loss: 0.042669 - ETA: 1110s   Epoch 8/500 [1.6%] - train_loss: 0.004186 - val_loss: 0.044870 - ETA: 1104s   Epoch 9/500 [1.8%] - train_loss: 0.004368 - val_loss: 0.049060 - ETA: 1102s   Epoch 10/500 [2.0%] - train_loss: 0.004142 - val_loss: 0.053556 - ETA: 1098s   
+Epoch 11/500 [2.2%] - train_loss: 0.004040 - val_loss: 0.057188 - ETA: 1093s   Epoch 12/500 [2.4%] - train_loss: 0.004273 - val_loss: 0.054104 - ETA: 1090s   Epoch 13/500 [2.6%] - train_loss: 0.005374 - val_loss: 0.057455 - ETA: 1086s   Epoch 14/500 [2.8%] - train_loss: 0.003369 - val_loss: 0.053532 - ETA: 1084s   Epoch 15/500 [3.0%] - train_loss: 0.003067 - val_loss: 0.062143 - ETA: 1081s   Epoch 16/500 [3.2%] - train_loss: 0.002555 - val_loss: 0.054302 - ETA: 1078s   Epoch 17/500 [3.4%] - train_loss: 0.003186 - val_loss: 0.058542 - ETA: 1083s   Epoch 18/500 [3.6%] - train_loss: 0.002546 - val_loss: 0.060280 - ETA: 1078s   Epoch 19/500 [3.8%] - train_loss: 0.002250 - val_loss: 0.059174 - ETA: 1074s   Epoch 20/500 [4.0%] - train_loss: 0.003620 - val_loss: 0.063918 - ETA: 1069s   
+Epoch 21/500 [4.2%] - train_loss: 0.002376 - val_loss: 0.066279 - ETA: 1065s   Epoch 22/500 [4.4%] - train_loss: 0.001930 - val_loss: 0.062556 - ETA: 1061s   Epoch 23/500 [4.6%] - train_loss: 0.002645 - val_loss: 0.068623 - ETA: 1061s   Epoch 24/500 [4.8%] - train_loss: 0.003251 - val_loss: 0.073955 - ETA: 1057s   Epoch 25/500 [5.0%] - train_loss: 0.001433 - val_loss: 0.068772 - ETA: 1053s   Epoch 26/500 [5.2%] - train_loss: 0.002032 - val_loss: 0.073598 - ETA: 1049s   
+📉 LR Scheduler: Epoch 26 - Plateau detected, reducing LR 0.001000 → 0.000500
+Epoch 27/500 [5.4%] - train_loss: 0.002068 - val_loss: 0.079280 - ETA: 1049s   Epoch 28/500 [5.6%] - train_loss: 0.001167 - val_loss: 0.076483 - ETA: 1045s   Epoch 29/500 [5.8%] - train_loss: 0.000999 - val_loss: 0.078206 - ETA: 1042s   Epoch 30/500 [6.0%] - train_loss: 0.000904 - val_loss: 0.081076 - ETA: 1038s   
+Epoch 31/500 [6.2%] - train_loss: 0.000918 - val_loss: 0.080321 - ETA: 1035s   Epoch 32/500 [6.4%] - train_loss: 0.000889 - val_loss: 0.075780 - ETA: 1032s   Epoch 33/500 [6.6%] - train_loss: 0.000822 - val_loss: 0.079161 - ETA: 1031s   Epoch 34/500 [6.8%] - train_loss: 0.000736 - val_loss: 0.078842 - ETA: 1028s   Epoch 35/500 [7.0%] - train_loss: 0.000678 - val_loss: 0.079935 - ETA: 1025s   Epoch 36/500 [7.2%] - train_loss: 0.000673 - val_loss: 0.078827 - ETA: 1023s   Epoch 37/500 [7.4%] - train_loss: 0.000580 - val_loss: 0.081206 - ETA: 1025s   Epoch 38/500 [7.6%] - train_loss: 0.000724 - val_loss: 0.084678 - ETA: 1021s   Epoch 39/500 [7.8%] - train_loss: 0.000776 - val_loss: 0.086584 - ETA: 1019s   Epoch 40/500 [8.0%] - train_loss: 0.000673 - val_loss: 0.090782 - ETA: 1016s   
+Epoch 41/500 [8.2%] - train_loss: 0.000581 - val_loss: 0.093734 - ETA: 1014s   Epoch 42/500 [8.4%] - train_loss: 0.000791 - val_loss: 0.093039 - ETA: 1011s   Epoch 43/500 [8.6%] - train_loss: 0.000544 - val_loss: 0.088056 - ETA: 1008s   Epoch 44/500 [8.8%] - train_loss: 0.000632 - val_loss: 0.093675 - ETA: 1005s   Epoch 45/500 [9.0%] - train_loss: 0.000532 - val_loss: 0.091941 - ETA: 1003s   Epoch 46/500 [9.2%] - train_loss: 0.000740 - val_loss: 0.100411 - ETA: 1000s   Epoch 47/500 [9.4%] - train_loss: 0.000639 - val_loss: 0.098073 - ETA: 997s   Epoch 48/500 [9.6%] - train_loss: 0.000527 - val_loss: 0.102074 - ETA: 994s   Epoch 49/500 [9.8%] - train_loss: 0.000376 - val_loss: 0.100749 - ETA: 995s   Epoch 50/500 [10.0%] - train_loss: 0.000532 - val_loss: 0.104916 - ETA: 992s   
+Epoch 51/500 [10.2%] - train_loss: 0.000397 - val_loss: 0.100148 - ETA: 989s   
+📉 LR Scheduler: Epoch 51 - Plateau detected, reducing LR 0.000500 → 0.000250
 
-⚠️ EarlyStopping: Stopped at epoch 267 (best epoch: 217, loss: 0.179563)
-✅ Entraînement terminé en 602.92s
+⚠️ EarlyStopping: Stopped at epoch 51 (best epoch: 1, loss: 0.041622)
+✅ Entraînement terminé en 114.49s
 
-   ✅ Training completed in 268 epochs
-   Final loss - Train: 0.100767 | Val: 0.181995
+   ✅ FC training completed in 52 epochs
 
-📊 Evaluating...
-
-   LeNet-5 MNIST Classification Results:
-   ┌─────────────────────────────────┐
-   │  Correct: 13288/14000 (94.91%)      │
-   └─────────────────────────────────┘
+   LeNet-5: 13870/14000 correct (99.07%)
 
 💾 Saving model...
 
-   ✅ Model saved to src/lenet_model.bin
-   📊 Accuracy: 94.91%
-
-╔══════════════════════════════════════════════════════════════╗
-║              LeNet-5 Training Complete! 🎉                   ║
-╚══════════════════════════════════════════════════════════════╝
+Saved CNN model to src/lenet_model.bin (523.5 KB, accuracy=99.1%)
+   ✅ Model saved to src/lenet_model.bin — accuracy 99.07%

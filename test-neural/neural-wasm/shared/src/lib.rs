@@ -1,4 +1,5 @@
 use chrono;
+use cma_cnn::sequential::Sequential as CnnSequential;
 use cma_neural_network::network::Network;
 use cma_neural_network::Float;
 use ndarray;
@@ -41,6 +42,62 @@ pub struct ModelMetadata {
 pub struct ModelWithMetadata {
     pub network: Network,
     pub metadata: ModelMetadata,
+}
+
+/// CNN model wrapper: CNN feature extractor + FC classifier + metadata
+///
+/// This is the new format for models that use trained CNN weights (ResNet, LeNet, etc.).
+/// Unlike `ModelWithMetadata` which only saves the FC head, this saves the full pipeline.
+#[derive(Serialize, Deserialize)]
+pub struct CnnModelWithMetadata {
+    /// Trained CNN feature extractor (Conv2D, BatchNorm2D, Pool, etc.)
+    pub cnn: CnnSequential,
+    /// FC classifier head
+    pub classifier: Network,
+    /// Training metadata (accuracy, normalization stats, etc.)
+    pub metadata: ModelMetadata,
+}
+
+/// Save a CNN model (feature extractor + classifier) to binary file
+pub fn save_cnn_model_binary(
+    cnn: CnnSequential,
+    classifier: Network,
+    accuracy: Float,
+    test_samples: usize,
+    normalization: Option<NormalizationStats>,
+    path: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let model = CnnModelWithMetadata {
+        cnn,
+        classifier,
+        metadata: ModelMetadata {
+            accuracy,
+            test_samples,
+            trained_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            normalization,
+        },
+    };
+
+    let bin = bincode::serialize(&model)?;
+    std::fs::write(path, &bin)?;
+
+    let size_kb = bin.len() as f64 / 1024.0;
+    eprintln!(
+        "Saved CNN model to {} ({:.1} KB, accuracy={:.1}%)",
+        path,
+        size_kb,
+        accuracy * 100.0
+    );
+
+    Ok(())
+}
+
+/// Load a CNN model from binary bytes (for WASM with include_bytes!)
+pub fn load_cnn_model_from_bytes(
+    bytes: &[u8],
+) -> Result<CnnModelWithMetadata, Box<dyn std::error::Error>> {
+    let model: CnnModelWithMetadata = bincode::deserialize(bytes)?;
+    Ok(model)
 }
 
 /// Information about a trained model
@@ -363,6 +420,55 @@ mod tests {
         assert_eq!(confidence_to_percentage(0.5), 50.0);
         assert_eq!(confidence_to_percentage(1.0), 100.0);
         assert_eq!(confidence_to_percentage(0.0), 0.0);
+    }
+
+    #[test]
+    fn test_cnn_model_roundtrip() {
+        use cma_cnn::layers::{Conv2D, MaxPool2D, ActivationLayer};
+        use cma_cnn::sequential::Sequential as CnnSeq;
+
+        // Build a small CNN
+        let cnn = CnnSeq::new()
+            .add_conv2d(Conv2D::new(1, 4, 3, 1, 0))
+            .add_activation(ActivationLayer::relu())
+            .add_maxpool(MaxPool2D::new(2, 2))
+            .add_flatten();
+
+        // Build a small FC classifier
+        use cma_neural_network::builder::NetworkBuilder;
+        use cma_neural_network::network::Activation;
+        let classifier = NetworkBuilder::new(36, 10)
+            .hidden_layer(32, Activation::ReLU)
+            .output_activation(Activation::Softmax)
+            .build();
+
+        // Build the combined model
+        let model = CnnModelWithMetadata {
+            cnn: cnn.clone(),
+            classifier,
+            metadata: ModelMetadata {
+                accuracy: 0.95,
+                test_samples: 1000,
+                trained_at: "2025-01-01 00:00:00".to_string(),
+                normalization: Some(NormalizationStats::new(vec![0.5; 36], vec![0.25; 36])),
+            },
+        };
+
+        // Serialize to bincode
+        let bytes = bincode::serialize(&model).expect("serialize failed");
+        assert!(bytes.len() > 0, "Serialized bytes should not be empty");
+
+        // Deserialize
+        let loaded: CnnModelWithMetadata =
+            bincode::deserialize(&bytes).expect("deserialize failed");
+
+        // Verify metadata
+        assert!((loaded.metadata.accuracy - 0.95).abs() < 1e-6);
+        assert_eq!(loaded.metadata.test_samples, 1000);
+        assert!(loaded.metadata.normalization.is_some());
+
+        // Verify CNN has same structure (layer count)
+        assert_eq!(loaded.cnn.layers().len(), model.cnn.layers().len());
     }
 }
 

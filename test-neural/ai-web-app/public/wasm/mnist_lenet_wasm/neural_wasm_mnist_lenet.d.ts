@@ -7,45 +7,19 @@
 export class MnistLeNetNetwork {
     free(): void;
     [Symbol.dispose](): void;
-    /**
-     * Get architecture summary
-     */
     get_architecture(): string;
-    /**
-     * Get class names (digits 0-9)
-     */
     get_class_names(): string;
-    /**
-     * Get class probabilities for 784 pixels
-     */
     get_probabilities(pixels: Float32Array): string;
-    /**
-     * Get FC classifier weights and biases as JSON
-     */
     get_weights(): string;
-    /**
-     * Get model info with accuracy and metadata
-     */
     model_info(): string;
     /**
      * Create a new LeNet-5 MNIST network by loading the embedded model
      */
     constructor();
-    /**
-     * Predict MNIST digit from pixel array using LeNet-5 CNN
-     * Accepts 784 pixels (28x28 image)
-     * Returns JSON with digit prediction (0-9), probabilities, and confidence
-     */
     predict(pixels: Float32Array): string;
-    /**
-     * Test with sample MNIST digits
-     */
     test_all(): string;
 }
 
-/**
- * Initialize the module
- */
 export function main(): void;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;

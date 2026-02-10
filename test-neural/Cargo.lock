@@ -62,6 +62,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "cma-autograd"
+version = "0.1.0"
+dependencies = [
+ "cma-cnn",
+ "cma-neural-network",
+ "ndarray",
+ "rand",
+ "rayon",
+]
+
+[[package]]
 name = "cma-cnn"
 version = "0.1.0"
 dependencies = [
@@ -305,6 +316,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "chrono",
+ "cma-autograd",
  "cma-cnn",
  "cma-models",
  "cma-neural-network",
@@ -324,6 +336,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "chrono",
+ "cma-autograd",
  "cma-cnn",
  "cma-models",
  "cma-neural-network",
@@ -343,6 +356,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "chrono",
+ "cma-autograd",
  "cma-cnn",
  "cma-models",
  "cma-neural-network",
@@ -362,6 +376,7 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "chrono",
+ "cma-autograd",
  "cma-cnn",
  "cma-neural-network",
  "console_error_panic_hook",

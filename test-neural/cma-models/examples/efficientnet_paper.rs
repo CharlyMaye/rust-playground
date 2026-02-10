@@ -1,7 +1,7 @@
-//! # Exemple EfficientNet: Compound Scaling (Tan & Le, 2019)
+//! # EfficientNet Example: Compound Scaling (Tan & Le, 2019)
 //!
-//! Cet exemple reproduit l'architecture EfficientNet qui a révolutionné
-//! l'efficacité des CNN grâce au compound scaling.
+//! This example reproduces the EfficientNet architecture that revolutionized
+//! CNN efficiency through compound scaling.
 //!
 //! ## Paper Citation
 //!
@@ -16,43 +16,43 @@
 //! }
 //! ```
 //!
-//! ## Le Problème du Scaling
+//! ## The Scaling Problem
 //!
 //! ```text
-//! Comment rendre un réseau plus performant ?
+//! How to make a network more performant?
 //!
 //! Option 1: Plus LARGE (width)          ResNeXt
 //!           ┌───┐         ┌───────────┐
 //!           │64 │   →     │   128     │
 //!           └───┘         └───────────┘
 //!
-//! Option 2: Plus PROFOND (depth)        ResNet-152
+//! Option 2: DEEPER (depth)             ResNet-152
 //!           ┌───┐         ┌───┐
 //!           │   │         │   │
 //!           └───┘   →     ├───┤
 //!                         │   │
 //!                         └───┘
 //!
-//! Option 3: Plus RÉSOLU (resolution)    High-res input
+//! Option 3: Higher RESOLUTION           High-res input
 //!           ┌───┐         ┌─────────┐
 //!           │224│   →     │   448   │
 //!           └───┘         └─────────┘
 //!
-//! Problème: Chaque dimension a des rendements décroissants!
+//! Problem: Each dimension has diminishing returns!
 //! ```
 //!
-//! ## La Solution: Compound Scaling
+//! ## The Solution: Compound Scaling
 //!
 //! ```text
-//! EfficientNet scale les 3 dimensions ENSEMBLE:
+//! EfficientNet scales all 3 dimensions TOGETHER:
 //!
 //! depth:      d = α^φ
 //! width:      w = β^φ
 //! resolution: r = γ^φ
 //!
-//! Contrainte: α × β² × γ² ≈ 2 (pour doubler les FLOPs)
+//! Constraint: α × β² × γ² ≈ 2 (to double the FLOPs)
 //!
-//! Valeurs optimales (trouvées par grid search sur B0):
+//! Optimal values (found by grid search on B0):
 //!   α = 1.2   (depth)
 //!   β = 1.1   (width)
 //!   γ = 1.15  (resolution)
@@ -81,11 +81,11 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════════════
 
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ MBConv Block: L'Unité de Base                                   │");
+    println!("│ MBConv Block: The Basic Unit                                    │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("MBConv = Mobile Inverted Bottleneck Convolution");
-    println!("(Originaire de MobileNetV2, utilisé dans EfficientNet)");
+    println!("(Originating from MobileNetV2, used in EfficientNet)");
     println!();
     println!("```");
     println!("Standard Bottleneck (ResNet):     Inverted Bottleneck (MobileNet):");
@@ -116,7 +116,7 @@ fn main() {
     println!("```");
     println!();
 
-    // Démonstration MBConv
+    // MBConv demonstration
     let mbconv = MBConvBlock::new(32, 16, 3, 1, 6, true); // use_se = true
     let input = Tensor4D::random(TensorShape::new(1, 32, 56, 56));
     let output = mbconv.forward(&input);
@@ -195,7 +195,7 @@ fn main() {
     println!("Forward pass:");
     println!("  Input:  [1, 3, 224, 224]");
     println!(
-        "  Output: {:?} (1280 features après head)",
+        "  Output: {:?} (1280 features after head)",
         features.shape()
     );
     println!("  Params: {} (~5.3M)", efficientnet.num_parameters());
@@ -225,8 +225,8 @@ fn main() {
     println!("ResNet-152        224      -       -      60M      77.8%");
     println!("```");
     println!();
-    println!("EfficientNet-B0 est meilleur que ResNet-50 avec 5× moins de params!");
-    println!("EfficientNet-B7 atteint 84.3% avec moins de params que GPipe (84.3%, 557M)");
+    println!("EfficientNet-B0 is better than ResNet-50 with 5× fewer params!");
+    println!("EfficientNet-B7 reaches 84.3% with fewer params than GPipe (84.3%, 557M)");
 
     // ═══════════════════════════════════════════════════════════════════════
     // Swish Activation
@@ -234,7 +234,7 @@ fn main() {
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Swish: L'Activation Magique                                     │");
+    println!("│ Swish: The Magic Activation                                     │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("```");
@@ -252,10 +252,10 @@ fn main() {
     println!("        └─────────────────────────");
     println!("           -2   0   2   4");
     println!();
-    println!("Propriétés:");
-    println!("• Smooth (dérivée continue)");
-    println!("• Non-monotone (légère négativité)");
-    println!("• Self-gated (x contrôle son propre gate)");
+    println!("Properties:");
+    println!("• Smooth (continuous derivative)");
+    println!("• Non-monotone (slight negativity)");
+    println!("• Self-gated (x controls its own gate)");
     println!("```");
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -264,17 +264,17 @@ fn main() {
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ EfficientNet pour CIFAR-10                                      │");
+    println!("│ EfficientNet for CIFAR-10                                      │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
 
     let cifar_config = EfficientNetConfig::cifar10();
     let efficientnet_cifar = EfficientNetB0::with_config(cifar_config);
 
-    println!("Configuration adaptée:");
+    println!("Adapted configuration:");
     println!("  Input: 32×32 (vs 224×224 original)");
     println!("  Classes: 10 (vs 1000)");
-    println!("  Stride initial: 1 (vs 2) pour préserver la résolution");
+    println!("  Initial stride: 1 (vs 2) to preserve resolution");
     println!();
 
     let cifar_batch = Tensor4D::random(TensorShape::new(32, 3, 32, 32));
@@ -285,16 +285,16 @@ fn main() {
     println!("  Output: {:?}", cifar_features.shape());
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Comparaison Efficacité
+    // Efficiency Comparison
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Comparaison d'Efficacité                                        │");
+    println!("│ Efficiency Comparison                                          │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("┌─────────────────────┬──────────┬──────────┬─────────────────────┐");
-    println!("│ Modèle              │ Params   │ FLOPs    │ ImageNet Top-1      │");
+    println!("│ Model               │ Params   │ FLOPs    │ ImageNet Top-1      │");
     println!("├─────────────────────┼──────────┼──────────┼─────────────────────┤");
     println!("│ ResNet-50           │ 26M      │ 3.8B     │ 76.3%               │");
     println!("│ ResNet-152          │ 60M      │ 11.3B    │ 77.8%               │");
@@ -307,7 +307,7 @@ fn main() {
     println!("│ EfficientNet-B7     │ 66M      │ 37B      │ 84.3%               │");
     println!("└─────────────────────┴──────────┴──────────┴─────────────────────┘");
     println!();
-    println!("EfficientNet-B0 ≈ ResNet-50 accuracy avec 5× moins de params!");
+    println!("EfficientNet-B0 ≈ ResNet-50 accuracy with 5× fewer params!");
 
     // ═══════════════════════════════════════════════════════════════════════
     // Neural Architecture Search (NAS)
@@ -318,7 +318,7 @@ fn main() {
     println!("│ Neural Architecture Search (NAS)                                │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
-    println!("L'architecture de base (B0) a été trouvée par NAS:");
+    println!("The baseline architecture (B0) was found by NAS:");
     println!();
     println!("1. SEARCH SPACE:");
     println!("   • Type de bloc: MBConv3 ou MBConv6");
@@ -327,17 +327,17 @@ fn main() {
     println!("   • Layers per stage: 1-7");
     println!();
     println!("2. OPTIMIZATION:");
-    println!("   Objectif multi-critère:");
-    println!("   • Maximiser accuracy");
-    println!("   • Minimiser FLOPs");
-    println!("   • Minimiser latence");
+    println!("   Multi-objective optimization:");
+    println!("   • Maximize accuracy");
+    println!("   • Minimize FLOPs");
+    println!("   • Minimize latency");
     println!();
-    println!("3. RÉSULTAT:");
-    println!("   EfficientNet-B0: 7 stages avec des configs optimales");
-    println!("   Puis compound scaling pour B1-B7");
+    println!("3. RESULT:");
+    println!("   EfficientNet-B0: 7 stages with optimal configs");
+    println!("   Then compound scaling for B1-B7");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Usage avec cma-neural-network
+    // Usage with cma-neural-network
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
@@ -350,24 +350,24 @@ fn main() {
         "use cma_neural_network::{{NetworkBuilder, Activation, LossFunction, OptimizerType}};"
     );
     println!();
-    println!("// EfficientNet-B0 produit 1280 features (après head)");
+    println!("// EfficientNet-B0 produces 1280 features (after head)");
     println!("let classifier = NetworkBuilder::new(1280, 10)");
     println!("    .output_activation(Activation::Softmax)");
     println!("    .loss(LossFunction::CategoricalCrossEntropy)");
     println!("    .optimizer(OptimizerType::adam(0.001))");
     println!("    .build();");
     println!();
-    println!("// Note: EfficientNet utilise déjà Global Average Pooling");
-    println!("// et un head Conv1×1 → 1280, donc le classifieur est simple");
+    println!("// Note: EfficientNet already uses Global Average Pooling");
+    println!("// and a head Conv1×1 → 1280, so the classifier is simple");
     println!("```");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Évolutions
+    // Evolutions
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Évolutions d'EfficientNet                                       │");
+    println!("│ EfficientNet Evolutions                                        │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("2019: EfficientNet (original)");
@@ -375,15 +375,15 @@ fn main() {
     println!("      • MBConv + SE");
     println!();
     println!("2020: EfficientNet-Lite");
-    println!("      • Pour mobile/edge devices");
+    println!("      • For mobile/edge devices");
     println!("      • Swish → ReLU6");
-    println!("      • SE simplifié");
+    println!("      • Simplified SE");
     println!();
     println!("2021: EfficientNetV2");
     println!("      • Training-aware NAS");
-    println!("      • Fused-MBConv (conv 3×3 au lieu de depthwise)");
+    println!("      • Fused-MBConv (conv 3×3 instead of depthwise)");
     println!("      • Progressive learning");
-    println!("      • 11× faster training que V1");
+    println!("      • 11× faster training than V1");
     println!();
     println!("2023: EfficientViT");
     println!("      • Hybrid CNN-Transformer");
@@ -392,7 +392,7 @@ fn main() {
 
     println!();
     println!("═══════════════════════════════════════════════════════════════════");
-    println!("  Fin de l'exemple EfficientNet");
+    println!("  End of EfficientNet example");
     println!("═══════════════════════════════════════════════════════════════════");
 }
 

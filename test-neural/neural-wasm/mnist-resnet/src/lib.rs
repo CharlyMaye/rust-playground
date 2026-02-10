@@ -1,15 +1,15 @@
-//! WebAssembly ResNet CNN for MNIST
+//! WebAssembly ResNet-style CNN for MNIST
 //!
-//! Proper ResNet (He et al., 2015) with residual blocks and skip connections.
-//! Uses the flexible ResNet/ResNetBuilder from cma_models library.
+//! Uses trained CNN weights exported from cma_autograd via cma_cnn Sequential.
+//! Model format: CnnModelWithMetadata (CNN feature extractor + FC classifier).
 
+use cma_cnn::sequential::Sequential as CnnSequential;
 use cma_cnn::Float;
 use cma_cnn::Tensor4D;
-use cma_models::resnet::{ResNet, ResNetBuilder};
 use cma_neural_network::network::Network;
 use ndarray::Array1;
 use neural_wasm_shared::{
-    build_prediction_result, build_test_result, load_model_from_bytes, ArchitectureSummary,
+    build_prediction_result, build_test_result, load_cnn_model_from_bytes, ArchitectureSummary,
     LayerInfo, LayerSummary, ModelInfo, NormalizationStats, TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
@@ -24,7 +24,7 @@ const CLASS_NAMES: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9
 
 #[wasm_bindgen]
 pub struct MnistResNetNetwork {
-    resnet: ResNet,
+    cnn: CnnSequential,
     classifier: Network,
     accuracy: Float,
     test_samples: usize,
@@ -36,14 +36,12 @@ pub struct MnistResNetNetwork {
 impl MnistResNetNetwork {
     #[wasm_bindgen(constructor)]
     pub fn new() -> Result<MnistResNetNetwork, JsValue> {
-        let model = load_model_from_bytes(MODEL_BIN)
+        let model = load_cnn_model_from_bytes(MODEL_BIN)
             .map_err(|e| JsValue::from_str(&format!("Failed to load model: {}", e)))?;
 
-        let resnet = ResNetBuilder::mnist().build();
-
         Ok(MnistResNetNetwork {
-            resnet,
-            classifier: model.network,
+            cnn: model.cnn,
+            classifier: model.classifier,
             accuracy: model.metadata.accuracy,
             test_samples: model.metadata.test_samples,
             trained_at: model.metadata.trained_at,
@@ -67,9 +65,11 @@ impl MnistResNetNetwork {
         let tensor = Tensor4D::from_array(
             ndarray::Array4::from_shape_vec((1, 1, 28, 28), normalized).expect("reshape failed"),
         );
-        let features = self.resnet.forward(&tensor);
+        // CNN feature extraction (trained weights)
+        let features = self.cnn.forward(&tensor);
         let flat = features.flatten();
         let fc_input = Array1::from_vec(flat.row(0).to_vec());
+        // FC classifier
         self.classifier.predict(&fc_input).to_vec()
     }
 
@@ -110,15 +110,15 @@ impl MnistResNetNetwork {
 
     #[wasm_bindgen]
     pub fn model_info(&self) -> String {
+        let num_cnn_layers = self.cnn.layers().len();
         let info = ModelInfo {
             name: "ResNet-MNIST Classifier".to_string(),
             architecture: format!(
-                "ResNet: Stem→{} stages→GAP→FC({}→10)",
-                self.resnet.stages.len(),
-                self.resnet.output_features()
+                "CNN: {} layers → FC(→10)",
+                num_cnn_layers,
             ),
             accuracy: self.accuracy * 100.0,
-            description: "ResNet CNN with residual blocks (He et al., 2015)".to_string(),
+            description: "Deep CNN trained end-to-end with autograd (ResNet-style)".to_string(),
             test_samples: self.test_samples,
             trained_at: self.trained_at.clone(),
         };
@@ -148,35 +148,36 @@ impl MnistResNetNetwork {
 
     #[wasm_bindgen]
     pub fn get_architecture(&self) -> String {
-        let mut layers = vec![LayerSummary {
-            name: "Stem".to_string(),
-            config: "Conv(1→16, 3x3) + BN + ReLU".to_string(),
-        }];
+        use cma_cnn::sequential::BoxedLayer;
 
-        for (i, stage) in self.resnet.stages.iter().enumerate() {
-            let ch = self.resnet.stage_channels.get(i).unwrap_or(&0);
-            let stride = if i == 0 { 1 } else { 2 };
-            layers.push(LayerSummary {
-                name: format!("Stage{}", i + 1),
-                config: format!("{}× BasicBlock(→{}, stride={})", stage.len(), ch, stride),
-            });
-        }
-
-        layers.push(LayerSummary {
-            name: "GlobalAvgPool".to_string(),
-            config: "→1x1".to_string(),
-        });
-        layers.push(LayerSummary {
-            name: "Output".to_string(),
-            config: format!("→{}", self.resnet.output_features()),
-        });
+        let layers: Vec<LayerSummary> = self
+            .cnn
+            .layers()
+            .iter()
+            .map(|layer| {
+                let (name, config) = match layer {
+                    BoxedLayer::Conv2D(_) => ("Conv2D", "3×3"),
+                    BoxedLayer::BatchNorm2D(_) => ("BatchNorm2D", ""),
+                    BoxedLayer::MaxPool2D(_) => ("MaxPool2D", "2×2"),
+                    BoxedLayer::AvgPool2D(_) => ("AvgPool2D", ""),
+                    BoxedLayer::GlobalAvgPool2D(_) => ("GlobalAvgPool2D", "→1×1"),
+                    BoxedLayer::Activation(_) => ("Activation", "ReLU"),
+                    BoxedLayer::Flatten(_) => ("Flatten", ""),
+                    BoxedLayer::Dropout2D(_) => ("Dropout2D", ""),
+                };
+                LayerSummary {
+                    name: name.to_string(),
+                    config: config.to_string(),
+                }
+            })
+            .collect();
 
         let summary = ArchitectureSummary {
             name: "ResNet-MNIST".to_string(),
-            model_type: "resnet".to_string(),
+            model_type: "cnn".to_string(),
             input_shape: vec![1, 1, 28, 28],
-            output_features: self.resnet.output_features(),
-            num_parameters: self.resnet.num_parameters(),
+            output_features: 64,
+            num_parameters: 0,
             layers,
         };
 

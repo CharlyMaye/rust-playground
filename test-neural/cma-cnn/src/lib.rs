@@ -1,26 +1,26 @@
 //! # CMA-CNN: Convolutional Neural Network Layers
 //!
-//! Extension de `cma-neural-network` avec des couches convolutionnelles pour le traitement d'images.
+//! Extension of `cma-neural-network` with convolutional layers for image processing.
 //!
-//! ## Architecture de l'Écosystème
+//! ## Ecosystem Architecture
 //!
 //! ```text
-//! cma-models (Architectures prêtes: LeNet-5, ResNet, etc.)
+//! cma-models (Ready-made architectures: LeNet-5, ResNet, etc.)
 //!     │
-//!     └── cma-cnn (Ce crate: Conv2D, MaxPool2D, BatchNorm2D) ← VOUS ÊTES ICI
+//!     └── cma-cnn (This crate: Conv2D, MaxPool2D, BatchNorm2D) ← YOU ARE HERE
 //!             │
-//!             └── cma-neural-network (Base: Dense, Activations, Optimiseurs)
+//!             └── cma-neural-network (Base: Dense, Activations, Optimizers)
 //! ```
 //!
-//! ## Fonctionnalités
+//! ## Features
 //!
-//! - **Conv2D**: Convolution 2D avec support padding/stride
-//! - **MaxPool2D / AvgPool2D**: Pooling spatial
-//! - **BatchNorm2D**: Normalisation par batch
-//! - **Flatten**: Conversion tenseur 4D → vecteur 1D
-//! - **Sequential**: Container pour empiler des couches
+//! - **Conv2D**: 2D convolution with padding/stride support
+//! - **MaxPool2D / AvgPool2D**: Spatial pooling
+//! - **BatchNorm2D**: Batch normalization
+//! - **Flatten**: 4D tensor to 1D vector conversion
+//! - **Sequential**: Container for stacking layers
 //!
-//! ## Exemple Rapide
+//! ## Quick Example
 //!
 //! ```rust,ignore
 //! use cma_cnn::{Conv2D, MaxPool2D, Flatten, Sequential};
@@ -34,7 +34,7 @@
 //!     .add(Dense::new(128, 10));
 //! ```
 //!
-//! ## Références
+//! ## References
 //!
 //! - LeCun et al. (1998): "Gradient-Based Learning Applied to Document Recognition"
 //! - Krizhevsky et al. (2012): "ImageNet Classification with Deep CNNs" (AlexNet)
@@ -53,7 +53,10 @@ pub use layers::{
     ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Dropout2D, Flatten, GlobalAvgPool2D, Layer,
     LayerType, MaxPool2D,
 };
-pub use ops::{Padding, col2im, conv2d_im2col, im2col, im2col_single};
+pub use ops::{
+    Padding, col2im, conv2d_im2col, im2col, im2col_single,
+    maxpool2d, avgpool2d, global_avgpool2d,
+};
 pub use sequential::Sequential;
 pub use tensor::{Tensor4D, TensorShape};
 

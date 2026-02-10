@@ -293,6 +293,7 @@ pub trait GradFunction: Send + Sync {
 
 ### 4.1 Nouveau Crate : `cma-autograd`
 
+**Plan initial** :
 ```
 cma-autograd/
 ├── Cargo.toml
@@ -311,6 +312,30 @@ cma-autograd/
         ├── activation.rs   # ReLU, Sigmoid, etc.
         └── reshape.rs      # Flatten, View, Transpose
 ```
+
+**✅ Structure réelle implémentée** (architecture simplifiée — modules plats) :
+```
+cma-autograd/
+├── Cargo.toml
+├── src/
+│   ├── lib.rs          # Exports publics + prelude
+│   ├── tensor.rs       # Tensor (Arc<TensorInner>, RwLock pour grad)
+│   ├── grad_fn.rs      # Trait GradFn + 17 backward implémentations
+│   ├── engine.rs       # Backward engine (tri topologique) + no_grad
+│   ├── ops.rs          # Toutes les opérations (arith, matmul, activations, reshape)
+│   ├── module.rs       # Parameter (Arc<UnsafeCell>), Module/TrainableLayer traits, Linear, Conv2D
+│   ├── layers.rs       # Couches stateless: ReLU, Sigmoid, Tanh, Flatten, MaxPool2D, Dropout, Softmax
+│   ├── optim.rs        # SGD (+ momentum), Adam/AdamW
+│   └── loss.rs         # mse_loss, cross_entropy_loss, binary_cross_entropy_loss
+└── tests/
+    └── gradient_check.rs  # 39 tests (numerical gradient checking, integration, XOR e2e)
+```
+
+**Décisions architecturales clés** :
+- `Variable` remplacé par `Parameter` (wrapper `Arc<UnsafeCell<Tensor>>` pour ownership partagé optimizer↔module)
+- Ops regroupées dans un seul `ops.rs` (pas de sous-dossier — plus simple, ~340 lignes)
+- `GradFn` utilise `ArrayD<Float>` au lieu de `Tensor` pour backward (évite cycles de références)
+- Thread-safety : `Arc<TensorInner>` + `RwLock` pour grad (pas `RefCell` — `Sync` requis pour `GradFn: Send + Sync`)
 
 ### 4.2 Intégration avec l'Existant
 
@@ -490,67 +515,104 @@ impl OptimizerStateND {
 
 ## 6. Plan d'Implémentation
 
-### Phase 1 : Structure de Base (2-3 jours)
+### Phase 1 : Structure de Base ✅ TERMINÉE
 
-| Fichier | Description | Priorité |
-|---------|-------------|----------|
-| `tensor.rs` | Tensor avec grad tracking | 🔴 Haute |
-| `grad_fn.rs` | Trait GradFunction | 🔴 Haute |
-| `engine.rs` | Backward engine | 🔴 Haute |
-| `variable.rs` | Wrapper pour paramètres | 🟡 Moyenne |
-
-**Livrables** :
-- [ ] `Tensor::new()`, `Tensor::from_data()`
-- [ ] `Tensor::backward()` avec parcours topologique
-- [ ] Tests unitaires pour le graphe simple
-
-### Phase 2 : Opérations de Base (2-3 jours)
-
-| Fichier | Opérations | Priorité |
-|---------|------------|----------|
-| `ops/basic.rs` | Add, Sub, Mul, Div, MatMul, Sum | 🔴 Haute |
-| `ops/reshape.rs` | View, Flatten, Transpose | 🔴 Haute |
-| `ops/activation.rs` | ReLU, Sigmoid, Tanh, Softmax | 🟡 Moyenne |
+| Fichier | Description | Statut |
+|---------|-------------|--------|
+| `tensor.rs` (445 lignes) | Tensor `Arc<TensorInner>` + `RwLock` pour grad | ✅ |
+| `grad_fn.rs` (555 lignes) | Trait `GradFn` + 17 backward impls | ✅ |
+| `engine.rs` (201 lignes) | Backward engine + `no_grad`/`NoGradGuard` | ✅ |
+| `module.rs` (482 lignes) | `Parameter` (`Arc<UnsafeCell>`) + `Module`/`TrainableLayer` traits | ✅ |
 
 **Livrables** :
-- [ ] Toutes les ops arithmétiques avec backward
-- [ ] Tests de gradient numérique (gradient checking)
+- [x] `Tensor::new()`, `Tensor::from_vec()`, `Tensor::zeros()`, `Tensor::randn()`, `Tensor::scalar()`
+- [x] `Tensor::backward()` avec parcours topologique (DFS post-order → reverse)
+- [x] `Tensor::from_op()` pour attacher `GradFn` au graphe dynamique
+- [x] `Parameter` avec ownership partagé (`Arc<UnsafeCell>`) — clones partagent l'état
+- [x] Tests unitaires (6 unit tests dans tensor.rs + engine.rs)
 
-### Phase 3 : Opérations CNN (4-5 jours)
+### Phase 2 : Opérations de Base ✅ TERMINÉE
 
-| Fichier | Opérations | Complexité |
-|---------|------------|------------|
-| `ops/conv.rs` | Conv2D | ⭐⭐⭐⭐ |
-| `ops/pool.rs` | MaxPool2D, AvgPool2D, GlobalAvgPool | ⭐⭐ |
-| `ops/norm.rs` | BatchNorm2D | ⭐⭐⭐ |
-
-**Livrables** :
-- [ ] `conv2d()` avec backward complet
-- [ ] `max_pool2d()` avec backward (utilise indices)
-- [ ] `batch_norm2d()` avec backward
-- [ ] Tests vs implémentation PyTorch
-
-### Phase 4 : Intégration (2-3 jours)
-
-| Tâche | Description |
-|-------|-------------|
-| Optimizer | Adapter pour ArrayD |
-| Sequential | Créer version autograd-aware |
-| Training loop | Helper pour training standard |
+| Fichier | Opérations | Statut |
+|---------|------------|--------|
+| `ops.rs` (336 lignes) | add, sub, mul, mul_scalar, neg, matmul, transpose, sum, sum_axis, mean, powf, log, exp, relu, sigmoid, tanh_act, reshape | ✅ |
+| `layers.rs` (731 lignes) | ReLU, Sigmoid, Tanh, Flatten, MaxPool2D, Dropout, Softmax, BatchNorm2D, AvgPool2D, GlobalAvgPool2D | ✅ |
+| `loss.rs` (155 lignes) | mse_loss, cross_entropy_loss (CrossEntropyBackward GradFn), binary_cross_entropy_loss | ✅ |
+| `optim.rs` (231 lignes) | SGD (+momentum), Adam/AdamW | ✅ |
 
 **Livrables** :
-- [ ] `Optimizer::step()` pour Tensor
-- [ ] `AutogradSequential` ou adaptation
-- [ ] Exemple MNIST end-to-end
+- [x] 17 opérations avec backward (`GradFn`) : Add, Sub, Mul, MulScalar, Neg, MatMul, Sum, SumAxis, Mean, Powf, Log, Exp, ReLU, Sigmoid, Tanh, Reshape, Transpose
+- [x] Helper `unbroadcast()` pour réduire gradients après broadcasting
+- [x] Tests de gradient numérique (39 tests dans `gradient_check.rs`)
+- [x] Linear layer (forward : `input @ W^T + b`, fully tracked)
+- [x] XOR end-to-end training test (converge < 0.05 loss en 500 epochs avec Adam)
 
-### Phase 5 : Tests et Documentation (2-3 jours)
+### Phase 3 : Opérations CNN ✅ TERMINÉE
 
-| Type | Description |
-|------|-------------|
-| Unit tests | Chaque opération |
-| Gradient check | Vérification numérique |
-| Integration | LeNet, AlexNet complets |
-| Benchmarks | Comparaison avec/sans autograd |
+| Opération | Forward | Backward | Statut |
+|-----------|---------|----------|--------|
+| Conv2D | ✅ im2col+matmul | ✅ `Conv2DBackward` (col2im, grad_weight 4D, grad_bias) | ✅ Complet |
+| MaxPool2D | ✅ avec argmax | ✅ `MaxPool2DBackward` (scatter vers argmax positions) | ✅ Complet |
+| AvgPool2D | ✅ | ✅ `AvgPool2DBackward` (gradient uniforme 1/k²) | ✅ Complet |
+| GlobalAvgPool | ✅ | ✅ `GlobalAvgPool2DBackward` (gradient uniforme 1/HW) | ✅ Complet |
+| BatchNorm2D | ✅ train/eval | ✅ `BatchNorm2DBackward` (grad_input, grad_gamma, grad_beta) | ✅ Complet |
+
+**Corrections effectuées** :
+- `Conv2D::forward()` réécrit : forward complet (im2col→matmul→permute→bias) avec `Conv2DBackward` GradFn attaché via `Tensor::from_op()`
+- `MaxPool2D` réécrit : stocke indices argmax (`max_idx_h`/`max_idx_w`), attache `MaxPool2DBackward` GradFn
+- Weight gradient reshape : `grad_w` correctement reshaped de [C_out, C_in*kH*kW] → [C_out, C_in, kH, kW] via `from_shape_vec()`
+- `BatchNorm2D` avec running stats EMA, train/eval mode, backward complet
+
+**Livrables** :
+- [x] `Conv2D` forward entièrement tracké (im2col→matmul→permute→bias — tout via `GradFn`)
+- [x] `Conv2DBackward` avec col2im helper, weight gradient 4D reshape
+- [x] `MaxPool2DBackward` GradFn stockant les indices argmax
+- [x] `AvgPool2D` + `AvgPool2DBackward` (gradient uniforme)
+- [x] `GlobalAvgPool2D` + `GlobalAvgPool2DBackward`
+- [x] `BatchNorm2D` layer avec running stats + backward + train/eval mode
+- [x] 27 tests CNN (gradient checks, forward shapes, numerical validation, mini-CNN pipelines, training convergence)
+
+### Phase 4 : Intégration ✅ TERMINÉE
+
+| Tâche | Statut | Notes |
+|-------|--------|-------|
+| Optimizer pour Tensor | ✅ | SGD (+momentum) et Adam/AdamW implémentés dans `optim.rs` |
+| CNN training convergence | ✅ | `test_cnn_training_loss_decreases` — Conv2D+Linear avec Adam converge |
+| CNN+BN pipeline | ✅ | `test_cnn_with_batchnorm` — Conv→BN→ReLU→Pool→FC backward complet |
+| Sequential autograd | ✅ | `sequential.rs` — `Layer` trait + `Sequential` conteneur (`Vec<Box<dyn Layer>>`) |
+| Training loop helper | ✅ | `train()` function — mini-batch, shuffled, validation, early stopping |
+
+**Corrections effectuées** :
+- `cross_entropy_loss` réécrit : ancienne version créait un `Tensor::new()` déconnecté du graphe autograd. Nouvelle version calcule softmax+NLL sur arrays bruts et attache `CrossEntropyBackward` GradFn (∂L/∂logits = (softmax − targets) / batch)
+- `Layer` trait retiré du prelude pour éviter ambiguïté avec `Module::forward()` — utilisé uniquement en interne par `Sequential`
+
+**Livrables** :
+- [x] `Optimizer::step()` pour `Parameter` (via `update_data` + `set_data`)
+- [x] `Optimizer::zero_grad()` pour reset des gradients
+- [x] `Sequential` autograd-aware (conteneur de `Box<dyn Layer>`) avec builder pattern, forward, parameters, train/eval mode, summary
+- [x] `Layer` trait unifié — 11 impl (Linear, Conv2D, BatchNorm2D, ReLU, Sigmoid, Tanh, Flatten, MaxPool2D, AvgPool2D, GlobalAvgPool2D, Softmax, Dropout)
+- [x] `train()` helper — mini-batch training avec shuffled indices, accuracy tracking, validation phase (en `no_grad`), early stopping
+- [x] `TrainerConfig` + `EpochMetrics` structs
+- [x] 18 tests d'intégration Sequential (MLP, CNN, LeNet-5, XOR convergence, mini-CNN classification, early stopping)
+
+### Phase 5 : Tests et Documentation ✅ COMPLÈTE
+
+| Type | Statut | Détails |
+|------|--------|--------|
+| Unit tests | ✅ 6 tests | tensor creation, grad accumulation, no_grad context |
+| Gradient check | ✅ 20 tests | Toutes les ops de base vérifiées vs finite differences (ε=1e-4, tol=2e-2) |
+| Chain rule | ✅ 5 tests | Diamond graph, tensor reuse, compound ops (sigmoid+MSE) |
+| Modules | ✅ 5 tests | Linear forward/backward/params, SGD step, Adam step |
+| Loss functions | ✅ 3 tests | MSE value+backward, BCE value |
+| End-to-end | ✅ 1 test | XOR training (Linear+ReLU+Linear, Adam, 500 epochs → loss < 0.05) |
+| Layers | ✅ 2 tests | ReLU layer, Flatten layer |
+| CNN forward | ✅ 7 tests | Conv2D shapes, MaxPool2D values, AvgPool2D, GlobalAvgPool2D, BatchNorm2D |
+| CNN backward | ✅ 11 tests | Conv2D numerical grad, weight grad, MaxPool2D scatter, AvgPool/BN grads |
+| CNN pipelines | ✅ 8 tests | Conv+ReLU, mini-CNN (MaxPool/AvgPool/GlobalAvg/BN), training convergence |
+| CNN end-to-end | ✅ 1 test | CNN training loss decreases (Conv2D+Flatten+Linear, Adam, 20 epochs) |
+| Sequential | ✅ 18 tests | MLP/CNN forward, backward, zero_grad, train/eval, LeNet-5 (shapes/batch/params/backward), XOR convergence, mini-CNN classification, early stopping |
+| **Total** | **90 tests passent** | 6 unit + 39 base grad + 27 CNN grad + 18 sequential |
+| Benchmarks | ❌ | À faire après intégration finale |
 
 ---
 
@@ -718,50 +780,95 @@ fn test_lenet_training() {
 
 ## 📊 Résumé des Estimations
 
-| Phase | Durée | Fichiers | Lignes de code |
-|-------|-------|----------|----------------|
-| Phase 1 : Structure | 2-3 jours | 4 | ~600 |
-| Phase 2 : Ops de base | 2-3 jours | 3 | ~800 |
-| Phase 3 : Ops CNN | 4-5 jours | 3 | ~1200 |
-| Phase 4 : Intégration | 2-3 jours | 3 | ~500 |
-| Phase 5 : Tests | 2-3 jours | 5 | ~800 |
-| **Total** | **12-17 jours** | **~18** | **~3900** |
+### Estimations initiales vs réalité
+
+| Phase | Estimé | Réel | Fichiers | Lignes réelles |
+|-------|--------|------|----------|----------------|
+| Phase 1 : Structure | 2-3 jours | ✅ ~1 jour | 4 fichiers | 1683 lignes |
+| Phase 2 : Ops de base | 2-3 jours | ✅ ~1 jour | 4 fichiers | 1022 lignes |
+| Phase 3 : Ops CNN | 4-5 jours | ✅ ~0.5 jour | 3 fichiers | ~700 lignes ajoutées |
+| Phase 4 : Intégration | 2-3 jours | ✅ ~0.5 jour | 1 fichier (+fix loss.rs) | 561 lignes (sequential.rs) |
+| Phase 5 : Tests | 2-3 jours | ✅ ~0.5 jour | 3 fichiers | ~2200 lignes |
+| **Total actuel** | — | **~3.5 jours** | **13 fichiers** | **~6300 lignes** |
+
+> **Note** : L'architecture plus simple (modules plats, pas de sous-dossier ops/) a permis
+> une implémentation plus rapide que prévu pour les phases 1-2. Les optimizers et losses
+> ont été intégrés directement dans la Phase 2 au lieu d'une Phase 4 séparée.
+> Phase 4 (Sequential + training helper) réalisée en ~0.5 jour grâce au trait `Layer`
+> unifié et au fix critique de `cross_entropy_loss` (graphe autograd déconnecté).
 
 ---
 
 ## ✅ Checklist de Progression
 
 ### Structure de Base
-- [ ] `Tensor` avec gradient tracking
-- [ ] `GradFunction` trait
-- [ ] Backward engine (parcours topologique)
-- [ ] `Variable` pour paramètres
+- [x] `Tensor` avec gradient tracking (`Arc<TensorInner>`, `RwLock` pour grad)
+- [x] `GradFn` trait (`Send + Sync + Debug`, backward retourne `Vec<ArrayD<Float>>`)
+- [x] Backward engine (tri topologique DFS, accumulation dans feuilles)
+- [x] `Parameter` pour paramètres (`Arc<UnsafeCell<Tensor>>` — ownership partagé)
+- [x] `Module` / `TrainableLayer` traits
+- [x] `no_grad()` / `NoGradGuard` (thread-local `GRAD_ENABLED`)
 
 ### Opérations de Base
-- [ ] Add, Sub, Mul, Div
-- [ ] MatMul
-- [ ] Sum, Mean
-- [ ] View, Flatten, Transpose
+- [x] Add, Sub, Mul, MulScalar, Neg (avec `unbroadcast` pour broadcasting)
+- [x] MatMul (2D, gradient via `grad @ B^T` et `A^T @ grad`)
+- [x] Sum, SumAxis, Mean
+- [x] Reshape, Flatten, Transpose
+- [x] Powf, Log, Exp
+- [x] Operator overloading (`&Tensor + &Tensor`, `&Tensor * Float`, etc.)
+
+### Activations
+- [x] ReLU (backward: mask `x > 0`)
+- [x] Sigmoid (backward: `σ(1−σ)`)
+- [x] Tanh (backward: `1 − tanh²`)
+- [x] Softmax (forward-only, non-tracked — utilisé dans cross_entropy à la place)
+
+### Couches Trainables
+- [x] `Linear` (y = x @ W^T + b, He init)
+- [x] `Conv2D` (im2col + matmul — ✅ graphe autograd complet via `Conv2DBackward`)
+- [x] `BatchNorm2D` (normalisation + gamma/beta — running stats EMA, train/eval mode)
+
+### Couches Stateless
+- [x] ReLU, Sigmoid, Tanh (wrappers de ops)
+- [x] Flatten (reshape [batch, ...] → [batch, flat])
+- [x] MaxPool2D (✅ forward + backward avec indices argmax)
+- [x] AvgPool2D (forward + backward, gradient uniforme 1/k²)
+- [x] GlobalAvgPool2D (forward + backward, gradient uniforme 1/HW)
+- [x] Dropout (train/eval mode, scaling `1/(1-p)`)
+
+### Loss Functions
+- [x] MSE (autograd-tracked: `mean((pred - target)²)`)
+- [x] Cross-Entropy (log-softmax + NLL, numériquement stable)
+- [x] Binary Cross-Entropy (clamping ε=1e-7)
+
+### Optimizers
+- [x] SGD (+momentum optionnel)
+- [x] Adam/AdamW (bias correction, weight decay)
+- [x] `Optimizer` trait (`step()`, `zero_grad()`)
 
 ### Opérations CNN
-- [ ] Conv2D forward + backward
-- [ ] MaxPool2D forward + backward
-- [ ] AvgPool2D forward + backward
-- [ ] BatchNorm2D forward + backward
-- [ ] Toutes les activations
+- [x] Conv2D backward complet (`Conv2DBackward` avec col2im, weight grad 4D reshape)
+- [x] MaxPool2D backward (`MaxPool2DBackward` avec indices argmax)
+- [x] AvgPool2D forward + backward (gradient uniforme 1/k²)
+- [x] GlobalAvgPool forward + backward (gradient uniforme 1/HW)
+- [x] BatchNorm2D forward + backward (running stats EMA, train/eval, gamma/beta gradients)
 
 ### Intégration
-- [ ] Optimizer adapté pour Tensor
-- [ ] Sequential autograd-aware
-- [ ] Training loop helper
+- [x] Optimizer adapté pour `Parameter` (via `update_data`/`set_data`)
+- [x] Sequential autograd-aware (`sequential.rs` — `Layer` trait + `Sequential` struct, 11 impl)
+- [x] Training loop helper (`train()` — mini-batch, shuffled, validation, early stopping)
 
 ### Validation
-- [ ] Gradient checking pour toutes les ops
-- [ ] Test LeNet convergence
-- [ ] Test AlexNet convergence
+- [x] Gradient checking pour toutes les ops de base (39 tests, finite differences)
+- [x] Gradient checking pour ops CNN (27 tests, numerical + pipeline)
+- [x] Test XOR convergence (end-to-end, Linear+ReLU+Linear)
+- [x] Test CNN convergence (Conv2D+Flatten+Linear, Adam, loss decreases)
+- [x] Test mini-CNN pipelines (Conv→ReLU→Pool→Flatten→Linear, Conv+BN+ReLU+Pool+FC)
+- [x] Test Sequential (18 tests: MLP, CNN, LeNet-5 shapes/backward, XOR convergence, mini-CNN classification, early stopping)
+- [ ] Test LeNet convergence sur MNIST réel (données non incluses dans les tests)
 - [ ] Benchmark performance
 
 ---
 
-*Document généré le 9 février 2026*
-*À mettre à jour au fur et à mesure de l'implémentation*
+*Document créé le 9 février 2026*
+*Dernière mise à jour : 9 février 2026 — Phases 1-4 terminées, 90 tests passent, 13 fichiers, ~6300 lignes. Phase 4 : Sequential container + train() helper + fix cross_entropy_loss*

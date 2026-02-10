@@ -1,7 +1,7 @@
-//! # Exemple LeNet-5: Implémentation Historique (LeCun et al., 1998)
+//! # LeNet-5 Example: Historical Implementation (LeCun et al., 1998)
 //!
-//! Cet exemple reproduit l'architecture LeNet-5 du paper original
-//! "Gradient-Based Learning Applied to Document Recognition" de Yann LeCun.
+//! This example reproduces the LeNet-5 architecture from the original paper
+//! "Gradient-Based Learning Applied to Document Recognition" by Yann LeCun.
 //!
 //! ## Paper Citation
 //!
@@ -17,33 +17,33 @@
 //! }
 //! ```
 //!
-//! ## Architecture (Reproduction Fidèle)
+//! ## Architecture (Faithful Reproduction)
 //!
 //! ```text
 //! ┌─────────────────────────────────────────────────────────────────────────┐
-//! │ INPUT: 32×32 grayscale image (MNIST padding à 32×32, original du paper) │
+//! │ INPUT: 32×32 grayscale image (MNIST padded to 32×32, as in the paper)  │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ C1: Convolution 5×5, 6 feature maps                                     │
 //! │     Output: 28×28×6                                                     │
-//! │     Paramètres: (5×5×1 + 1) × 6 = 156                                   │
-//! │     Activation: Tanh (original) ou ReLU (moderne)                       │
+//! │     Parameters: (5×5×1 + 1) × 6 = 156                                   │
+//! │     Activation: Tanh (original) or ReLU (modern)                       │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ S2: Subsampling (Average Pooling) 2×2                                   │
 //! │     Output: 14×14×6                                                     │
-//! │     Note: Le paper original utilisait une forme de pooling avec poids   │
-//! │           appris. Nous utilisons AvgPool standard (équivalent moderne). │
+//! │     Note: The original paper used a form of pooling with learned       │
+//! │           weights. We use standard AvgPool (modern equivalent).        │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ C3: Convolution 5×5, 16 feature maps                                    │
 //! │     Output: 10×10×16                                                    │
-//! │     Paramètres: (5×5×6 + 1) × 16 = 2,416                                │
-//! │     Note: Le paper original utilisait une table de connexion partielle. │
-//! │           Nous utilisons des connexions complètes (standard moderne).   │
+//! │     Parameters: (5×5×6 + 1) × 16 = 2,416                                │
+//! │     Note: The original paper used a partial connection table.           │
+//! │           We use full connections (modern standard).                   │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
@@ -53,36 +53,36 @@
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
 //! │ C5: Convolution 5×5, 120 feature maps                                   │
-//! │     Output: 1×1×120 (équivalent à fully-connected)                      │
-//! │     Paramètres: (5×5×16 + 1) × 120 = 48,120                             │
+//! │     Output: 1×1×120 (equivalent to fully-connected)                      │
+//! │     Parameters: (5×5×16 + 1) × 120 = 48,120                             │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
-//! │ F6: Fully Connected, 84 unités                                          │
-//! │     Paramètres: (120 + 1) × 84 = 10,164                                 │
+//! │ F6: Fully Connected, 84 units                                          │
+//! │     Parameters: (120 + 1) × 84 = 10,164                                 │
 //! │     Activation: Tanh                                                    │
 //! └───────────────────────────────┬─────────────────────────────────────────┘
 //!                                 ▼
 //! ┌─────────────────────────────────────────────────────────────────────────┐
-//! │ OUTPUT: 10 unités (Euclidean Radial Basis Function dans le paper)       │
-//! │         Nous utilisons Softmax (standard moderne)                       │
-//! │         Paramètres: (84 + 1) × 10 = 850                                 │
+//! │ OUTPUT: 10 units (Euclidean Radial Basis Function in the paper)        │
+//! │         We use Softmax (modern standard)                               │
+//! │         Parameters: (84 + 1) × 10 = 850                                 │
 //! └─────────────────────────────────────────────────────────────────────────┘
 //!
-//! TOTAL PARAMÈTRES: ~60,000 (selon le paper)
-//! Notre implémentation: ~62,000 (connexions complètes)
+//! TOTAL PARAMETERS: ~60,000 (according to the paper)
+//! Our implementation: ~62,000 (full connections)
 //! ```
 //!
-//! ## Contexte Historique
+//! ## Historical Context
 //!
-//! LeNet-5 a été développé pour la reconnaissance de chèques bancaires.
-//! Il traitait des millions de chèques par jour aux États-Unis dans les années 90.
+//! LeNet-5 was developed for bank check recognition.
+//! It processed millions of checks per day in the United States during the 1990s.
 //!
-//! Innovations clés:
-//! - Premier CNN entraîné avec backpropagation end-to-end
-//! - Introduction du concept de "feature maps"
-//! - Démonstration de l'efficacité du partage de poids
-//! - Architecture qui a inspiré AlexNet (2012) et tous les CNN modernes
+//! Key innovations:
+//! - First CNN trained with end-to-end backpropagation
+//! - Introduction of the "feature maps" concept
+//! - Demonstration of weight sharing effectiveness
+//! - Architecture that inspired AlexNet (2012) and all modern CNNs
 
 use cma_cnn::{Tensor4D, TensorShape};
 use cma_models::lenet::{LeNet5, LeNet5Config};
@@ -95,21 +95,21 @@ fn main() {
     println!();
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Configuration 1: Architecture Originale du Paper (32×32 input)
+    // Configuration 1: Original Paper Architecture (32×32 input)
     // ═══════════════════════════════════════════════════════════════════════
 
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Configuration 1: Architecture Originale (32×32)                 │");
+    println!("│ Configuration 1: Original Architecture (32×32)                 │");
     println!("└─────────────────────────────────────────────────────────────────┘");
 
     let config_original = LeNet5Config::original();
     let lenet_original = LeNet5::with_config(config_original);
 
     println!();
-    println!("Architecture (fidèle au paper):");
+    println!("Architecture (faithful to the paper):");
     lenet_original.summary();
 
-    // Simulation d'une image 32×32 (comme dans le paper)
+    // Simulation of a 32×32 image (as in the paper)
     let input_32x32 = Tensor4D::random(TensorShape::new(1, 1, 32, 32));
     let features = lenet_original.forward(&input_32x32);
 
@@ -117,76 +117,76 @@ fn main() {
     println!("Forward pass:");
     println!("  Input:  [1, 1, 32, 32] (batch=1, grayscale, 32×32 pixels)");
     println!(
-        "  Output: {:?} (120 features pour le classifieur FC)",
+        "  Output: {:?} (120 features for the FC classifier)",
         features.shape()
     );
-    println!("  Paramètres (conv): {}", lenet_original.num_parameters());
+    println!("  Parameters (conv): {}", lenet_original.num_parameters());
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Configuration 2: Adaptation MNIST (28×28 input)
+    // Configuration 2: MNIST Adaptation (28×28 input)
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Configuration 2: Adaptation MNIST (28×28)                       │");
+    println!("│ Configuration 2: MNIST Adaptation (28×28)                       │");
     println!("└─────────────────────────────────────────────────────────────────┘");
 
     let lenet_mnist = LeNet5::new(10);
 
     println!();
-    println!("Architecture (adaptée pour MNIST 28×28):");
+    println!("Architecture (adapted for MNIST 28×28):");
     lenet_mnist.summary();
 
-    // Simulation d'un batch de 32 images MNIST
+    // Simulation of a batch of 32 MNIST images
     let batch = Tensor4D::random(TensorShape::new(32, 1, 28, 28));
     let features = lenet_mnist.forward(&batch);
 
     println!();
-    println!("Forward pass (batch de 32):");
+    println!("Forward pass (batch of 32):");
     println!("  Input:  [32, 1, 28, 28]");
     println!("  Output: {:?}", features.shape());
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Configuration 3: Version Moderne avec BatchNorm et ReLU
+    // Configuration 3: Modern Version with BatchNorm and ReLU
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Configuration 3: Version Moderne (BatchNorm + ReLU)             │");
+    println!("│ Configuration 3: Modern Version (BatchNorm + ReLU)             │");
     println!("└─────────────────────────────────────────────────────────────────┘");
 
     let config_modern = LeNet5Config::modern();
     let lenet_modern = LeNet5::with_config(config_modern);
 
     println!();
-    println!("Améliorations modernes:");
-    println!("  - ReLU au lieu de Tanh (convergence plus rapide)");
-    println!("  - BatchNorm après chaque conv (stabilité, LR plus élevé)");
+    println!("Modern improvements:");
+    println!("  - ReLU instead of Tanh (faster convergence)");
+    println!("  - BatchNorm after each conv (stability, higher LR)");
     println!(
-        "  - Paramètres: {} (+ BatchNorm γ/β)",
+        "  - Parameters: {} (+ BatchNorm γ/β)",
         lenet_modern.num_parameters()
     );
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Comparaison avec le Classifieur FC
+    // Comparison with FC Classifier
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Classifieur FC (cma-neural-network)                             │");
+    println!("│ FC Classifier (cma-neural-network)                              │");
     println!("└─────────────────────────────────────────────────────────────────┘");
 
     println!();
-    println!("Pour compléter LeNet-5, ajoutez les couches FC de cma-neural-network:");
+    println!("To complete LeNet-5, add the FC layers from cma-neural-network:");
     println!();
     println!("```rust");
     println!(
         "use cma_neural_network::{{NetworkBuilder, Activation, LossFunction, OptimizerType}};"
     );
     println!();
-    println!("// Les 120 features de LeNet-5 → classifieur FC");
+    println!("// The 120 features from LeNet-5 → FC classifier");
     println!("let classifier = NetworkBuilder::new(120, 10)");
-    println!("    .hidden_layer(84, Activation::Tanh)  // F6 du paper");
+    println!("    .hidden_layer(84, Activation::Tanh)  // F6 from the paper");
     println!("    .output_activation(Activation::Softmax)");
     println!("    .loss(LossFunction::CategoricalCrossEntropy)");
     println!("    .optimizer(OptimizerType::adam(0.001))");
@@ -194,55 +194,55 @@ fn main() {
     println!("```");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Résultats Attendus
+    // Expected Results
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Résultats Attendus (MNIST)                                      │");
+    println!("│ Expected Results (MNIST)                                        │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("┌────────────────┬──────────┬──────────────┬──────────────────────┐");
     println!("│ Configuration  │ Params   │ Test Error   │ Notes                │");
     println!("├────────────────┼──────────┼──────────────┼──────────────────────┤");
     println!("│ Original (1998)│ ~60k     │ 0.95%        │ Paper LeCun et al.   │");
-    println!("│ Notre implem.  │ ~62k     │ ~0.8-1.0%    │ Connexions complètes │");
-    println!("│ Avec BatchNorm │ ~63k     │ ~0.7%        │ Convergence rapide   │");
-    println!("│ FC seul        │ ~110k    │ ~2-3%        │ Sans convolutions    │");
+    println!("│ Our impl.       │ ~62k     │ ~0.8-1.0%    │ Full connections    │");
+    println!("│ With BatchNorm  │ ~63k     │ ~0.7%        │ Fast convergence    │");
+    println!("│ FC only         │ ~110k    │ ~2-3%        │ Without convolutions│");
     println!("└────────────────┴──────────┴──────────────┴──────────────────────┘");
     println!();
-    println!("Note: Le paper original rapporte 0.95% d'erreur avec des techniques");
-    println!("      additionnelles (elastic distortions, voting). Notre baseline");
-    println!("      propre devrait atteindre ~0.8-1.0% avec data augmentation.");
+    println!("Note: The original paper reports 0.95% error with additional techniques");
+    println!("      (elastic distortions, voting). Our clean baseline should reach");
+    println!("      ~0.8-1.0% with data augmentation.");
 
     // ═══════════════════════════════════════════════════════════════════════
-    // Différences avec le Paper Original
+    // Differences from the Original Paper
     // ═══════════════════════════════════════════════════════════════════════
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Différences avec le Paper Original                              │");
+    println!("│ Differences from the Original Paper                             │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
-    println!("1. CONNEXIONS C3:");
-    println!("   - Paper: Table de connexion partielle (réduire params)");
-    println!("   - Notre: Connexions complètes (standard moderne)");
+    println!("1. C3 CONNECTIONS:");
+    println!("   - Paper: Partial connection table (to reduce params)");
+    println!("   - Ours: Full connections (modern standard)");
     println!();
     println!("2. SUBSAMPLING (S2, S4):");
-    println!("   - Paper: Averaging + poids appris + bias + sigmoid");
-    println!("   - Notre: Simple Average Pooling (équivalent fonctionnel)");
+    println!("   - Paper: Averaging + learned weights + bias + sigmoid");
+    println!("   - Ours: Simple Average Pooling (functional equivalent)");
     println!();
-    println!("3. SORTIE:");
-    println!("   - Paper: Euclidean Radial Basis Function (distance au prototype)");
-    println!("   - Notre: Softmax + Cross-Entropy (standard moderne)");
+    println!("3. OUTPUT:");
+    println!("   - Paper: Euclidean Radial Basis Function (distance to prototype)");
+    println!("   - Ours: Softmax + Cross-Entropy (modern standard)");
     println!();
     println!("4. ACTIVATION:");
-    println!("   - Paper: Tanh escalé: A * tanh(S * x)");
-    println!("   - Notre: Tanh standard ou ReLU");
+    println!("   - Paper: Scaled tanh: A * tanh(S * x)");
+    println!("   - Ours: Standard Tanh or ReLU");
 
     println!();
     println!("═══════════════════════════════════════════════════════════════════");
-    println!("  Fin de l'exemple LeNet-5");
+    println!("  End of LeNet-5 example");
     println!("═══════════════════════════════════════════════════════════════════");
 }
 
