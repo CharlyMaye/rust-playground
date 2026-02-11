@@ -212,6 +212,75 @@ pub struct ActivationsResponse {
     pub output: Vec<Float>,
 }
 
+// ===== CNN Activation Types =====
+
+/// One CNN layer's intermediate output for visualization
+#[derive(Serialize)]
+pub struct CnnLayerActivation {
+    /// Layer type name: "Conv2D", "MaxPool2D", "ReLU", "BatchNorm2D", "Flatten", etc.
+    pub layer_type: String,
+    /// Human-readable config: "1→32, 3×3, s=1, p=1"
+    pub config: String,
+    /// Output shape [channels, height, width]
+    pub shape: Vec<usize>,
+    /// Flattened activation data (C×H×W values for a single sample)
+    pub activations: Vec<Float>,
+}
+
+/// Full CNN forward pass result with all intermediate activations
+#[derive(Serialize)]
+pub struct CnnActivationsResponse {
+    /// Input shape [channels, height, width]
+    pub input_shape: Vec<usize>,
+    /// Per-layer intermediate activations
+    pub layers: Vec<CnnLayerActivation>,
+    /// Output shape of the last CNN layer
+    pub output_shape: Vec<usize>,
+}
+
+/// Build CNN activations response from a CnnSequential forward pass
+pub fn build_cnn_activations(
+    cnn: &CnnSequential,
+    input: &cma_cnn::Tensor4D,
+) -> CnnActivationsResponse {
+    let input_shape = input.shape();
+    let intermediates = cnn.forward_with_intermediates(input);
+
+    let layers: Vec<CnnLayerActivation> = intermediates
+        .iter()
+        .map(|(layer_type, config, tensor)| {
+            let shape = tensor.shape();
+            // Extract data for sample 0 only (batch=0)
+            let sample_data: Vec<Float> = tensor
+                .data()
+                .slice(ndarray::s![0, .., .., ..])
+                .iter()
+                .copied()
+                .collect();
+
+            CnnLayerActivation {
+                layer_type: layer_type.clone(),
+                config: config.clone(),
+                shape: vec![shape.channels, shape.height, shape.width],
+                activations: sample_data,
+            }
+        })
+        .collect();
+
+    let output_shape = if let Some(last) = intermediates.last() {
+        let s = last.2.shape();
+        vec![s.channels, s.height, s.width]
+    } else {
+        vec![]
+    };
+
+    CnnActivationsResponse {
+        input_shape: vec![input_shape.channels, input_shape.height, input_shape.width],
+        layers,
+        output_shape,
+    }
+}
+
 /// Generic test result for any classifier
 #[derive(Serialize)]
 pub struct TestResult {

@@ -65,6 +65,24 @@ export class XorNetwork {
         }
     }
     /**
+     * Get CNN intermediate activations (not available for FC-only models)
+     * @param {number} _x1
+     * @param {number} _x2
+     * @returns {string}
+     */
+    get_cnn_activations(_x1, _x2) {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.xornetwork_get_cnn_activations(this.__wbg_ptr, _x1, _x2);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
      * Get class probabilities
      * @param {number} x1
      * @param {number} x2

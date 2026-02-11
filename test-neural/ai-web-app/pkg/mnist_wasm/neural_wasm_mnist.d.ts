@@ -20,6 +20,10 @@ export class MnistNetwork {
      */
     get_class_names(): string;
     /**
+     * Get CNN intermediate activations (not available for FC-only models)
+     */
+    get_cnn_activations(_pixels: Float32Array): string;
+    /**
      * Get class probabilities for 784 pixels
      */
     get_probabilities(pixels: Float32Array): string;
@@ -62,6 +66,7 @@ export interface InitOutput {
     readonly mnistnetwork_get_activations: (a: number, b: number, c: number) => [number, number];
     readonly mnistnetwork_get_architecture: (a: number) => [number, number];
     readonly mnistnetwork_get_class_names: (a: number) => [number, number];
+    readonly mnistnetwork_get_cnn_activations: (a: number, b: number, c: number) => [number, number];
     readonly mnistnetwork_get_probabilities: (a: number, b: number, c: number) => [number, number];
     readonly mnistnetwork_get_weights: (a: number) => [number, number];
     readonly mnistnetwork_model_info: (a: number) => [number, number];

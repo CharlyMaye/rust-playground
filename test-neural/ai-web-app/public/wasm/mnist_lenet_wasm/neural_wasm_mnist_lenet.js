@@ -45,6 +45,25 @@ export class MnistLeNetNetwork {
         }
     }
     /**
+     * Get CNN intermediate activations for visualization
+     * @param {Float32Array} pixels
+     * @returns {string}
+     */
+    get_cnn_activations(pixels) {
+        let deferred2_0;
+        let deferred2_1;
+        try {
+            const ptr0 = passArrayF32ToWasm0(pixels, wasm.__wbindgen_malloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.mnistlenetnetwork_get_cnn_activations(this.__wbg_ptr, ptr0, len0);
+            deferred2_0 = ret[0];
+            deferred2_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+        }
+    }
+    /**
      * @param {Float32Array} pixels
      * @returns {string}
      */

@@ -199,6 +199,12 @@ impl MnistNetwork {
             .unwrap_or_else(|_| r#"{"inputs":[],"layers":[],"output":[]}"#.to_string())
     }
 
+    /// Get CNN intermediate activations (not available for FC-only models)
+    #[wasm_bindgen]
+    pub fn get_cnn_activations(&self, _pixels: &[Float]) -> String {
+        serde_json::json!({"error": "This model has no CNN layers"}).to_string()
+    }
+
     /// Get architecture summary
     #[wasm_bindgen]
     pub fn get_architecture(&self) -> String {

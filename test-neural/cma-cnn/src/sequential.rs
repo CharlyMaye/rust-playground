@@ -48,6 +48,37 @@ impl BoxedLayer {
             BoxedLayer::Activation(l) => l,
         }
     }
+
+    /// Returns the layer type name (e.g. "Conv2D", "MaxPool2D", "ReLU")
+    pub fn type_name(&self) -> &str {
+        match self {
+            BoxedLayer::Conv2D(_) => "Conv2D",
+            BoxedLayer::MaxPool2D(_) => "MaxPool2D",
+            BoxedLayer::AvgPool2D(_) => "AvgPool2D",
+            BoxedLayer::GlobalAvgPool2D(_) => "GlobalAvgPool2D",
+            BoxedLayer::BatchNorm2D(_) => "BatchNorm2D",
+            BoxedLayer::Dropout2D(_) => "Dropout2D",
+            BoxedLayer::Flatten(_) => "Flatten",
+            BoxedLayer::Activation(_) => "Activation",
+        }
+    }
+
+    /// Returns a human-readable config string for this layer
+    pub fn config_string(&self) -> String {
+        match self {
+            BoxedLayer::Conv2D(c) => format!(
+                "{}→{}, {}×{}, s={}, p={}",
+                c.in_channels, c.out_channels, c.kernel_size, c.kernel_size, c.stride, c.padding
+            ),
+            BoxedLayer::MaxPool2D(p) => format!("{}×{}, s={}", p.pool_size, p.pool_size, p.stride),
+            BoxedLayer::AvgPool2D(p) => format!("{}×{}, s={}", p.pool_size, p.pool_size, p.stride),
+            BoxedLayer::GlobalAvgPool2D(_) => "→1×1".to_string(),
+            BoxedLayer::BatchNorm2D(bn) => format!("features={}", bn.num_features),
+            BoxedLayer::Dropout2D(d) => format!("p={}", d.rate),
+            BoxedLayer::Flatten(_) => String::new(),
+            BoxedLayer::Activation(a) => a.activation.name().to_string(),
+        }
+    }
 }
 
 /// Sequential container for stacking layers
@@ -186,6 +217,26 @@ impl Sequential {
             x = layer.as_layer().forward(&x);
         }
         x
+    }
+
+    /// Forward propagation collecting intermediate outputs for each layer.
+    ///
+    /// Returns a Vec of `(layer_type, config, output_tensor)` for each layer.
+    /// Used for CNN visualization (feature maps at each stage).
+    pub fn forward_with_intermediates(&self, input: &Tensor4D) -> Vec<(String, String, Tensor4D)> {
+        let mut x = input.clone();
+        let mut intermediates = Vec::with_capacity(self.layers.len());
+
+        for layer in &self.layers {
+            x = layer.as_layer().forward(&x);
+            intermediates.push((
+                layer.type_name().to_string(),
+                layer.config_string(),
+                x.clone(),
+            ));
+        }
+
+        intermediates
     }
 
     /// Batch forward propagation with memory reuse

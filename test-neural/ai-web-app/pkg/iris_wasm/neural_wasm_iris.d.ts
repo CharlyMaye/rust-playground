@@ -14,6 +14,10 @@ export class IrisClassifier {
     get_architecture(): string;
     get_class_names(): string;
     /**
+     * Get CNN intermediate activations (not available for FC-only models)
+     */
+    get_cnn_activations(_sepal_length: number, _sepal_width: number, _petal_length: number, _petal_width: number): string;
+    /**
      * Get class probabilities for a prediction
      */
     get_probabilities(sepal_length: number, sepal_width: number, petal_length: number, petal_width: number): string;
@@ -39,6 +43,7 @@ export interface InitOutput {
     readonly irisclassifier_get_activations: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly irisclassifier_get_architecture: (a: number) => [number, number];
     readonly irisclassifier_get_class_names: (a: number) => [number, number];
+    readonly irisclassifier_get_cnn_activations: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly irisclassifier_get_probabilities: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly irisclassifier_get_weights: (a: number) => [number, number];
     readonly irisclassifier_model_info: (a: number) => [number, number];

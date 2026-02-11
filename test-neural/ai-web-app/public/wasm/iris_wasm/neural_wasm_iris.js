@@ -63,6 +63,26 @@ export class IrisClassifier {
         }
     }
     /**
+     * Get CNN intermediate activations (not available for FC-only models)
+     * @param {number} _sepal_length
+     * @param {number} _sepal_width
+     * @param {number} _petal_length
+     * @param {number} _petal_width
+     * @returns {string}
+     */
+    get_cnn_activations(_sepal_length, _sepal_width, _petal_length, _petal_width) {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.irisclassifier_get_cnn_activations(this.__wbg_ptr, _sepal_length, _sepal_width, _petal_length, _petal_width);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
      * Get class probabilities for a prediction
      * @param {number} sepal_length
      * @param {number} sepal_width

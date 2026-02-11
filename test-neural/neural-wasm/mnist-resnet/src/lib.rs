@@ -9,8 +9,9 @@ use cma_cnn::Tensor4D;
 use cma_neural_network::network::Network;
 use ndarray::Array1;
 use neural_wasm_shared::{
-    build_prediction_result, build_test_result, load_cnn_model_from_bytes, ArchitectureSummary,
-    LayerInfo, LayerSummary, ModelInfo, NormalizationStats, TestResult, WeightsInfo,
+    build_cnn_activations, build_prediction_result, build_test_result, load_cnn_model_from_bytes,
+    ArchitectureSummary, LayerInfo, LayerSummary, ModelInfo, NormalizationStats, TestResult,
+    WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
 
@@ -113,10 +114,7 @@ impl MnistResNetNetwork {
         let num_cnn_layers = self.cnn.layers().len();
         let info = ModelInfo {
             name: "ResNet-MNIST Classifier".to_string(),
-            architecture: format!(
-                "CNN: {} layers → FC(→10)",
-                num_cnn_layers,
-            ),
+            architecture: format!("CNN: {} layers → FC(→10)", num_cnn_layers,),
             accuracy: self.accuracy * 100.0,
             description: "Deep CNN trained end-to-end with autograd (ResNet-style)".to_string(),
             test_samples: self.test_samples,
@@ -148,40 +146,47 @@ impl MnistResNetNetwork {
 
     #[wasm_bindgen]
     pub fn get_architecture(&self) -> String {
-        use cma_cnn::sequential::BoxedLayer;
-
         let layers: Vec<LayerSummary> = self
             .cnn
             .layers()
             .iter()
-            .map(|layer| {
-                let (name, config) = match layer {
-                    BoxedLayer::Conv2D(_) => ("Conv2D", "3×3"),
-                    BoxedLayer::BatchNorm2D(_) => ("BatchNorm2D", ""),
-                    BoxedLayer::MaxPool2D(_) => ("MaxPool2D", "2×2"),
-                    BoxedLayer::AvgPool2D(_) => ("AvgPool2D", ""),
-                    BoxedLayer::GlobalAvgPool2D(_) => ("GlobalAvgPool2D", "→1×1"),
-                    BoxedLayer::Activation(_) => ("Activation", "ReLU"),
-                    BoxedLayer::Flatten(_) => ("Flatten", ""),
-                    BoxedLayer::Dropout2D(_) => ("Dropout2D", ""),
-                };
-                LayerSummary {
-                    name: name.to_string(),
-                    config: config.to_string(),
-                }
+            .map(|layer| LayerSummary {
+                name: layer.type_name().to_string(),
+                config: layer.config_string(),
             })
             .collect();
+
+        let num_params = self.cnn.num_parameters()
+            + self
+                .classifier
+                .get_layers_info()
+                .iter()
+                .map(|(w, b, _)| w.len() + b.len())
+                .sum::<usize>();
 
         let summary = ArchitectureSummary {
             name: "ResNet-MNIST".to_string(),
             model_type: "cnn".to_string(),
             input_shape: vec![1, 1, 28, 28],
             output_features: 64,
-            num_parameters: 0,
+            num_parameters: num_params,
             layers,
         };
-
         serde_json::to_string(&summary).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Get CNN intermediate activations for visualization
+    #[wasm_bindgen]
+    pub fn get_cnn_activations(&self, pixels: &[Float]) -> String {
+        if pixels.len() != 784 {
+            return serde_json::json!({"error": format!("Expected 784 pixels, got {}", pixels.len())}).to_string();
+        }
+        let normalized = self.normalize_input(pixels);
+        let tensor = Tensor4D::from_array(
+            ndarray::Array4::from_shape_vec((1, 1, 28, 28), normalized).expect("reshape failed"),
+        );
+        let response = build_cnn_activations(&self.cnn, &tensor);
+        serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

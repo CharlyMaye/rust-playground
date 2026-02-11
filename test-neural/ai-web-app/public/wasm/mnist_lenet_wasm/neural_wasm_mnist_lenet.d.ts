@@ -9,6 +9,10 @@ export class MnistLeNetNetwork {
     [Symbol.dispose](): void;
     get_architecture(): string;
     get_class_names(): string;
+    /**
+     * Get CNN intermediate activations for visualization
+     */
+    get_cnn_activations(pixels: Float32Array): string;
     get_probabilities(pixels: Float32Array): string;
     get_weights(): string;
     model_info(): string;
@@ -29,6 +33,7 @@ export interface InitOutput {
     readonly __wbg_mnistlenetnetwork_free: (a: number, b: number) => void;
     readonly mnistlenetnetwork_get_architecture: (a: number) => [number, number];
     readonly mnistlenetnetwork_get_class_names: (a: number) => [number, number];
+    readonly mnistlenetnetwork_get_cnn_activations: (a: number, b: number, c: number) => [number, number];
     readonly mnistlenetnetwork_get_probabilities: (a: number, b: number, c: number) => [number, number];
     readonly mnistlenetnetwork_get_weights: (a: number) => [number, number];
     readonly mnistlenetnetwork_model_info: (a: number) => [number, number];
