@@ -30,99 +30,93 @@ warning: unused variable: `weight_dims`
 warning: unused variable: `bias_dims`
    --> cma-neural-network/src/trainer.rs:232:13
     |
-232 |         let bias_dims: Vec<_> = self.network.layers.iter().map(|l| l.biases.len()).collect();
+232 |         let bias_dims: Vec<_> = self.network.layers.iter().map(|l|...
     |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bias_dims`
 
 warning: `cma-neural-network` (lib) generated 2 warnings (run `cargo fix --lib -p cma-neural-network` to apply 2 suggestions)
    Compiling neural-wasm-mnist-alexnet v0.1.0 (/workspace/test-neural/neural-wasm/mnist-alexnet)
-warning: unused import: `Layer`
-  --> neural-wasm/mnist-alexnet/src/train_alexnet.rs:17:43
-   |
-17 |     ActivationLayer, BatchNorm2D, Conv2D, Layer, MaxPool2D, Sequential, Tensor4D, TensorShape,
-   |                                           ^^^^^
-   |
-   = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
-
-warning: `neural-wasm-mnist-alexnet` (bin "train_alexnet") generated 1 warning
-    Finished `release` profile [optimized] target(s) in 0.76s
+    Finished `release` profile [optimized] target(s) in 1.77s
      Running `/workspace/test-neural/target/release/train_alexnet`
 ╔══════════════════════════════════════════════════════════════╗
-║  AlexNet-Mini CNN for MNIST (Krizhevsky et al., 2012 style)  ║
+║   AlexNet-Mini: End-to-End CNN Training with Autograd        ║
 ╚══════════════════════════════════════════════════════════════╝
 
 📦 Preparing MNIST dataset...
 
    ✅ Loaded 70000 samples from CSV
    ✅ Features normalized (z-score)
-   ✅ Dataset shuffled
-   Training samples: 56000 (80%)
-   Validation samples: 14000 (20%)
+   Training: 56000 | Validation: 14000
 
-🔧 Building AlexNet-Mini CNN...
+🔧 Building AlexNet-Mini CNN (autograd)...
 
-   CNN Architecture:
-Model: AlexNet-Mini
-======================================================================
-Layer (type)                           Output Shape         Param #
-======================================================================
-Conv2D(1 → 64, 3x3, stride=1, pad=1) (0)      [1, 64, 28, 28]             640
-BatchNorm2D(64) (1)                 [1, 64, 28, 28]             128
-ReLU (2)                            [1, 64, 28, 28]               0
-MaxPool2D(2x2, stride=2) (3)        [1, 64, 14, 14]               0
-Conv2D(64 → 128, 3x3, stride=1, pad=1) (4)     [1, 128, 14, 14]           73856
-BatchNorm2D(128) (5)               [1, 128, 14, 14]             256
-ReLU (6)                           [1, 128, 14, 14]               0
-MaxPool2D(2x2, stride=2) (7)         [1, 128, 7, 7]               0
-Conv2D(128 → 256, 3x3, stride=1, pad=1) (8)       [1, 256, 7, 7]          295168
-BatchNorm2D(256) (9)                 [1, 256, 7, 7]             512
-ReLU (10)                            [1, 256, 7, 7]               0
-Conv2D(256 → 256, 3x3, stride=1, pad=1) (11)       [1, 256, 7, 7]          590080
-BatchNorm2D(256) (12)                [1, 256, 7, 7]             512
-ReLU (13)                            [1, 256, 7, 7]               0
-MaxPool2D(2x2, stride=2) (14)        [1, 256, 3, 3]               0
-Flatten (15)                        [1, 1, 1, 2304]               0
-======================================================================
-Total params: 961152
-Trainable params: 961152
-Non-trainable params: 0
-======================================================================
+Sequential model: 17 layers
+--------------------------------------------------
+  [ 0] Conv2D               (640 params)
+  [ 1] BatchNorm2D          (128 params)
+  [ 2] ReLU
+  [ 3] MaxPool2D
+  [ 4] Conv2D               (73856 params)
+  [ 5] BatchNorm2D          (256 params)
+  [ 6] ReLU
+  [ 7] MaxPool2D
+  [ 8] Conv2D               (295168 params)
+  [ 9] BatchNorm2D          (512 params)
+  [10] ReLU
+  [11] Conv2D               (590080 params)
+  [12] BatchNorm2D          (512 params)
+  [13] ReLU
+  [14] MaxPool2D
+  [15] Flatten
+  [16] Linear               (23050 params)
+--------------------------------------------------
+Total parameters: 984202
+   Total parameters: 984202
 
-   Flattened output size: 2304
-   FC Classifier: 2304 → 512 → 10
+🏋️  Training end-to-end with autograd backprop...
 
-🏋️  Training (CNN forward + FC backprop)...
+Epoch   1/10: train_loss=0.1331, train_acc=96.09%, val_loss=0.0541, val_acc=98.39%
+Epoch   2/10: train_loss=0.0422, train_acc=98.72%, val_loss=0.0391, val_acc=98.81%
+Epoch   3/10: train_loss=0.0272, train_acc=99.10%, val_loss=0.0537, val_acc=98.51%
+Epoch   4/10: train_loss=0.0204, train_acc=99.36%, val_loss=0.0297, val_acc=99.11%
+Epoch   5/10: train_loss=0.0150, train_acc=99.51%, val_loss=0.0293, val_acc=99.21%
+Epoch   6/10: train_loss=0.0141, train_acc=99.58%, val_loss=0.0345, val_acc=99.01%
+Epoch   7/10: train_loss=0.0134, train_acc=99.57%, val_loss=0.0358, val_acc=98.94%
+Epoch   8/10: train_loss=0.0104, train_acc=99.64%, val_loss=0.0388, val_acc=99.00%
+Early stopping at epoch 8 (patience=3)
 
-   📊 Extracting CNN features...
-   ✅ Features extracted: 56000 training, 14000 validation
-🚀 Début de l'entraînement (500 epochs)
-Epoch 1/500 [0.2%] - train_loss: 0.594466 - val_loss: 0.604681 - ETA: 123876s   Epoch 2/500 [0.4%] - train_loss: 0.663444 - val_loss: 0.678174 - ETA: 124068s   Epoch 3/500 [0.6%] - train_loss: 1.083546 - val_loss: 1.105725 - ETA: 124006s   Epoch 4/500 [0.8%] - train_loss: 0.987946 - val_loss: 1.009796 - ETA: 123611s   Epoch 5/500 [1.0%] - train_loss: 1.713366 - val_loss: 1.726642 - ETA: 123101s   Epoch 6/500 [1.2%] - train_loss: 1.587793 - val_loss: 1.605406 - ETA: 122611s   Epoch 7/500 [1.4%] - train_loss: 1.759192 - val_loss: 1.768855 - ETA: 122204s   Epoch 8/500 [1.6%] - train_loss: 1.800713 - val_loss: 1.822974 - ETA: 121812s   Epoch 9/500 [1.8%] - train_loss: 1.725709 - val_loss: 1.740200 - ETA: 121544s   Epoch 10/500 [2.0%] - train_loss: 1.827720 - val_loss: 1.840263 - ETA: 121268s   
-Epoch 11/500 [2.2%] - train_loss: 1.798796 - val_loss: 1.803527 - ETA: 120993s   Epoch 12/500 [2.4%] - train_loss: 1.787838 - val_loss: 1.802317 - ETA: 120765s   Epoch 13/500 [2.6%] - train_loss: 1.781716 - val_loss: 1.794313 - ETA: 120500s   Epoch 14/500 [2.8%] - train_loss: 2.050146 - val_loss: 2.060528 - ETA: 120291s   Epoch 15/500 [3.0%] - train_loss: 1.999161 - val_loss: 2.015498 - ETA: 120074s   Epoch 16/500 [3.2%] - train_loss: 2.031949 - val_loss: 2.051296 - ETA: 119840s   Epoch 17/500 [3.4%] - train_loss: 1.746258 - val_loss: 1.759240 - ETA: 119630s   Epoch 18/500 [3.6%] - train_loss: 1.735594 - val_loss: 1.753640 - ETA: 119392s   Epoch 19/500 [3.8%] - train_loss: 1.764026 - val_loss: 1.772078 - ETA: 119161s   Epoch 20/500 [4.0%] - train_loss: 1.705924 - val_loss: 1.723190 - ETA: 118944s   
-Epoch 21/500 [4.2%] - train_loss: 1.773861 - val_loss: 1.785874 - ETA: 118709s   Epoch 22/500 [4.4%] - train_loss: 1.758327 - val_loss: 1.769581 - ETA: 118460s   Epoch 23/500 [4.6%] - train_loss: 1.714152 - val_loss: 1.731215 - ETA: 118207s   Epoch 24/500 [4.8%] - train_loss: 1.831178 - val_loss: 1.838975 - ETA: 117940s   Epoch 25/500 [5.0%] - train_loss: 1.716760 - val_loss: 1.730113 - ETA: 117691s   
-📉 LR Scheduler: Epoch 25 - Plateau detected, reducing LR 0.010000 → 0.005000
-Epoch 26/500 [5.2%] - train_loss: 1.720153 - val_loss: 1.729515 - ETA: 117429s   Epoch 27/500 [5.4%] - train_loss: 1.719729 - val_loss: 1.731635 - ETA: 117172s   Epoch 28/500 [5.6%] - train_loss: 1.681111 - val_loss: 1.698370 - ETA: 116907s   Epoch 29/500 [5.8%] - train_loss: 1.663211 - val_loss: 1.675016 - ETA: 116661s   Epoch 30/500 [6.0%] - train_loss: 1.733749 - val_loss: 1.748064 - ETA: 116424s   
-Epoch 31/500 [6.2%] - train_loss: 1.693603 - val_loss: 1.703088 - ETA: 116176s   Epoch 32/500 [6.4%] - train_loss: 1.693905 - val_loss: 1.706900 - ETA: 115924s   Epoch 33/500 [6.6%] - train_loss: 1.690603 - val_loss: 1.702062 - ETA: 115677s   Epoch 34/500 [6.8%] - train_loss: 1.694474 - val_loss: 1.707499 - ETA: 115419s   Epoch 35/500 [7.0%] - train_loss: 1.670701 - val_loss: 1.679600 - ETA: 115164s   Epoch 36/500 [7.2%] - train_loss: 1.699699 - val_loss: 1.710285 - ETA: 114922s   Epoch 37/500 [7.4%] - train_loss: 1.654297 - val_loss: 1.665212 - ETA: 114681s   Epoch 38/500 [7.6%] - train_loss: 1.690037 - val_loss: 1.703232 - ETA: 114436s   Epoch 39/500 [7.8%] - train_loss: 1.684540 - val_loss: 1.693596 - ETA: 114225s   Epoch 40/500 [8.0%] - train_loss: 1.702864 - val_loss: 1.711200 - ETA: 113989s   
-Epoch 41/500 [8.2%] - train_loss: 1.711912 - val_loss: 1.722791 - ETA: 113750s   Epoch 42/500 [8.4%] - train_loss: 1.668896 - val_loss: 1.682640 - ETA: 113513s   Epoch 43/500 [8.6%] - train_loss: 1.666293 - val_loss: 1.684666 - ETA: 113265s   Epoch 44/500 [8.8%] - train_loss: 1.673577 - val_loss: 1.684991 - ETA: 113016s   Epoch 45/500 [9.0%] - train_loss: 1.689041 - val_loss: 1.701902 - ETA: 112762s   Epoch 46/500 [9.2%] - train_loss: 1.678878 - val_loss: 1.689811 - ETA: 112507s   Epoch 47/500 [9.4%] - train_loss: 1.683149 - val_loss: 1.699224 - ETA: 112252s   Epoch 48/500 [9.6%] - train_loss: 1.725222 - val_loss: 1.734831 - ETA: 112000s   Epoch 49/500 [9.8%] - train_loss: 1.693877 - val_loss: 1.704050 - ETA: 111750s   Epoch 50/500 [10.0%] - train_loss: 1.665860 - val_loss: 1.674572 - ETA: 111497s   
+   ✅ Autograd training done — 8 epochs
+   Train loss: 0.0104 | Val loss: 0.0388
+   Val accuracy: 99.00%
 
-📉 LR Scheduler: Epoch 50 - Plateau detected, reducing LR 0.005000 → 0.002500
+🔄 Exporting trained CNN to cma-cnn format...
 
-⚠️ EarlyStopping: Stopped at epoch 50 (best epoch: 0, loss: 0.604681)
-✅ Entraînement terminé en 12635.46s
+   ✅ CNN exported (16 layers)
 
-   ✅ Training completed in 51 epochs
-   Final loss - Train: 1.733740 | Val: 1.748620
+📊 Extracting features with trained CNN...
 
-📊 Evaluating...
+   ✅ Features: 2304D, 56000 train, 14000 val
 
-   AlexNet-Mini MNIST Classification Results:
-   ┌─────────────────────────────────┐
-   │  Correct: 4100/14000 (29.29%)      │
-   └─────────────────────────────────┘
+🎯 Training FC classifier on trained CNN features...
+
+🚀 Training started (500 epochs)
+Epoch 1/500 [0.2%] - train_loss: 0.029937 - val_loss: 0.053699 - ETA: 128548s   Epoch 2/500 [0.4%] - train_loss: 0.027360 - val_loss: 0.052975 - ETA: 128449s   Epoch 3/500 [0.6%] - train_loss: 0.010368 - val_loss: 0.041240 - ETA: 128129s   Epoch 4/500 [0.8%] - train_loss: 0.007414 - val_loss: 0.042610 - ETA: 127977s   Epoch 5/500 [1.0%] - train_loss: 0.010464 - val_loss: 0.056692 - ETA: 127820s   Epoch 6/500 [1.2%] - train_loss: 0.007278 - val_loss: 0.046742 - ETA: 127624s   Epoch 7/500 [1.4%] - train_loss: 0.007312 - val_loss: 0.040807 - ETA: 127335s   Epoch 8/500 [1.6%] - train_loss: 0.005125 - val_loss: 0.048271 - ETA: 126814s   Epoch 9/500 [1.8%] - train_loss: 0.003195 - val_loss: 0.055816 - ETA: 126010s   Epoch 10/500 [2.0%] - train_loss: 0.005946 - val_loss: 0.049728 - ETA: 125222s   
+Epoch 11/500 [2.2%] - train_loss: 0.005126 - val_loss: 0.058894 - ETA: 124506s   Epoch 12/500 [2.4%] - train_loss: 0.002232 - val_loss: 0.054580 - ETA: 123836s   Epoch 13/500 [2.6%] - train_loss: 0.005038 - val_loss: 0.071331 - ETA: 123219s   Epoch 14/500 [2.8%] - train_loss: 0.005398 - val_loss: 0.067569 - ETA: 122646s   Epoch 15/500 [3.0%] - train_loss: 0.003580 - val_loss: 0.063812 - ETA: 122113s   Epoch 16/500 [3.2%] - train_loss: 0.002975 - val_loss: 0.060120 - ETA: 121589s   Epoch 17/500 [3.4%] - train_loss: 0.002610 - val_loss: 0.074904 - ETA: 121090s   Epoch 18/500 [3.6%] - train_loss: 0.005801 - val_loss: 0.063981 - ETA: 120614s   Epoch 19/500 [3.8%] - train_loss: 0.002372 - val_loss: 0.058617 - ETA: 120171s   Epoch 20/500 [4.0%] - train_loss: 0.001456 - val_loss: 0.061136 - ETA: 119750s   
+Epoch 21/500 [4.2%] - train_loss: 0.003020 - val_loss: 0.059435 - ETA: 119338s   Epoch 22/500 [4.4%] - train_loss: 0.001154 - val_loss: 0.065478 - ETA: 118949s   Epoch 23/500 [4.6%] - train_loss: 0.008710 - val_loss: 0.090591 - ETA: 118587s   Epoch 24/500 [4.8%] - train_loss: 0.001754 - val_loss: 0.069638 - ETA: 118227s   Epoch 25/500 [5.0%] - train_loss: 0.008709 - val_loss: 0.068556 - ETA: 117869s   Epoch 26/500 [5.2%] - train_loss: 0.002583 - val_loss: 0.076281 - ETA: 117524s   Epoch 27/500 [5.4%] - train_loss: 0.000610 - val_loss: 0.075043 - ETA: 117186s   
+📉 LR Scheduler: Epoch 27 - Plateau detected, reducing LR 0.001000 → 0.000500
+Epoch 28/500 [5.6%] - train_loss: 0.000755 - val_loss: 0.068573 - ETA: 116847s   Epoch 29/500 [5.8%] - train_loss: 0.000214 - val_loss: 0.065307 - ETA: 116516s   Epoch 30/500 [6.0%] - train_loss: 0.000743 - val_loss: 0.067860 - ETA: 116192s   
+Epoch 31/500 [6.2%] - train_loss: 0.000181 - val_loss: 0.070333 - ETA: 115866s   Epoch 32/500 [6.4%] - train_loss: 0.000148 - val_loss: 0.076611 - ETA: 115548s   Epoch 33/500 [6.6%] - train_loss: 0.000028 - val_loss: 0.075664 - ETA: 115240s   Epoch 34/500 [6.8%] - train_loss: 0.000029 - val_loss: 0.081077 - ETA: 114930s   Epoch 35/500 [7.0%] - train_loss: 0.000117 - val_loss: 0.079780 - ETA: 114633s   Epoch 36/500 [7.2%] - train_loss: 0.000935 - val_loss: 0.087185 - ETA: 114332s   Epoch 37/500 [7.4%] - train_loss: 0.000019 - val_loss: 0.083917 - ETA: 114031s   Epoch 38/500 [7.6%] - train_loss: 0.000173 - val_loss: 0.079703 - ETA: 113738s   Epoch 39/500 [7.8%] - train_loss: 0.000203 - val_loss: 0.095003 - ETA: 113439s   Epoch 40/500 [8.0%] - train_loss: 0.000040 - val_loss: 0.086514 - ETA: 113149s   
+Epoch 41/500 [8.2%] - train_loss: 0.000160 - val_loss: 0.083327 - ETA: 112853s   Epoch 42/500 [8.4%] - train_loss: 0.000016 - val_loss: 0.085207 - ETA: 112566s   Epoch 43/500 [8.6%] - train_loss: 0.000108 - val_loss: 0.092094 - ETA: 112284s   Epoch 44/500 [8.8%] - train_loss: 0.000164 - val_loss: 0.093168 - ETA: 111996s   Epoch 45/500 [9.0%] - train_loss: 0.000652 - val_loss: 0.100705 - ETA: 111718s   Epoch 46/500 [9.2%] - train_loss: 0.000082 - val_loss: 0.099896 - ETA: 111440s   Epoch 47/500 [9.4%] - train_loss: 0.000125 - val_loss: 0.096932 - ETA: 111158s   Epoch 48/500 [9.6%] - train_loss: 0.000103 - val_loss: 0.097944 - ETA: 110880s   Epoch 49/500 [9.8%] - train_loss: 0.000312 - val_loss: 0.101424 - ETA: 110606s   Epoch 50/500 [10.0%] - train_loss: 0.000084 - val_loss: 0.095336 - ETA: 110339s   
+Epoch 51/500 [10.2%] - train_loss: 0.000020 - val_loss: 0.100074 - ETA: 110075s   Epoch 52/500 [10.4%] - train_loss: 0.000002 - val_loss: 0.097017 - ETA: 109807s   
+📉 LR Scheduler: Epoch 52 - Plateau detected, reducing LR 0.000500 → 0.000250
+Epoch 53/500 [10.6%] - train_loss: 0.000000 - val_loss: 0.100846 - ETA: 109538s   Epoch 54/500 [10.8%] - train_loss: 0.000002 - val_loss: 0.096730 - ETA: 109273s   Epoch 55/500 [11.0%] - train_loss: 0.000002 - val_loss: 0.094084 - ETA: 109009s   Epoch 56/500 [11.2%] - train_loss: 0.000000 - val_loss: 0.099588 - ETA: 108748s   
+⚠️ EarlyStopping: Stopped at epoch 56 (best epoch: 6, loss: 0.040807)
+✅ Training completed in 13958.07s
+
+   ✅ FC training completed in 57 epochs
+
+   AlexNet-Mini: 13915/14000 correct (99.39%)
 
 💾 Saving model...
 
-   ✅ Model saved to src/alexnet_model.bin
-   📊 Accuracy: 29.29%
-
-╔══════════════════════════════════════════════════════════════╗
-║            AlexNet-Mini Training Complete! 🎉                ║
-╚══════════════════════════════════════════════════════════════╝
+Saved CNN model to src/alexnet_model.bin (19166.7 KB, accuracy=99.4%)
+   ✅ Model saved to src/alexnet_model.bin — accuracy 99.39%
