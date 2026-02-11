@@ -14,6 +14,10 @@ export class CanvasDraw {
 
   public readonly dataChanged = output<number[][]>();
 
+  /** Emitted only when the user lifts the mouse/finger (end of stroke).
+   *  Use for expensive operations like CNN activation computation. */
+  public readonly drawingComplete = output<number[][]>();
+
   private readonly canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private ctx: CanvasRenderingContext2D | null = null;
   private isDrawing = false;
@@ -151,14 +155,14 @@ export class CanvasDraw {
       this.grid[row][col] = 255; // Full intensity (0-255 like MNIST)
       this.drawGrid();
       // Emit a clone for zoneless change detection
-      this.dataChanged.emit(this.grid.map(row => [...row]));
+      this.dataChanged.emit(this.grid.map((row) => [...row]));
     }
   }
 
   private stopDrawing(): void {
     if (this.isDrawing) {
       this.isDrawing = false;
-      // Final emit at the end (already cloned during drawing)
+      this.drawingComplete.emit(this.grid.map((row) => [...row]));
     }
   }
 
@@ -169,7 +173,7 @@ export class CanvasDraw {
       .map(() => Array(cols).fill(0));
     this.drawGrid();
     // Emit a clone for zoneless change detection
-    this.dataChanged.emit(this.grid.map(row => [...row]));
+    this.dataChanged.emit(this.grid.map((row) => [...row]));
   }
 
   public getGridData(): number[][] {

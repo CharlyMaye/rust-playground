@@ -29,6 +29,27 @@
   margin-top: 1rem;
 }
 
+.cnn-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cnn-layer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cnn-layer-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text, #e2e8f0);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  margin: 0;
+  padding: 0 0.25rem;
+}
+
 .cnn-summary {
   background: var(--card-bg, #1a1a2e);
   border-radius: 0.5rem;

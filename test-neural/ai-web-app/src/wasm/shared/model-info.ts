@@ -129,3 +129,32 @@ export interface ArchitectureSummary {
   /** Layer descriptions */
   layers: LayerSummary[];
 }
+
+/**
+ * One CNN layer's intermediate activation output.
+ * Returned by get_cnn_activations() from CNN WASM modules.
+ */
+export interface CnnLayerActivation {
+  /** Layer type: "Conv2D", "ReLU", "MaxPool2D", "BatchNorm2D", "Flatten", etc. */
+  layer_type: string;
+  /** Human-readable config: "1→32, 3×3, s=1, p=1" */
+  config: string;
+  /** Output shape [channels, height, width] */
+  shape: number[];
+  /** Flattened activation data (C×H×W values for a single sample) */
+  activations: number[];
+}
+
+/**
+ * Full CNN forward-pass result with all intermediate activations.
+ * Returned by get_cnn_activations() from CNN WASM modules.
+ * Non-CNN modules return `{ error: string }` instead.
+ */
+export interface CnnActivationsResponse {
+  /** Input shape [channels, height, width] */
+  input_shape: number[];
+  /** Per-layer intermediate activations */
+  layers: CnnLayerActivation[];
+  /** Output shape of the last CNN layer */
+  output_shape: number[];
+}

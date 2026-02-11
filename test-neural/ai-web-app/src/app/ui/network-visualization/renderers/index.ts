@@ -15,6 +15,7 @@ export { ConfigurableLayoutCalculator } from './configurable-layout-calculator';
 export type {
   BarData,
   ConfigurableRenderData,
+  FeatureMapsData,
   GridData,
   LayerElement,
   LayerInfo,

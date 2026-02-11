@@ -48,6 +48,7 @@ export interface LayerElement {
   readonly gridData?: GridData;
   readonly barData?: BarData;
   readonly statsData?: StatsData;
+  readonly featureMapsData?: FeatureMapsData;
 }
 
 export interface GridData {
@@ -73,6 +74,33 @@ export interface StatsData {
   readonly max: number;
   readonly mean: number;
   readonly std: number;
+}
+
+/**
+ * Data for a multi-channel feature maps visualization (CNN layers).
+ * Each channel is a 2D heatmap laid out in a grid.
+ */
+export interface FeatureMapsData {
+  /** Number of channels */
+  readonly channels: number;
+  /** How many channels are actually displayed */
+  readonly displayChannels: number;
+  /** Rows in each individual feature map */
+  readonly mapRows: number;
+  /** Cols in each individual feature map */
+  readonly mapCols: number;
+  /** Cell size for each feature map pixel */
+  readonly cellSize: number;
+  /** Grid layout: columns of feature maps */
+  readonly gridCols: number;
+  /** Grid layout: rows of feature maps */
+  readonly gridRows: number;
+  /** Gap between feature maps in natural pixels */
+  readonly gap: number;
+  /** Per-channel grid data (colors + values) */
+  readonly maps: readonly GridData[];
+  /** Whether some channels were truncated */
+  readonly truncated: boolean;
 }
 
 /**
@@ -158,7 +186,12 @@ export class ConfigurableLayoutCalculator {
     const connections = this.buildConnections(weights, layerSizes, layerPositions, layerElements);
 
     // Build labels
-    const labels = this.buildLabels(architecture, layerPositions, naturalBounds.height);
+    const labels = this.buildLabels(
+      architecture,
+      layerConfigs,
+      layerPositions,
+      naturalBounds.height,
+    );
 
     return {
       neurons,
@@ -248,6 +281,14 @@ export class ConfigurableLayoutCalculator {
         };
       }
 
+      case 'feature-maps': {
+        const fmLayout = this.calculateFeatureMapsLayout(size, config);
+        return {
+          width: fmLayout.totalWidth,
+          height: fmLayout.totalHeight,
+        };
+      }
+
       case 'histogram':
         return {
           width: 80,
@@ -299,9 +340,9 @@ export class ConfigurableLayoutCalculator {
   private calculateHeatmapCellSize(rows: number, cols: number): number {
     const maxDimension = Math.max(rows, cols);
 
-    // Target a reasonable max size for the heatmap
-    const targetMaxSize = 150;
-    const cellSize = Math.max(2, Math.floor(targetMaxSize / maxDimension));
+    // Target size proportional to feature maps (not a tiny thumbnail)
+    const targetMaxSize = 300;
+    const cellSize = Math.max(4, Math.floor(targetMaxSize / maxDimension));
 
     return cellSize;
   }
@@ -311,6 +352,18 @@ export class ConfigurableLayoutCalculator {
   ): Bounds {
     const { layerSpacing, margin } = this.baseDimensions;
 
+    if (this.config.layout.strategy === 'row') {
+      // Vertical stacking: layers go top-to-bottom
+      const maxWidth = Math.max(...layerBounds.map((b) => b.width));
+      const totalHeight =
+        layerBounds.reduce((sum, b) => sum + b.height, 0) + (layerBounds.length - 1) * layerSpacing;
+      return {
+        width: maxWidth + margin * 2 + 160, // extra space for labels on left
+        height: totalHeight + margin * 2,
+      };
+    }
+
+    // Horizontal column layout (default)
     const maxHeight = Math.max(...layerBounds.map((b) => b.height));
     const totalWidth =
       layerBounds.reduce((sum, b) => sum + b.width, 0) + (layerBounds.length - 1) * layerSpacing;
@@ -330,8 +383,26 @@ export class ConfigurableLayoutCalculator {
     naturalBounds: Bounds,
   ): readonly { x: number; centerY: number }[] {
     const { layerSpacing, margin } = this.baseDimensions;
-    const centerY = naturalBounds.height / 2;
 
+    if (this.config.layout.strategy === 'row') {
+      // Vertical stacking: layers go top-to-bottom, centered horizontally
+      const centerX = naturalBounds.width / 2 + 60; // offset for labels on left
+      const positions: { x: number; centerY: number }[] = [];
+      let y = margin;
+
+      for (const bounds of layerBounds) {
+        positions.push({
+          x: centerX,
+          centerY: y + bounds.height / 2,
+        });
+        y += bounds.height + layerSpacing;
+      }
+
+      return positions;
+    }
+
+    // Horizontal column layout (default)
+    const centerY = naturalBounds.height / 2;
     const positions: { x: number; centerY: number }[] = [];
     let x = margin;
 
@@ -440,6 +511,12 @@ export class ConfigurableLayoutCalculator {
         return {
           ...baseElement,
           gridData: this.buildGridData(activations, config),
+        };
+
+      case 'feature-maps':
+        return {
+          ...baseElement,
+          featureMapsData: this.buildFeatureMapsData(activations, config),
         };
 
       case 'bar':
@@ -605,6 +682,101 @@ export class ConfigurableLayoutCalculator {
       cellSize,
       values: activations,
       colors,
+    };
+  }
+
+  // ============================================================================
+  // Feature Maps Building (multi-channel heatmaps)
+  // ============================================================================
+
+  private calculateFeatureMapsLayout(
+    size: number,
+    config: LayerConfig,
+  ): { totalWidth: number; totalHeight: number } {
+    const channels = config.channels ?? 1;
+    const maxChannels = config.maxChannels ?? 32;
+    const displayChannels = Math.min(channels, maxChannels);
+    const shape = config.shape ?? this.inferShape(Math.floor(size / channels));
+    const [mapRows, mapCols] = shape;
+
+    const cellSize = this.calculateFeatureMapCellSize(mapRows, mapCols, displayChannels);
+    const gridCols = Math.min(displayChannels, Math.ceil(Math.sqrt(displayChannels)));
+    const gridRows = Math.ceil(displayChannels / gridCols);
+    const gap = Math.max(4, cellSize * 2);
+
+    const totalWidth = gridCols * mapCols * cellSize + (gridCols - 1) * gap;
+    const totalHeight = gridRows * mapRows * cellSize + (gridRows - 1) * gap;
+
+    return { totalWidth, totalHeight };
+  }
+
+  private calculateFeatureMapCellSize(
+    mapRows: number,
+    mapCols: number,
+    displayChannels: number,
+  ): number {
+    const gridCols = Math.min(displayChannels, Math.ceil(Math.sqrt(displayChannels)));
+    const targetMaxWidth = 800;
+    const maxDim = Math.max(mapRows, mapCols);
+    const cellSize = Math.max(3, Math.floor(targetMaxWidth / (gridCols * maxDim)));
+    return Math.min(cellSize, 20);
+  }
+
+  private buildFeatureMapsData(
+    activations: readonly number[],
+    config: LayerConfig,
+  ): FeatureMapsData {
+    const channels = config.channels ?? 1;
+    const maxChannels = config.maxChannels ?? 32;
+    const displayChannels = Math.min(channels, maxChannels);
+    const shape = config.shape ?? this.inferShape(Math.floor(activations.length / channels));
+    const [mapRows, mapCols] = shape;
+    const channelSize = mapRows * mapCols;
+
+    const cellSize = this.calculateFeatureMapCellSize(mapRows, mapCols, displayChannels);
+    const gridCols = Math.min(displayChannels, Math.ceil(Math.sqrt(displayChannels)));
+    const gridRows = Math.ceil(displayChannels / gridCols);
+    const gap = Math.max(4, cellSize * 2);
+
+    const maps: GridData[] = [];
+    for (let c = 0; c < displayChannels; c++) {
+      const offset = c * channelSize;
+      const channelValues = activations.slice(offset, offset + channelSize);
+
+      // Per-channel min/max normalization
+      let min = Infinity;
+      let max = -Infinity;
+      for (const v of channelValues) {
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+      const range = max - min || 1;
+
+      const normalized = channelValues.map((v) => (v - min) / range);
+      const colors = normalized.map((v) =>
+        this.valueToHeatmapColor(v, config.colorScheme ?? 'grayscale'),
+      );
+
+      maps.push({
+        rows: mapRows,
+        cols: mapCols,
+        cellSize,
+        values: channelValues,
+        colors,
+      });
+    }
+
+    return {
+      channels,
+      displayChannels,
+      mapRows,
+      mapCols,
+      cellSize,
+      gridCols,
+      gridRows,
+      gap,
+      maps,
+      truncated: channels > maxChannels,
     };
   }
 
@@ -808,36 +980,78 @@ export class ConfigurableLayoutCalculator {
 
   private buildLabels(
     architecture: NetworkArchitecture,
+    layerConfigs: readonly LayerConfig[],
     layerPositions: readonly { x: number; centerY: number }[],
     totalHeight: number,
   ): readonly Label[] {
     const { margin, labelFontSize, labelOffsetY } = this.baseDimensions;
-    const labelY = totalHeight - margin + labelOffsetY / 2;
+    const isRow = this.config.layout.strategy === 'row';
     const labels: Label[] = [];
 
-    // Input layer label
-    labels.push({
-      position: { x: layerPositions[0].x, y: labelY },
-      text: 'Input',
-      color: 'var(--nn-neutral)',
-      fontSize: labelFontSize,
-      align: 'center',
-    });
+    if (isRow) {
+      // Row layout: labels on the left side of each layer
+      labels.push({
+        position: { x: margin, y: layerPositions[0].centerY },
+        text: 'Input',
+        color: 'var(--nn-neutral)',
+        fontSize: labelFontSize,
+        align: 'left',
+      });
 
-    // Hidden and output layer labels
-    for (let i = 0; i < architecture.layers.length; i++) {
-      const layer = architecture.layers[i];
-      const text = layer.isOutput
-        ? `Output (${layer.activationFunction})`
-        : `Hidden ${i + 1} (${layer.activationFunction})`;
+      for (let i = 0; i < architecture.layers.length; i++) {
+        const layer = architecture.layers[i];
+        const config = layerConfigs[i + 1];
+
+        let text: string;
+        if (config?.representation === 'feature-maps' || config?.representation === 'heatmap') {
+          text = layer.activationFunction;
+        } else if (layer.isOutput) {
+          text = `Output (${layer.activationFunction})`;
+        } else {
+          text = `Hidden ${i + 1} (${layer.activationFunction})`;
+        }
+
+        labels.push({
+          position: { x: margin, y: layerPositions[i + 1].centerY },
+          text,
+          color: 'var(--nn-neutral)',
+          fontSize: labelFontSize,
+          align: 'left',
+        });
+      }
+    } else {
+      // Column layout: labels below each layer
+      const labelY = totalHeight - margin + labelOffsetY / 2;
 
       labels.push({
-        position: { x: layerPositions[i + 1].x, y: labelY },
-        text,
+        position: { x: layerPositions[0].x, y: labelY },
+        text: 'Input',
         color: 'var(--nn-neutral)',
         fontSize: labelFontSize,
         align: 'center',
       });
+
+      for (let i = 0; i < architecture.layers.length; i++) {
+        const layer = architecture.layers[i];
+        const config = layerConfigs[i + 1];
+
+        let text: string;
+        if (config?.representation === 'feature-maps' || config?.representation === 'heatmap') {
+          text = layer.activationFunction;
+        } else if (layer.isOutput) {
+          text = `Output (${layer.activationFunction})`;
+        } else {
+          text = `Hidden ${i + 1} (${layer.activationFunction})`;
+        }
+
+        labels.push({
+          position: { x: layerPositions[i + 1].x, y: labelY },
+          text,
+          color: 'var(--nn-neutral)',
+          fontSize: labelFontSize,
+          align: 'center',
+        });
+      }
     }
 
     return labels;

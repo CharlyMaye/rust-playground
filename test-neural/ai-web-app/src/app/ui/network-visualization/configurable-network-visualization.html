@@ -14,6 +14,9 @@
     <canvas
       #networkCanvas
       class="network-canvas"
+      [style.width.px]="canvasDimensions().width"
+      [style.height.px]="canvasDimensions().height"
+      [style.max-width.px]="canvasDimensions().width"
       (click)="onCanvasClick($event)"
       role="img"
       aria-label="Neural network visualization showing neurons and connections"

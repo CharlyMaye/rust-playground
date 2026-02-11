@@ -67,13 +67,11 @@ Identical signature: `pub fn get_cnn_activations(&self, pixels: &[Float]) -> Str
 
 ---
 
-## Phase 2 — Angular / Frontend (later, separate PR)
+## Phase 2 — Angular / Frontend
 
-- [ ] Add `CnnActivationsResponse` TypeScript type in `model-info.ts`
-- [ ] Add `get_cnn_activations` call in WASM services
-- [ ] Expose `cnnActivations` signal in `WasmFacade`
-- [ ] Build CNN visualization component (feature maps as mini-heatmaps)
-- [ ] Integrate into CNN pages (LeNet, AlexNet, VGG, ResNet)
+- [x] Add `CnnActivationsResponse` TypeScript type in `model-info.ts`
+- [x] Build CNN feature maps component (`app-cnn-feature-maps`)
+- [x] Integrate into CNN pages (LeNet, AlexNet, VGG, ResNet)
 
 ---
 

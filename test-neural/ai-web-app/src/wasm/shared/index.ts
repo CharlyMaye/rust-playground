@@ -1,6 +1,8 @@
 export type {
   Activation,
   ArchitectureSummary,
+  CnnActivationsResponse,
+  CnnLayerActivation,
   IrisPrediction,
   IrisTestResult,
   LayerSummary,

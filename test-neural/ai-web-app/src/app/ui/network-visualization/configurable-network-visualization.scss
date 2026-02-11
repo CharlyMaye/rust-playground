@@ -20,7 +20,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  min-height: 300px;
+  min-height: 200px;
   background: transparent;
   border-radius: 0.5rem;
   padding: 0;
@@ -28,10 +28,6 @@
 
 .network-canvas {
   display: block;
-  width: 100%;
-  max-width: 400px;
-  height: 300px;
-  aspect-ratio: 4 / 3;
   cursor: default;
   border-radius: 0.25rem;
 }

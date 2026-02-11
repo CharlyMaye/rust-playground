@@ -110,6 +110,33 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
   private readonly displayWidth = signal(500);
   private readonly displayHeight = signal(280);
 
+  /** Computed canvas dimensions based on config and natural bounds */
+  readonly canvasDimensions = computed(() => {
+    const config = this.resolvedConfig();
+    const data = this.renderData();
+
+    if (config.canvas.sizeStrategy === 'adaptive' && data) {
+      const maxW = config.canvas.maxWidth ?? 800;
+      const maxH = config.canvas.maxHeight ?? 600;
+      const { width, height } = data.naturalBounds;
+
+      // Scale natural bounds to fit, preserving aspect ratio
+      const scaleX = maxW / width;
+      const scaleY = maxH / height;
+      const scale = Math.min(scaleX, scaleY, 1);
+
+      return {
+        width: Math.max(200, Math.ceil(width * scale)),
+        height: Math.max(150, Math.ceil(height * scale)),
+      };
+    }
+
+    return {
+      width: config.canvas.width ?? 500,
+      height: config.canvas.height ?? 280,
+    };
+  });
+
   /** Aspect ratio for layout calculation */
   private readonly aspectRatio = computed(() => this.displayWidth() / this.displayHeight());
 
@@ -220,6 +247,20 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
       });
     });
 
+    // Effect: Sync display dimensions from canvasDimensions & resize renderer
+    effect(() => {
+      const dims = this.canvasDimensions();
+
+      untracked(() => {
+        this.displayWidth.set(dims.width);
+        this.displayHeight.set(dims.height);
+
+        if (this.renderer) {
+          this.renderer.resize(dims.width, dims.height);
+        }
+      });
+    });
+
     // Effect: Render when data or viewport changes
     effect(() => {
       const data = this.renderData();
@@ -271,10 +312,10 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
     this.destroyRenderer();
 
     try {
-      // Get display dimensions from canvas
-      const rect = canvas.getBoundingClientRect();
-      this.displayWidth.set(rect.width || 500);
-      this.displayHeight.set(rect.height || 280);
+      // Use computed canvas dimensions instead of CSS rect
+      const dims = this.canvasDimensions();
+      this.displayWidth.set(dims.width);
+      this.displayHeight.set(dims.height);
 
       // Choose renderer based on config
       const rendererType = this.determineRenderer(config);
