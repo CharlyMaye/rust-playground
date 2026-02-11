@@ -28,7 +28,6 @@ import {
 export class MnistAlexNet {
   private readonly wasmService = inject(WasmFacade);
 
-
   /** Whether the WASM module is currently loading */
   public readonly isLoading = this.wasmService.mnistAlexNetWasmResource.isLoading;
   /** Whether the WASM module failed to load (model not trained yet) */

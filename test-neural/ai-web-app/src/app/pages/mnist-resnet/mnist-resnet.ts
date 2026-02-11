@@ -27,7 +27,6 @@ import {
 export class MnistResNet {
   private readonly wasmService = inject(WasmFacade);
 
-
   public readonly isLoading = this.wasmService.mnistResNetWasmResource.isLoading;
   public readonly network = this.wasmService.mnistResNetNetwork;
   public readonly modelInfo = this.wasmService.mnistResNetModelInfo;

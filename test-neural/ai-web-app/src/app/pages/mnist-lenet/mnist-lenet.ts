@@ -28,7 +28,6 @@ import {
 export class MnistLeNet {
   private readonly wasmService = inject(WasmFacade);
 
-
   /** Whether the WASM module is currently loading */
   public readonly isLoading = this.wasmService.mnistLeNetWasmResource.isLoading;
   /** LeNet-5 network instance */
