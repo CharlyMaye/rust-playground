@@ -141,6 +141,19 @@ export class IrisClassifier {
     return neuralNetworkLayersToWeights(wts);
   });
 
+  /** Activation functions used in the network for display */
+  public readonly activationFunctions = computed(() => {
+    const wts = this.irisWeights();
+    if (!wts?.layers) return undefined;
+    const activations = wts.layers.map((l) => this.capitalizeFirst(l.activation));
+    const unique = [...new Set(activations)];
+    return unique.join(' → ');
+  });
+
+  private capitalizeFirst(str: string): string {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
   /** Formatted prediction class for display */
   public readonly predictionDisplay = computed(() => {
     const output = this.output();

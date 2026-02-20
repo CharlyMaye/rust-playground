@@ -111,6 +111,18 @@ export class MnistResNet {
     return this.formatArchitectureSummary(summary);
   });
 
+  /** Activation functions used in the network for display */
+  public readonly activationFunctions = computed(() => {
+    const summary = this.architectureSummary();
+    if (!summary?.layers) return undefined;
+    const activationLayers = ['ReLU', 'Tanh', 'Sigmoid', 'Softmax', 'LeakyReLU', 'ELU', 'GELU'];
+    const found = summary.layers
+      .map((l) => l.name)
+      .filter((name) => activationLayers.includes(name));
+    const unique = [...new Set(found)];
+    return unique.length > 0 ? unique.join(' → ') : undefined;
+  });
+
   private formatArchitectureSummary(summary: ArchitectureSummary): string {
     const lines = [
       `${summary.name} (${summary.model_type.toUpperCase()})`,

@@ -126,6 +126,18 @@ export class MnistAlexNet {
     return this.formatArchitectureSummary(summary);
   });
 
+  /** Activation functions used in the network for display */
+  public readonly activationFunctions = computed(() => {
+    const summary = this.architectureSummary();
+    if (!summary?.layers) return undefined;
+    const activationLayers = ['ReLU', 'Tanh', 'Sigmoid', 'Softmax', 'LeakyReLU', 'ELU', 'GELU'];
+    const found = summary.layers
+      .map((l) => l.name)
+      .filter((name) => activationLayers.includes(name));
+    const unique = [...new Set(found)];
+    return unique.length > 0 ? unique.join(' → ') : undefined;
+  });
+
   /** Format architecture summary for display */
   private formatArchitectureSummary(summary: ArchitectureSummary): string {
     const lines = [

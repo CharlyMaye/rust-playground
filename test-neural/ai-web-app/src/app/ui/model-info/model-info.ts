@@ -16,4 +16,7 @@ import { ModelInfo } from '@cma/wasm/shared';
 export class ModelInfoComponent {
   /** Model metadata to display */
   public readonly modelInfo = input<ModelInfo | undefined>(undefined);
+
+  /** Activation functions used in the network (e.g., "ReLU → Softmax") */
+  public readonly activations = input<string | undefined>(undefined);
 }
