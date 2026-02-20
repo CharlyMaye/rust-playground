@@ -62,7 +62,7 @@
         </p>
       </div>
       <div class="cnn-layers">
-        @for (layer of cnnLayers(); track layer.label) {
+        @for (layer of cnnLayers(); track $index) {
           <div class="cnn-layer">
             <h3 class="cnn-layer-label">{{ layer.label }}</h3>
             <app-configurable-network

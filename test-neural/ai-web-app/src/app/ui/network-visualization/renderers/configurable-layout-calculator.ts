@@ -127,11 +127,11 @@ export class ConfigurableLayoutCalculator {
   private readonly baseDimensions = {
     neuronDiameter: 40,
     neuronPaddingY: 10,
-    layerSpacing: 120,
+    layerSpacing: 150,
     margin: 60,
-    labelFontSize: 14,
+    labelFontSize: 12,
     neuronFontSize: 12,
-    labelOffsetY: 30,
+    labelOffsetY: 25,
   };
 
   constructor(config: VisualizationConfig) {
@@ -1067,7 +1067,7 @@ export class ConfigurableLayoutCalculator {
         });
       }
     } else {
-      // Column layout: labels below each layer
+      // Column layout: labels below each layer (abbreviated for space)
       const labelY = totalHeight - margin + labelOffsetY / 2;
 
       labels.push({
@@ -1078,6 +1078,8 @@ export class ConfigurableLayoutCalculator {
         align: 'center',
       });
 
+      const hiddenCount = architecture.layers.filter((l) => !l.isOutput).length;
+
       for (let i = 0; i < architecture.layers.length; i++) {
         const layer = architecture.layers[i];
         const config = layerConfigs[i + 1];
@@ -1086,9 +1088,17 @@ export class ConfigurableLayoutCalculator {
         if (config?.representation === 'feature-maps' || config?.representation === 'heatmap') {
           text = layer.activationFunction;
         } else if (layer.isOutput) {
-          text = `Output (${layer.activationFunction})`;
+          // Abbreviated output label
+          const shortActivation = this.abbreviateActivation(layer.activationFunction);
+          text = `Out(${shortActivation})`;
         } else {
-          text = `Hidden ${i + 1} (${layer.activationFunction})`;
+          // Abbreviated hidden label - just number if multiple hidden layers
+          const shortActivation = this.abbreviateActivation(layer.activationFunction);
+          if (hiddenCount === 1) {
+            text = `Hidden(${shortActivation})`;
+          } else {
+            text = `H${i + 1}(${shortActivation})`;
+          }
         }
 
         labels.push({
@@ -1107,6 +1117,30 @@ export class ConfigurableLayoutCalculator {
   // ============================================================================
   // Utility Methods
   // ============================================================================
+
+  /**
+   * Abbreviate activation function name for compact label display
+   */
+  private abbreviateActivation(activation: string): string {
+    const lower = activation.toLowerCase();
+    switch (lower) {
+      case 'sigmoid':
+        return 'σ';
+      case 'tanh':
+        return 'tanh';
+      case 'relu':
+        return 'ReLU';
+      case 'softmax':
+        return 'SM';
+      case 'linear':
+        return 'Lin';
+      case 'leakyrelu':
+        return 'LReLU';
+      default:
+        // Return first 4 chars for unknown activations
+        return activation.slice(0, 4);
+    }
+  }
 
   private extractNeuronsFromElements(elements: readonly LayerElement[]): readonly Neuron[] {
     const neurons: Neuron[] = [];

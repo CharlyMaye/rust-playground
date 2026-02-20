@@ -3,157 +3,22 @@
 
 <!-- Demo cards grid -->
 <div class="demo-grid" aria-label="Available neural network demos">
-  <!-- XOR Demo -->
-  <a [routerLink]="['/xor-logic-gate']" class="demo-card">
-    @if (!xorIsLoading()) {
-      <div class="demo-icon" aria-hidden="true">⊕</div>
-      <h3>{{ xorModelInfo()?.name }}</h3>
-      <p>{{ xorModelInfo()?.description }}</p>
-      <div class="demo-meta">
-        <span class="badge badge-info">{{ xorArchitecture()?.[0] }} inputs</span>
-        <span class="badge badge-info">{{ xorArchitecture()?.slice(-1)?.[0] }} output</span>
-        <span class="badge badge-success" id="xor-accuracy"
-          >{{ xorModelInfo()?.accuracy | number: '1.1-1' }}%</span
-        >
-      </div>
-    } @else {
-      <app-loader id="loading" [message]="'Loading Neural Network...'" />
-    }
-  </a>
-
-  <!-- Iris Demo -->
-  <a [routerLink]="['/iris-classifier']" class="demo-card">
-    @if (!irisIsLoading()) {
-      <div class="demo-icon" aria-hidden="true">🌸</div>
-      <h3>{{ irisModelInfo()?.name }}</h3>
-      <p>{{ irisModelInfo()?.description }}</p>
-      <div class="demo-meta">
-        <span class="badge badge-info">{{ irisArchitecture()?.[0] }} inputs</span>
-        <span class="badge badge-info">{{ irisArchitecture()?.slice(-1)?.[0] }} classes</span>
-        <span class="badge badge-success" id="iris-accuracy">
-          {{ irisModelInfo()?.accuracy | number: '1.1-1' }}%
-        </span>
-      </div>
-    } @else {
-      <app-loader id="loading" [message]="'Loading Neural Network...'" />
-    }
-  </a>
-
-  <!-- MNIST Demo -->
-  <a [routerLink]="['/mnist-digit']" class="demo-card">
-    @if (!mnistIsLoading()) {
-      <div class="demo-icon" aria-hidden="true">✍️</div>
-      <h3>{{ mnistModelInfo()?.name }}</h3>
-      <p>{{ mnistModelInfo()?.description }}</p>
-      <div class="demo-meta">
-        <span class="badge badge-info">{{ mnistArchitecture()?.[0] }} inputs</span>
-        <span class="badge badge-info">{{ mnistArchitecture()?.slice(-1)?.[0] }} classes</span>
-        <span class="badge badge-success" id="mnist-accuracy">
-          {{ mnistModelInfo()?.accuracy | number: '1.1-1' }}%
-        </span>
-      </div>
-    } @else {
-      <app-loader id="loading" [message]="'Loading Neural Network...'" />
-    }
-  </a>
-
-  <!-- LeNet-5 CNN Demo -->
-  <a [routerLink]="['/mnist-lenet']" class="demo-card">
-    @if (!mnistLeNetIsLoading()) {
-      <div class="demo-icon" aria-hidden="true">🧠</div>
-      <h3>{{ mnistLeNetModelInfo()?.name }}</h3>
-      <p>{{ mnistLeNetModelInfo()?.description }}</p>
-      <div class="demo-meta">
-        <span class="badge badge-info">28×28 image</span>
-        <span class="badge badge-info">10 classes</span>
-        <span class="badge badge-success" id="mnist-lenet-accuracy">
-          {{ mnistLeNetModelInfo()?.accuracy | number: '1.1-1' }}%
-        </span>
-      </div>
-    } @else {
-      <app-loader id="loading" [message]="'Loading LeNet-5 CNN...'" />
-    }
-  </a>
-
-  <!-- ResNet CNN Demo -->
-  <a [routerLink]="['/mnist-resnet']" class="demo-card">
-    @if (!mnistResNetIsLoading()) {
-      <div class="demo-icon" aria-hidden="true">🔗</div>
-      <h3>{{ mnistResNetModelInfo()?.name }}</h3>
-      <p>{{ mnistResNetModelInfo()?.description }}</p>
-      <div class="demo-meta">
-        <span class="badge badge-info">28×28 image</span>
-        <span class="badge badge-info">10 classes</span>
-        <span class="badge badge-success" id="mnist-resnet-accuracy">
-          {{ mnistResNetModelInfo()?.accuracy | number: '1.1-1' }}%
-        </span>
-      </div>
-    } @else {
-      <app-loader id="loading" [message]="'Loading ResNet CNN...'" />
-    }
-  </a>
-
-  <!-- AlexNet-Mini CNN Demo -->
-  <a [routerLink]="['/mnist-alexnet']" class="demo-card">
-    @if (!mnistAlexNetIsLoading()) {
-      <div class="demo-icon" aria-hidden="true">🔥</div>
-      <h3>{{ mnistAlexNetModelInfo()?.name ?? 'AlexNet-Mini' }}</h3>
-      <p>
-        {{ mnistAlexNetModelInfo()?.description ?? 'AlexNet-style CNN (Krizhevsky et al., 2012)' }}
-      </p>
-      <div class="demo-meta">
-        <span class="badge badge-info">28×28 image</span>
-        <span class="badge badge-info">10 classes</span>
-        @if (mnistAlexNetModelInfo()?.accuracy) {
-          <span class="badge badge-success" id="mnist-alexnet-accuracy">
-            {{ mnistAlexNetModelInfo()?.accuracy | number: '1.1-1' }}%
-          </span>
-        } @else {
-          <span class="badge badge-warning">Not trained</span>
-        }
-      </div>
-    } @else {
-      <app-loader id="loading" [message]="'Loading AlexNet-Mini CNN...'" />
-    }
-  </a>
-
-  <!-- VGG-Tiny CNN Demo -->
-  <a [routerLink]="['/mnist-vgg']" class="demo-card">
-    @if (!mnistVggIsLoading()) {
-      <div class="demo-icon" aria-hidden="true">📚</div>
-      <h3>{{ mnistVggModelInfo()?.name ?? 'VGG-Tiny' }}</h3>
-      <p>{{ mnistVggModelInfo()?.description ?? 'VGG-style CNN (Simonyan & Zisserman, 2014)' }}</p>
-      <div class="demo-meta">
-        <span class="badge badge-info">28×28 image</span>
-        <span class="badge badge-info">10 classes</span>
-        @if (mnistVggModelInfo()?.accuracy) {
-          <span class="badge badge-success" id="mnist-vgg-accuracy">
-            {{ mnistVggModelInfo()?.accuracy | number: '1.1-1' }}%
-          </span>
-        } @else {
-          <span class="badge badge-warning">Not trained</span>
-        }
-      </div>
-    } @else {
-      <app-loader id="loading" [message]="'Loading VGG-Tiny CNN...'" />
-    }
-  </a>
-
-  <!-- coming soon -->
-  <a [routerLink]="['/coming-soon']" class="demo-card">
-    <div class="demo-icon" aria-hidden="true">⏰</div>
-    <h3>COMMING SOON</h3>
-    <div class="demo-meta">
-      <span class="badge badge-warning">Coming soon</span>
-    </div>
-  </a>
-
-  <!-- <a [routerLink]="['/coming-soon']" class="demo-card disabled" aria-disabled="true" tabindex="-1">
-    <div class="demo-icon" aria-hidden="true">⏰</div>
-    <h3>COMMING SOON</h3>
-    <p>(coming soon)</p>
-    <div class="demo-meta">
-      <span class="badge badge-warning">Coming soon</span>
-    </div>
-  </a> -->
+  @for (demo of demos(); track demo.route) {
+    <app-demo-card
+      [route]="demo.route"
+      [icon]="demo.icon"
+      [name]="demo.name"
+      [fallbackName]="demo.fallbackName"
+      [description]="demo.description"
+      [fallbackDescription]="demo.fallbackDescription"
+      [isLoading]="demo.isLoading"
+      [loadingMessage]="demo.loadingMessage"
+      [inputBadge]="demo.inputBadge"
+      [outputBadge]="demo.outputBadge"
+      [accuracy]="demo.accuracy"
+      [showNotTrained]="demo.showNotTrained"
+      [customBadge]="demo.customBadge"
+      [customBadgeType]="demo.customBadgeType ?? 'warning'"
+    />
+  }
 </div>
