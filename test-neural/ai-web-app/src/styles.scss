@@ -164,8 +164,9 @@ h3 {
    ============================================ */
 
 .container {
-  max-width: 900px;
-  width: 100%;
+  width: 75%;
+  min-width: 900px;
+  max-width: 1600px;
 }
 
 .card {
@@ -403,6 +404,14 @@ footer a:hover {
    Responsive Breakpoints
    ============================================ */
 
+@media (max-width: 900px) {
+  .container {
+    width: 100%;
+    min-width: auto;
+    max-width: 100%;
+  }
+}
+
 @media (max-width: 768px) {
   body {
     padding: 1rem;
@@ -410,10 +419,6 @@ footer a:hover {
 
   h1 {
     font-size: 2rem;
-  }
-
-  .container {
-    max-width: 100%;
   }
 
   .demo-grid {
@@ -433,4 +438,67 @@ footer a:hover {
   border-radius: 0.5rem;
   background: white;
   touch-action: none;
+}
+
+.predictor-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.prediction-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.prediction-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--accent);
+}
+
+.prediction-confidence {
+  font-size: 1rem;
+  color: var(--muted);
+}
+
+.cnn-card {
+  margin-top: 1rem;
+}
+
+.cnn-layers {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cnn-layer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.cnn-layer-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  margin: 0;
+  padding: 0 0.25rem;
+}
+
+.cnn-summary {
+  background: var(--card);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text);
 }

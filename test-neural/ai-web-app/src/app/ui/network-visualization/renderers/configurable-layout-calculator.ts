@@ -191,6 +191,7 @@ export class ConfigurableLayoutCalculator {
       layerConfigs,
       layerPositions,
       naturalBounds.height,
+      layerElements,
     );
 
     return {
@@ -303,8 +304,8 @@ export class ConfigurableLayoutCalculator {
 
       case 'collapsed':
         return {
-          width: neuronDiameter * 1.5,
-          height: neuronDiameter * 1.5,
+          width: 0,
+          height: 0,
         };
 
       default:
@@ -350,27 +351,39 @@ export class ConfigurableLayoutCalculator {
   private calculateNaturalBounds(
     layerBounds: readonly { width: number; height: number }[],
   ): Bounds {
-    const { layerSpacing, margin } = this.baseDimensions;
+    const { layerSpacing, margin, labelOffsetY } = this.baseDimensions;
+
+    // Filter out zero-size layers (collapsed)
+    const visibleBounds = layerBounds.filter((b) => b.width > 0 && b.height > 0);
+    if (visibleBounds.length === 0) {
+      return { width: margin * 2, height: margin * 2 };
+    }
+
+    // Use smaller spacing for compact layouts
+    const effectiveSpacing = visibleBounds.length === 1 ? 0 : layerSpacing / 2;
+    const effectiveMargin = margin / 2;
 
     if (this.config.layout.strategy === 'row') {
       // Vertical stacking: layers go top-to-bottom
-      const maxWidth = Math.max(...layerBounds.map((b) => b.width));
+      const maxWidth = Math.max(...visibleBounds.map((b) => b.width));
       const totalHeight =
-        layerBounds.reduce((sum, b) => sum + b.height, 0) + (layerBounds.length - 1) * layerSpacing;
+        visibleBounds.reduce((sum, b) => sum + b.height, 0) +
+        (visibleBounds.length - 1) * effectiveSpacing;
       return {
-        width: maxWidth + margin * 2 + 160, // extra space for labels on left
-        height: totalHeight + margin * 2,
+        width: maxWidth + effectiveMargin * 2,
+        height: totalHeight + effectiveMargin * 2 + labelOffsetY,
       };
     }
 
     // Horizontal column layout (default)
-    const maxHeight = Math.max(...layerBounds.map((b) => b.height));
+    const maxHeight = Math.max(...visibleBounds.map((b) => b.height));
     const totalWidth =
-      layerBounds.reduce((sum, b) => sum + b.width, 0) + (layerBounds.length - 1) * layerSpacing;
+      visibleBounds.reduce((sum, b) => sum + b.width, 0) +
+      (visibleBounds.length - 1) * effectiveSpacing;
 
     return {
-      width: totalWidth + margin * 2,
-      height: maxHeight + margin * 2,
+      width: totalWidth + effectiveMargin * 2,
+      height: maxHeight + effectiveMargin * 2 + labelOffsetY,
     };
   }
 
@@ -382,20 +395,33 @@ export class ConfigurableLayoutCalculator {
     layerBounds: readonly { width: number; height: number }[],
     naturalBounds: Bounds,
   ): readonly { x: number; centerY: number }[] {
-    const { layerSpacing, margin } = this.baseDimensions;
+    const { layerSpacing, margin, labelOffsetY } = this.baseDimensions;
+
+    // Filter indices of visible layers
+    const visibleIndices = layerBounds
+      .map((b, i) => ({ b, i }))
+      .filter(({ b }) => b.width > 0 && b.height > 0);
+    const effectiveSpacing = visibleIndices.length === 1 ? 0 : layerSpacing / 2;
+    const effectiveMargin = margin / 2;
 
     if (this.config.layout.strategy === 'row') {
       // Vertical stacking: layers go top-to-bottom, centered horizontally
-      const centerX = naturalBounds.width / 2 + 60; // offset for labels on left
+      const centerX = naturalBounds.width / 2;
       const positions: { x: number; centerY: number }[] = [];
-      let y = margin;
+      let y = effectiveMargin + labelOffsetY;
 
-      for (const bounds of layerBounds) {
-        positions.push({
-          x: centerX,
-          centerY: y + bounds.height / 2,
-        });
-        y += bounds.height + layerSpacing;
+      for (let i = 0; i < layerBounds.length; i++) {
+        const bounds = layerBounds[i];
+        if (bounds.width === 0 && bounds.height === 0) {
+          // Collapsed layer - position at same y as next visible
+          positions.push({ x: centerX, centerY: y });
+        } else {
+          positions.push({
+            x: centerX,
+            centerY: y + bounds.height / 2,
+          });
+          y += bounds.height + effectiveSpacing;
+        }
       }
 
       return positions;
@@ -404,14 +430,18 @@ export class ConfigurableLayoutCalculator {
     // Horizontal column layout (default)
     const centerY = naturalBounds.height / 2;
     const positions: { x: number; centerY: number }[] = [];
-    let x = margin;
+    let x = effectiveMargin;
 
     for (const bounds of layerBounds) {
-      positions.push({
-        x: x + bounds.width / 2,
-        centerY,
-      });
-      x += bounds.width + layerSpacing;
+      if (bounds.width === 0 && bounds.height === 0) {
+        positions.push({ x, centerY });
+      } else {
+        positions.push({
+          x: x + bounds.width / 2,
+          centerY,
+        });
+        x += bounds.width + effectiveSpacing;
+      }
     }
 
     return positions;
@@ -526,11 +556,14 @@ export class ConfigurableLayoutCalculator {
         };
 
       case 'stats':
-      case 'collapsed':
         return {
           ...baseElement,
           statsData: this.buildStatsData(activations),
         };
+
+      case 'collapsed':
+        // Collapsed layers are placeholder elements - no visual rendering
+        return baseElement;
 
       default:
         return baseElement;
@@ -983,24 +1016,35 @@ export class ConfigurableLayoutCalculator {
     layerConfigs: readonly LayerConfig[],
     layerPositions: readonly { x: number; centerY: number }[],
     totalHeight: number,
+    layerElements: readonly LayerElement[],
   ): readonly Label[] {
     const { margin, labelFontSize, labelOffsetY } = this.baseDimensions;
     const isRow = this.config.layout.strategy === 'row';
     const labels: Label[] = [];
 
     if (isRow) {
-      // Row layout: labels on the left side of each layer
-      labels.push({
-        position: { x: margin, y: layerPositions[0].centerY },
-        text: 'Input',
-        color: 'var(--nn-neutral)',
-        fontSize: labelFontSize,
-        align: 'left',
-      });
+      // Row layout: labels above each layer (skip collapsed layers)
+      const inputConfig = layerConfigs[0];
+      if (inputConfig?.representation !== 'collapsed') {
+        const inputElement = layerElements[0];
+        const inputTop = layerPositions[0].centerY - (inputElement?.height ?? 0) / 2;
+        labels.push({
+          position: { x: layerPositions[0].x, y: inputTop - labelOffsetY },
+          text: 'Input',
+          color: 'var(--nn-neutral)',
+          fontSize: labelFontSize,
+          align: 'center',
+        });
+      }
 
       for (let i = 0; i < architecture.layers.length; i++) {
         const layer = architecture.layers[i];
         const config = layerConfigs[i + 1];
+
+        // Skip labels for collapsed layers
+        if (config?.representation === 'collapsed') {
+          continue;
+        }
 
         let text: string;
         if (config?.representation === 'feature-maps' || config?.representation === 'heatmap') {
@@ -1011,12 +1055,15 @@ export class ConfigurableLayoutCalculator {
           text = `Hidden ${i + 1} (${layer.activationFunction})`;
         }
 
+        const element = layerElements[i + 1];
+        const elementTop = layerPositions[i + 1].centerY - (element?.height ?? 0) / 2;
+
         labels.push({
-          position: { x: margin, y: layerPositions[i + 1].centerY },
+          position: { x: layerPositions[i + 1].x, y: elementTop - labelOffsetY },
           text,
           color: 'var(--nn-neutral)',
           fontSize: labelFontSize,
-          align: 'left',
+          align: 'center',
         });
       }
     } else {

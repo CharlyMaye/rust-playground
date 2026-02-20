@@ -65,7 +65,7 @@ import { ConfigurableWebGLRenderer } from './renderers/configurable-webgl-render
   imports: [],
   templateUrl: './configurable-network-visualization.html',
   styleUrl: './configurable-network-visualization.scss',
-  host: { class: 'card' },
+  host: { class: 'card visualization-container' },
 })
 export class ConfigurableNetworkVisualization implements OnDestroy {
   // ============================================================================
