@@ -9,6 +9,7 @@
 //! - **LearningRateScheduler**: Dynamically adjusts the learning rate
 //! - **ProgressBar**: Displays real-time training progress
 
+use crate::Float;
 use crate::network::Network;
 use crate::optimizer::OptimizerType;
 use std::path::PathBuf;
@@ -20,17 +21,17 @@ use std::path::PathBuf;
 pub trait Callback {
     /// Called at the beginning of training.
     fn on_train_begin(&mut self, _network: &Network) {}
-    
+
     /// Called at the end of training.
     fn on_train_end(&mut self, _network: &Network) {}
-    
+
     /// Called at the beginning of each epoch.
     ///
     /// # Arguments
     /// - `epoch`: Epoch number (0-indexed)
     /// - `network`: Reference to the network
     fn on_epoch_begin(&mut self, _epoch: usize, _network: &Network) {}
-    
+
     /// Called at the end of each epoch.
     ///
     /// # Arguments
@@ -41,7 +42,13 @@ pub trait Callback {
     ///
     /// # Returns
     /// `true` to continue training, `false` to stop
-    fn on_epoch_end(&mut self, _epoch: usize, _network: &Network, _train_loss: f64, _val_loss: Option<f64>) -> bool {
+    fn on_epoch_end(
+        &mut self,
+        _epoch: usize,
+        _network: &Network,
+        _train_loss: Float,
+        _val_loss: Option<Float>,
+    ) -> bool {
         true
     }
 }
@@ -62,21 +69,15 @@ pub trait Callback {
 /// let early_stop_relative = EarlyStopping::new(10, 0.01)  // 1% improvement required
 ///     .mode(DeltaMode::Relative);
 /// ```
-
 /// Comparison mode for determining improvement.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum DeltaMode {
     /// Absolute comparison: improvement if `loss < best_loss - min_delta`
+    #[default]
     Absolute,
     /// Relative comparison: improvement if `loss < best_loss * (1 - min_delta)`
     /// Use min_delta as a percentage (e.g., 0.01 for 1%)
     Relative,
-}
-
-impl Default for DeltaMode {
-    fn default() -> Self {
-        DeltaMode::Absolute
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -85,13 +86,13 @@ pub struct EarlyStopping {
     patience: usize,
 
     /// Minimum improvement required to count as improvement
-    min_delta: f64,
+    min_delta: Float,
 
     /// Comparison mode (absolute or relative)
     delta_mode: DeltaMode,
 
     /// Best loss observed
-    best_loss: f64,
+    best_loss: Float,
 
     /// Number of epochs without improvement
     wait: usize,
@@ -111,12 +112,12 @@ impl EarlyStopping {
     /// - `min_delta`: Minimum required improvement
     ///   - In Absolute mode (default): absolute value (e.g., 0.0001)
     ///   - In Relative mode: percentage (e.g., 0.01 for 1%)
-    pub fn new(patience: usize, min_delta: f64) -> Self {
+    pub fn new(patience: usize, min_delta: Float) -> Self {
         EarlyStopping {
             patience,
             min_delta,
             delta_mode: DeltaMode::default(),
-            best_loss: f64::INFINITY,
+            best_loss: Float::INFINITY,
             wait: 0,
             stopped: false,
             best_epoch: 0,
@@ -145,34 +146,40 @@ impl EarlyStopping {
     pub fn stopped(&self) -> bool {
         self.stopped
     }
-    
+
     /// Returns the epoch of the best model.
     pub fn best_epoch(&self) -> usize {
         self.best_epoch
     }
-    
+
     /// Returns the best loss.
-    pub fn best_loss(&self) -> f64 {
+    pub fn best_loss(&self) -> Float {
         self.best_loss
     }
 }
 
 impl Callback for EarlyStopping {
     fn on_train_begin(&mut self, _network: &Network) {
-        self.best_loss = f64::INFINITY;
+        self.best_loss = Float::INFINITY;
         self.wait = 0;
         self.stopped = false;
         self.best_epoch = 0;
     }
-    
-    fn on_epoch_end(&mut self, epoch: usize, _network: &Network, _train_loss: f64, val_loss: Option<f64>) -> bool {
+
+    fn on_epoch_end(
+        &mut self,
+        epoch: usize,
+        _network: &Network,
+        _train_loss: Float,
+        val_loss: Option<Float>,
+    ) -> bool {
         if let Some(loss) = val_loss {
             // Check improvement based on delta mode
             let improved = match self.delta_mode {
                 DeltaMode::Absolute => loss < self.best_loss - self.min_delta,
                 DeltaMode::Relative => {
                     if self.best_loss.is_infinite() {
-                        true  // First epoch is always an improvement
+                        true // First epoch is always an improvement
                     } else {
                         loss < self.best_loss * (1.0 - self.min_delta)
                     }
@@ -187,13 +194,15 @@ impl Callback for EarlyStopping {
                 self.wait += 1;
                 if self.wait >= self.patience {
                     self.stopped = true;
-                    println!("\n⚠️ EarlyStopping: Stopped at epoch {} (best epoch: {}, loss: {:.6})",
-                             epoch, self.best_epoch, self.best_loss);
-                    return false;  // Stop training
+                    println!(
+                        "\n⚠️ EarlyStopping: Stopped at epoch {} (best epoch: {}, loss: {:.6})",
+                        epoch, self.best_epoch, self.best_loss
+                    );
+                    return false; // Stop training
                 }
             }
         }
-        true  // Continue
+        true // Continue
     }
 }
 
@@ -212,13 +221,13 @@ impl Callback for EarlyStopping {
 pub struct ModelCheckpoint {
     /// Path where to save the model
     filepath: PathBuf,
-    
+
     /// Save only if improvement
     save_best_only: bool,
-    
+
     /// Best loss observed
-    best_loss: f64,
-    
+    best_loss: Float,
+
     /// Save format (true = JSON, false = Binary)
     use_json: bool,
 }
@@ -231,54 +240,64 @@ impl ModelCheckpoint {
     /// - `save_best_only`: If true, save only when loss improves
     pub fn new(filepath: &str, save_best_only: bool) -> Self {
         let path = PathBuf::from(filepath);
-        let use_json = path.extension()
+        let use_json = path
+            .extension()
             .and_then(|ext| ext.to_str())
             .map(|ext| ext == "json")
             .unwrap_or(true);
-        
+
         ModelCheckpoint {
             filepath: path,
             save_best_only,
-            best_loss: f64::INFINITY,
+            best_loss: Float::INFINITY,
             use_json,
         }
     }
-    
+
     /// Returns the best loss.
-    pub fn best_loss(&self) -> f64 {
+    pub fn best_loss(&self) -> Float {
         self.best_loss
     }
 }
 
 impl Callback for ModelCheckpoint {
     fn on_train_begin(&mut self, _network: &Network) {
-        self.best_loss = f64::INFINITY;
+        self.best_loss = Float::INFINITY;
     }
-    
-    fn on_epoch_end(&mut self, epoch: usize, network: &Network, _train_loss: f64, val_loss: Option<f64>) -> bool {
+
+    fn on_epoch_end(
+        &mut self,
+        epoch: usize,
+        network: &Network,
+        _train_loss: Float,
+        val_loss: Option<Float>,
+    ) -> bool {
         if let Some(loss) = val_loss {
             let should_save = if self.save_best_only {
                 loss < self.best_loss
             } else {
                 true
             };
-            
+
             if should_save {
                 self.best_loss = loss;
-                
+
                 let result = if self.use_json {
                     crate::io::save_json(network, self.filepath.to_str().unwrap())
                 } else {
                     crate::io::save_binary(network, self.filepath.to_str().unwrap())
                 };
-                
+
                 match result {
-                    Ok(_) => println!("💾 ModelCheckpoint: Modèle sauvegardé à l'epoch {} (loss: {:.6})", epoch, loss),
-                    Err(e) => eprintln!("❌ Erreur sauvegarde: {}", e),
+                    Ok(_) => println!(
+                        "💾 ModelCheckpoint: Model saved at epoch {} (loss: {:.6})",
+                        epoch, loss
+                    ),
+                    Err(e) => eprintln!("❌ Save error: {}", e),
                 }
             }
         }
-        true  // Continue toujours
+        true // Always continue
     }
 }
 
@@ -287,15 +306,56 @@ impl Callback for ModelCheckpoint {
 pub enum LRSchedule {
     /// Reduces LR by a factor at fixed epochs.
     /// Example: StepLR { step_size: 10, gamma: 0.5 } divides LR by 2 every 10 epochs
-    StepLR { step_size: usize, gamma: f64 },
-    
+    StepLR { step_size: usize, gamma: Float },
+
     /// Reduces LR when loss plateaus.
     /// Example: ReduceOnPlateau { patience: 5, factor: 0.5 } divides LR by 2 after 5 epochs without improvement
-    ReduceOnPlateau { patience: usize, factor: f64, min_delta: f64 },
-    
+    ReduceOnPlateau {
+        patience: usize,
+        factor: Float,
+        min_delta: Float,
+    },
+
     /// Exponential decay of LR.
     /// Example: ExponentialLR { gamma: 0.95 } multiplies LR by 0.95 each epoch
-    ExponentialLR { gamma: f64 },
+    ExponentialLR { gamma: Float },
+
+    /// Cosine Annealing with Warm Restarts (state-of-the-art for CNNs/Transformers).
+    /// LR follows a cosine curve from initial_lr to eta_min over T_max epochs,
+    /// then optionally restarts.
+    /// Formula: lr = eta_min + 0.5 * (initial_lr - eta_min) * (1 + cos(π * epoch / T_max))
+    /// Example: CosineAnnealing { t_max: 50, eta_min: 1e-6 } for 50-epoch cosine decay
+    CosineAnnealing {
+        /// Number of epochs until restart (or total if no restart)
+        t_max: usize,
+        /// Minimum learning rate at the end of the cycle
+        eta_min: Float,
+    },
+
+    /// Linear warmup followed by another scheduler.
+    /// Gradually increases LR from 0 to initial_lr over warmup_epochs.
+    /// Essential for training Transformers and large models.
+    /// Example: Warmup { warmup_epochs: 5, after: Box::new(CosineAnnealing { ... }) }
+    Warmup {
+        /// Number of warmup epochs
+        warmup_epochs: usize,
+        /// Scheduler to use after warmup completes
+        after: Box<LRSchedule>,
+    },
+
+    /// One Cycle Policy (super-convergence).
+    /// LR increases from initial_lr/div_factor to max_lr, then decreases to initial_lr/final_div.
+    /// Achieves faster convergence (Smith & Topin, 2018).
+    OneCycle {
+        /// Maximum learning rate at the peak
+        max_lr: Float,
+        /// Division factor for initial LR (initial = max_lr / div_factor)
+        div_factor: Float,
+        /// Division factor for final LR (final = initial / final_div)
+        final_div: Float,
+        /// Fraction of training for the ascending phase (typically 0.3)
+        pct_start: Float,
+    },
 }
 
 /// LearningRateScheduler - Dynamically adjusts the learning rate.
@@ -320,13 +380,19 @@ pub enum LRSchedule {
 #[derive(Debug, Clone)]
 pub struct LearningRateScheduler {
     schedule: LRSchedule,
-    
+
     // State for ReduceOnPlateau
-    best_loss: f64,
+    best_loss: Float,
     wait: usize,
-    
+
     // Current LR (pub to allow access from fit())
-    pub current_lr: f64,
+    pub current_lr: Float,
+
+    // Initial LR (saved for schedulers that need it)
+    initial_lr: Float,
+
+    // Total epochs (for OneCycle)
+    total_epochs: usize,
 }
 
 impl LearningRateScheduler {
@@ -334,17 +400,25 @@ impl LearningRateScheduler {
     pub fn new(schedule: LRSchedule) -> Self {
         LearningRateScheduler {
             schedule,
-            best_loss: f64::INFINITY,
+            best_loss: Float::INFINITY,
             wait: 0,
             current_lr: 0.0,
+            initial_lr: 0.0,
+            total_epochs: 0,
         }
     }
-    
+
+    /// Sets the total number of epochs (required for OneCycle).
+    pub fn with_epochs(mut self, epochs: usize) -> Self {
+        self.total_epochs = epochs;
+        self
+    }
+
     /// Returns the current learning rate.
-    pub fn current_lr(&self) -> f64 {
+    pub fn current_lr(&self) -> Float {
         self.current_lr
     }
-    
+
     /// Updates the optimizer's learning rate.
     pub fn update_optimizer_lr(&mut self, optimizer: &mut OptimizerType) {
         match optimizer {
@@ -355,30 +429,77 @@ impl LearningRateScheduler {
             OptimizerType::AdamW { learning_rate, .. } => *learning_rate = self.current_lr,
         }
     }
+
+    /// Computes the learning rate for CosineAnnealing at a given epoch.
+    fn cosine_annealing_lr(&self, epoch: usize, t_max: usize, eta_min: Float) -> Float {
+        let t = (epoch % t_max) as Float;
+        let t_max_f = t_max as Float;
+        let pi = std::f32::consts::PI;
+        eta_min + 0.5 * (self.initial_lr - eta_min) * (1.0 + (pi * t / t_max_f).cos())
+    }
+
+    /// Computes the learning rate for OneCycle at a given epoch.
+    fn one_cycle_lr(
+        &self,
+        epoch: usize,
+        max_lr: Float,
+        div_factor: Float,
+        final_div: Float,
+        pct_start: Float,
+    ) -> Float {
+        let total = self.total_epochs.max(1) as Float;
+        let pct = epoch as Float / total;
+        let initial_lr = max_lr / div_factor;
+        let final_lr = initial_lr / final_div;
+        let pi = std::f32::consts::PI;
+
+        if pct < pct_start {
+            // Ascending phase: linear increase from initial_lr to max_lr
+            let scale = pct / pct_start;
+            initial_lr + scale * (max_lr - initial_lr)
+        } else {
+            // Descending phase: cosine from max_lr to final_lr
+            let pct_descent = (pct - pct_start) / (1.0 - pct_start);
+            final_lr + 0.5 * (max_lr - final_lr) * (1.0 + (pi * pct_descent).cos())
+        }
+    }
 }
 
 impl Callback for LearningRateScheduler {
     fn on_train_begin(&mut self, _network: &Network) {
-        // Note: Le LR sera géré par la méthode fit() qui a accès à l'optimizer
-        self.best_loss = f64::INFINITY;
+        // Store initial LR for schedulers that need it (Cosine, Warmup, OneCycle)
+        self.initial_lr = self.current_lr;
+        self.best_loss = Float::INFINITY;
         self.wait = 0;
     }
-    
-    fn on_epoch_end(&mut self, epoch: usize, _network: &Network, _train_loss: f64, val_loss: Option<f64>) -> bool {
-        // Note: On ne peut pas modifier network ici car c'est une référence immutable
-        // Le LR sera mis à jour dans la méthode d'entraînement
-        
+
+    fn on_epoch_end(
+        &mut self,
+        epoch: usize,
+        _network: &Network,
+        _train_loss: Float,
+        val_loss: Option<Float>,
+    ) -> bool {
+        // Note: We cannot modify network here because it is an immutable reference
+        // The LR will be updated in the training method
+
         match &self.schedule {
             LRSchedule::StepLR { step_size, gamma } => {
                 if (epoch + 1).is_multiple_of(*step_size) {
                     let new_lr = self.current_lr * gamma;
-                    println!("📉 LR Scheduler: Epoch {} - Réduction LR {:.6} → {:.6}", 
-                             epoch, self.current_lr, new_lr);
+                    println!(
+                        "📉 LR Scheduler: Epoch {} - LR reduced {:.6} → {:.6}",
+                        epoch, self.current_lr, new_lr
+                    );
                     self.current_lr = new_lr;
                 }
-            },
-            
-            LRSchedule::ReduceOnPlateau { patience, factor, min_delta } => {
+            }
+
+            LRSchedule::ReduceOnPlateau {
+                patience,
+                factor,
+                min_delta,
+            } => {
                 if let Some(loss) = val_loss {
                     if loss < self.best_loss - min_delta {
                         self.best_loss = loss;
@@ -387,25 +508,96 @@ impl Callback for LearningRateScheduler {
                         self.wait += 1;
                         if self.wait >= *patience {
                             let new_lr = self.current_lr * factor;
-                            println!("\n📉 LR Scheduler: Epoch {} - Plateau detected, reducing LR {:.6} → {:.6}", 
-                                     epoch, self.current_lr, new_lr);
+                            println!(
+                                "\n📉 LR Scheduler: Epoch {} - Plateau detected, reducing LR {:.6} → {:.6}",
+                                epoch, self.current_lr, new_lr
+                            );
                             self.current_lr = new_lr;
                             self.wait = 0;
                         }
                     }
                 }
-            },
-            
+            }
+
             LRSchedule::ExponentialLR { gamma } => {
                 let new_lr = self.current_lr * gamma;
                 if epoch > 0 && epoch.is_multiple_of(10) {
                     println!("📉 LR Scheduler: Epoch {} - LR = {:.6}", epoch, new_lr);
                 }
                 self.current_lr = new_lr;
-            },
+            }
+
+            LRSchedule::CosineAnnealing { t_max, eta_min } => {
+                let new_lr = self.cosine_annealing_lr(epoch + 1, *t_max, *eta_min);
+                if epoch.is_multiple_of(10) || epoch == 0 {
+                    println!(
+                        "📉 LR Scheduler (Cosine): Epoch {} - LR = {:.6}",
+                        epoch, new_lr
+                    );
+                }
+                self.current_lr = new_lr;
+            }
+
+            LRSchedule::Warmup {
+                warmup_epochs,
+                after,
+            } => {
+                if epoch < *warmup_epochs {
+                    // Linear warmup phase
+                    let warmup_factor = (epoch + 1) as Float / *warmup_epochs as Float;
+                    self.current_lr = self.initial_lr * warmup_factor;
+                    if epoch == 0 || epoch == *warmup_epochs - 1 {
+                        println!(
+                            "🔥 LR Warmup: Epoch {} - LR = {:.6}",
+                            epoch, self.current_lr
+                        );
+                    }
+                } else {
+                    // Apply the after schedule
+                    let adjusted_epoch = epoch - warmup_epochs;
+                    match after.as_ref() {
+                        LRSchedule::CosineAnnealing { t_max, eta_min } => {
+                            self.current_lr =
+                                self.cosine_annealing_lr(adjusted_epoch, *t_max, *eta_min);
+                        }
+                        LRSchedule::ExponentialLR { gamma } => {
+                            if adjusted_epoch == 0 {
+                                self.current_lr = self.initial_lr;
+                            } else {
+                                self.current_lr *= gamma;
+                            }
+                        }
+                        LRSchedule::StepLR { step_size, gamma } => {
+                            if (adjusted_epoch + 1).is_multiple_of(*step_size) {
+                                self.current_lr *= gamma;
+                            }
+                        }
+                        _ => {} // Other schedules keep current behavior
+                    }
+                    if adjusted_epoch.is_multiple_of(10) || adjusted_epoch == 0 {
+                        println!(
+                            "📉 LR Scheduler (post-warmup): Epoch {} - LR = {:.6}",
+                            epoch, self.current_lr
+                        );
+                    }
+                }
+            }
+
+            LRSchedule::OneCycle {
+                max_lr,
+                div_factor,
+                final_div,
+                pct_start,
+            } => {
+                let new_lr = self.one_cycle_lr(epoch, *max_lr, *div_factor, *final_div, *pct_start);
+                if epoch.is_multiple_of(10) || epoch == 0 {
+                    println!("🔄 LR OneCycle: Epoch {} - LR = {:.6}", epoch, new_lr);
+                }
+                self.current_lr = new_lr;
+            }
         }
-        
-        true  // Continue toujours
+
+        true // Always continue
     }
 }
 
@@ -441,7 +633,7 @@ impl ProgressBar {
             verbose: true,
         }
     }
-    
+
     /// Enables/disables verbose mode.
     pub fn set_verbose(mut self, verbose: bool) -> Self {
         self.verbose = verbose;
@@ -453,38 +645,56 @@ impl Callback for ProgressBar {
     fn on_train_begin(&mut self, _network: &Network) {
         self.start_time = Some(std::time::Instant::now());
         if self.verbose {
-            println!("🚀 Début de l'entraînement ({} epochs)", self.total_epochs);
+            println!("🚀 Training started ({} epochs)", self.total_epochs);
         }
     }
-    
+
     fn on_train_end(&mut self, _network: &Network) {
         if let Some(start) = self.start_time {
             let duration = start.elapsed();
             if self.verbose {
-                println!("✅ Entraînement terminé en {:.2}s", duration.as_secs_f64());
+                println!("✅ Training completed in {:.2}s", duration.as_secs_f32());
             }
         }
     }
-    
-    fn on_epoch_end(&mut self, epoch: usize, _network: &Network, train_loss: f64, val_loss: Option<f64>) -> bool {
+
+    fn on_epoch_end(
+        &mut self,
+        epoch: usize,
+        _network: &Network,
+        train_loss: Float,
+        val_loss: Option<Float>,
+    ) -> bool {
         if self.verbose {
-            let progress = (epoch + 1) as f64 / self.total_epochs as f64 * 100.0;
-            
+            let progress = (epoch + 1) as Float / self.total_epochs as Float * 100.0;
+
             if let (Some(start), Some(val)) = (self.start_time, val_loss) {
-                let elapsed = start.elapsed().as_secs_f64();
-                let eta = elapsed / (epoch + 1) as f64 * (self.total_epochs - epoch - 1) as f64;
-                
-                print!("\rEpoch {}/{} [{:.1}%] - train_loss: {:.6} - val_loss: {:.6} - ETA: {:.0}s   ",
-                       epoch + 1, self.total_epochs, progress, train_loss, val, eta);
+                let elapsed = start.elapsed().as_secs_f32();
+                let eta = elapsed / (epoch + 1) as Float * (self.total_epochs - epoch - 1) as Float;
+
+                print!(
+                    "\rEpoch {}/{} [{:.1}%] - train_loss: {:.6} - val_loss: {:.6} - ETA: {:.0}s   ",
+                    epoch + 1,
+                    self.total_epochs,
+                    progress,
+                    train_loss,
+                    val,
+                    eta
+                );
             } else {
-                print!("\rEpoch {}/{} [{:.1}%] - train_loss: {:.6}   ",
-                       epoch + 1, self.total_epochs, progress, train_loss);
+                print!(
+                    "\rEpoch {}/{} [{:.1}%] - train_loss: {:.6}   ",
+                    epoch + 1,
+                    self.total_epochs,
+                    progress,
+                    train_loss
+                );
             }
-            
+
             use std::io::Write;
             std::io::stdout().flush().ok();
-            
-            // Nouvelle ligne tous les 10 epochs ou à la fin
+
+            // New line every 10 epochs or at the end
             if (epoch + 1).is_multiple_of(10) || epoch + 1 == self.total_epochs {
                 println!();
             }
@@ -509,15 +719,15 @@ mod tests {
             .loss(LossFunction::MSE)
             .optimizer(OptimizerType::sgd(0.1))
             .build();
-        
+
         early_stop.on_train_begin(&network);
-        
-        // Pas d'amélioration pendant 3 epochs
+
+        // No improvement for 3 epochs
         assert!(early_stop.on_epoch_end(0, &network, 1.0, Some(1.0)));
         assert!(early_stop.on_epoch_end(1, &network, 0.9, Some(1.0)));
         assert!(early_stop.on_epoch_end(2, &network, 0.8, Some(1.0)));
-        assert!(!early_stop.on_epoch_end(3, &network, 0.7, Some(1.0)));  // Arrête ici
-        
+        assert!(!early_stop.on_epoch_end(3, &network, 0.7, Some(1.0))); // Stops here
+
         assert!(early_stop.stopped());
     }
 
@@ -531,14 +741,14 @@ mod tests {
             .loss(LossFunction::MSE)
             .optimizer(OptimizerType::sgd(0.1))
             .build();
-        
+
         early_stop.on_train_begin(&network);
-        
-        // Amélioration continue
+
+        // Continuous improvement
         assert!(early_stop.on_epoch_end(0, &network, 1.0, Some(1.0)));
-        assert!(early_stop.on_epoch_end(1, &network, 0.9, Some(0.5)));  // Amélioration
-        assert!(early_stop.on_epoch_end(2, &network, 0.8, Some(0.3)));  // Amélioration
-        
+        assert!(early_stop.on_epoch_end(1, &network, 0.9, Some(0.5))); // Improvement
+        assert!(early_stop.on_epoch_end(2, &network, 0.8, Some(0.3))); // Improvement
+
         assert!(!early_stop.stopped());
         assert_eq!(early_stop.best_epoch(), 2);
     }
@@ -546,26 +756,27 @@ mod tests {
     #[test]
     fn test_lr_scheduler_step() {
         use crate::builder::NetworkBuilder;
-        let mut scheduler = LearningRateScheduler::new(
-            LRSchedule::StepLR { step_size: 2, gamma: 0.5 }
-        );
-        
+        let mut scheduler = LearningRateScheduler::new(LRSchedule::StepLR {
+            step_size: 2,
+            gamma: 0.5,
+        });
+
         let network = NetworkBuilder::new(2, 1)
             .hidden_layer(5, Activation::Sigmoid)
             .output_activation(Activation::Sigmoid)
             .loss(LossFunction::MSE)
             .optimizer(OptimizerType::sgd(1.0))
             .build();
-        
-        // Initialise manuellement le LR (normalement fait par fit())
+
+        // Manually initialize LR (normally done by fit())
         scheduler.current_lr = 1.0;
         scheduler.on_train_begin(&network);
         assert_eq!(scheduler.current_lr(), 1.0);
-        
+
         scheduler.on_epoch_end(0, &network, 1.0, Some(1.0));
-        assert_eq!(scheduler.current_lr(), 1.0);  // Pas encore
-        
+        assert_eq!(scheduler.current_lr(), 1.0); // Not yet
+
         scheduler.on_epoch_end(1, &network, 0.9, Some(0.9));
-        assert_eq!(scheduler.current_lr(), 0.5);  // Réduit à epoch 2
+        assert_eq!(scheduler.current_lr(), 0.5); // Reduced at epoch 2
     }
 }

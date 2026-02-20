@@ -10,15 +10,23 @@ export class MnistNetwork {
     /**
      * Run inference and return all neuron activations for visualization
      */
-    get_activations(pixels: Float64Array): string;
+    get_activations(pixels: Float32Array): string;
+    /**
+     * Get architecture summary
+     */
+    get_architecture(): string;
     /**
      * Get class names (digits 0-9)
      */
     get_class_names(): string;
     /**
+     * Get CNN intermediate activations (not available for FC-only models)
+     */
+    get_cnn_activations(_pixels: Float32Array): string;
+    /**
      * Get class probabilities for 784 pixels
      */
-    get_probabilities(pixels: Float64Array): string;
+    get_probabilities(pixels: Float32Array): string;
     /**
      * Get all weights and biases as JSON
      */
@@ -36,7 +44,7 @@ export class MnistNetwork {
      * Accepts 784 pixels (28x28 image) or normalized values
      * Returns JSON with digit prediction (0-9), probabilities, and confidence
      */
-    predict(pixels: Float64Array): string;
+    predict(pixels: Float32Array): string;
     /**
      * Test with sample MNIST digits
      * Returns results with digit predictions (0-9)
@@ -56,7 +64,9 @@ export interface InitOutput {
     readonly __wbg_mnistnetwork_free: (a: number, b: number) => void;
     readonly main: () => void;
     readonly mnistnetwork_get_activations: (a: number, b: number, c: number) => [number, number];
+    readonly mnistnetwork_get_architecture: (a: number) => [number, number];
     readonly mnistnetwork_get_class_names: (a: number) => [number, number];
+    readonly mnistnetwork_get_cnn_activations: (a: number, b: number, c: number) => [number, number];
     readonly mnistnetwork_get_probabilities: (a: number, b: number, c: number) => [number, number];
     readonly mnistnetwork_get_weights: (a: number) => [number, number];
     readonly mnistnetwork_model_info: (a: number) => [number, number];

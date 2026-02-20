@@ -107,7 +107,6 @@
   </div>
 
   <!-- Network Visualization -->
-  <!-- <app-neural-network-model-vizualizer [activations]="activations()" [weights]="irisWeights()" /> -->
   <app-configurable-network
     [architecture]="networkArchitecture()"
     [weights]="networkWeights()"
@@ -115,7 +114,7 @@
   />
 
   <!-- Model Info -->
-  <app-model-info [modelInfo]="irisModelInfo()" />
+  <app-model-info [modelInfo]="irisModelInfo()" [activations]="activationFunctions()" />
 
   <!-- Test All Samples -->
   <div class="card">

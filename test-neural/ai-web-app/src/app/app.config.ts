@@ -4,6 +4,7 @@ import {
   provideRouter,
   withComponentInputBinding,
   withHashLocation,
+  withInMemoryScrolling,
   withPreloading,
   withViewTransitions,
 } from '@angular/router';
@@ -21,6 +22,9 @@ export const appConfig: ApplicationConfig = {
       }),
       withComponentInputBinding(),
       withPreloading(PreloadAllModules),
+      withInMemoryScrolling({
+        scrollPositionRestoration: 'top',
+      }),
     ),
   ],
 };

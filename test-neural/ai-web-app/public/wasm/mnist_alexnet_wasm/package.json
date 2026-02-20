@@ -1,0 +1,16 @@
+{
+  "name": "neural-wasm-mnist-alexnet",
+  "type": "module",
+  "description": "AlexNet-Mini CNN for MNIST - WebAssembly module",
+  "version": "0.1.0",
+  "files": [
+    "neural_wasm_mnist_alexnet_bg.wasm",
+    "neural_wasm_mnist_alexnet.js",
+    "neural_wasm_mnist_alexnet.d.ts"
+  ],
+  "main": "neural_wasm_mnist_alexnet.js",
+  "types": "neural_wasm_mnist_alexnet.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

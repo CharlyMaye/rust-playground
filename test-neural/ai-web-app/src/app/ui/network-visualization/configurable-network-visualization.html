@@ -1,49 +1,11 @@
-<div class="card-title">
-  <span aria-hidden="true">🧠</span>
-  Network Visualization
-  @if (debug()) {
-    <span class="badge badge-info">Debug Mode</span>
-  }
-  @if (preset()) {
-    <span class="badge badge-success">{{ preset() }}</span>
-  }
-</div>
-
-<div class="visualization-container">
-  @if (renderData()) {
-    <canvas
-      #networkCanvas
-      class="network-canvas"
-      (click)="onCanvasClick($event)"
-      role="img"
-      aria-label="Neural network visualization showing neurons and connections"
-    ></canvas>
-  } @else {
-    <div class="empty-state">
-      <p>No network data available</p>
-    </div>
-  }
-</div>
-
 @if (renderData()) {
-  <div class="visualization-info">
-    <div class="info-item">
-      <strong>Renderer:</strong>
-      <span class="badge badge-info">{{ currentRendererType() }}</span>
-    </div>
-    <div class="info-item">
-      <strong>Neurons:</strong>
-      {{ renderData()!.neurons.length }}
-    </div>
-    <div class="info-item">
-      <strong>Connections:</strong>
-      {{ renderData()!.connections.length }}
-    </div>
-    @if (renderData()!.layerElements) {
-      <div class="info-item">
-        <strong>Layers:</strong>
-        {{ getLayerTypes() }}
-      </div>
-    }
-  </div>
+  <canvas
+    #networkCanvas
+    class="network-canvas"
+    (click)="onCanvasClick($event)"
+    role="img"
+    aria-label="Neural network visualization"
+  ></canvas>
+} @else {
+  <p class="empty-state">No network data available</p>
 }

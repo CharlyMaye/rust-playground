@@ -12,9 +12,17 @@ export class XorNetwork {
      */
     get_activations(x1: number, x2: number): string;
     /**
+     * Get architecture summary
+     */
+    get_architecture(): string;
+    /**
      * Get class names
      */
     get_class_names(): string;
+    /**
+     * Get CNN intermediate activations (not available for FC-only models)
+     */
+    get_cnn_activations(_x1: number, _x2: number): string;
     /**
      * Get class probabilities
      */
@@ -54,7 +62,9 @@ export interface InitOutput {
     readonly __wbg_xornetwork_free: (a: number, b: number) => void;
     readonly main: () => void;
     readonly xornetwork_get_activations: (a: number, b: number, c: number) => [number, number];
+    readonly xornetwork_get_architecture: (a: number) => [number, number];
     readonly xornetwork_get_class_names: (a: number) => [number, number];
+    readonly xornetwork_get_cnn_activations: (a: number, b: number, c: number) => [number, number];
     readonly xornetwork_get_probabilities: (a: number, b: number, c: number) => [number, number];
     readonly xornetwork_get_weights: (a: number) => [number, number];
     readonly xornetwork_model_info: (a: number) => [number, number];

@@ -1,3 +1,4 @@
+use crate::Float;
 use crate::callbacks::{Callback, LearningRateScheduler};
 use crate::compute::{ComputeDevice, ComputeDeviceError};
 use crate::dataset::Dataset;
@@ -29,10 +30,10 @@ pub struct NetworkBuilder {
     loss_function: LossFunction,
     optimizer: OptimizerType,
     weight_init: Option<WeightInit>,
-    dropout_rate: Option<f64>,
-    l1_lambda: Option<f64>,
-    l2_lambda: Option<f64>,
-    elastic_net: Option<(f64, f64)>, // (l1_ratio, lambda)
+    dropout_rate: Option<Float>,
+    l1_lambda: Option<Float>,
+    l2_lambda: Option<Float>,
+    elastic_net: Option<(Float, Float)>, // (l1_ratio, lambda)
 }
 
 impl NetworkBuilder {
@@ -89,25 +90,25 @@ impl NetworkBuilder {
     }
 
     /// Configures dropout for all hidden layers.
-    pub fn dropout(mut self, rate: f64) -> Self {
+    pub fn dropout(mut self, rate: Float) -> Self {
         self.dropout_rate = Some(rate);
         self
     }
 
     /// Configures L1 regularization.
-    pub fn l1(mut self, lambda: f64) -> Self {
+    pub fn l1(mut self, lambda: Float) -> Self {
         self.l1_lambda = Some(lambda);
         self
     }
 
     /// Configures L2 regularization.
-    pub fn l2(mut self, lambda: f64) -> Self {
+    pub fn l2(mut self, lambda: Float) -> Self {
         self.l2_lambda = Some(lambda);
         self
     }
 
     /// Configures Elastic Net regularization.
-    pub fn elastic_net(mut self, l1_ratio: f64, lambda: f64) -> Self {
+    pub fn elastic_net(mut self, l1_ratio: Float, lambda: Float) -> Self {
         self.elastic_net = Some((l1_ratio, lambda));
         self
     }
@@ -124,12 +125,12 @@ impl NetworkBuilder {
         let hidden_activations: Vec<Activation> =
             self.hidden_layers.iter().map(|(_, act)| *act).collect();
 
-        // Déterminer les initialisations
+        // Determine initializations
         let (hidden_inits, output_init) = if let Some(init) = self.weight_init {
-            // Utiliser la même initialisation pour toutes les couches
+            // Use the same initialization for all layers
             (vec![init; hidden_sizes.len()], init)
         } else {
-            // Initialisation automatique basée sur l'activation
+            // Automatic initialization based on activation
             let hidden_inits: Vec<WeightInit> = hidden_activations
                 .iter()
                 .map(|&act| WeightInit::for_activation(act))
@@ -150,7 +151,7 @@ impl NetworkBuilder {
             self.optimizer,
         );
 
-        // Appliquer dropout si configuré
+        // Apply dropout if configured
         if let Some(rate) = self.dropout_rate {
             use crate::network::DropoutConfig;
             let num_layers = network.layers.len();
@@ -159,7 +160,7 @@ impl NetworkBuilder {
             }
         }
 
-        // Appliquer régularisation (priorité: elastic_net > l2 > l1)
+        // Apply regularization (priority: elastic_net > l2 > l1)
         use crate::network::RegularizationType;
         if let Some((l1_ratio, lambda)) = self.elastic_net {
             network.regularization = RegularizationType::elastic_net(l1_ratio, lambda);
@@ -206,6 +207,10 @@ pub struct TrainingBuilder<'a> {
     device: ComputeDevice,
     /// Evaluate every N epochs (1 = every epoch, 5 = every 5 epochs, etc.)
     eval_every: usize,
+    /// Maximum gradient norm for gradient clipping (None = disabled)
+    max_grad_norm: Option<Float>,
+    /// Verbosity level (0 = silent, 1 = normal, 2 = verbose)
+    verbose: u8,
 }
 
 impl<'a> TrainingBuilder<'a> {
@@ -216,6 +221,8 @@ impl<'a> TrainingBuilder<'a> {
     /// - batch_size: 32
     /// - device: CPU
     /// - eval_every: 1 (evaluate every epoch)
+    /// - max_grad_norm: None (no clipping)
+    /// - verbose: 1 (normal output)
     pub fn new(network: &'a mut Network) -> Self {
         Self {
             network,
@@ -227,6 +234,8 @@ impl<'a> TrainingBuilder<'a> {
             scheduler: None,
             device: ComputeDevice::Cpu,
             eval_every: 1,
+            max_grad_norm: None,
+            verbose: 1,
         }
     }
 
@@ -355,6 +364,52 @@ impl<'a> TrainingBuilder<'a> {
         self
     }
 
+    /// Enables gradient clipping to prevent gradient explosion (state-of-the-art for deep networks).
+    ///
+    /// Clips gradients to have a maximum L2 norm of `max_norm`.
+    /// Essential for training deep networks, RNNs, and Transformers.
+    ///
+    /// # Arguments
+    /// - `max_norm`: Maximum L2 norm for gradients (typical values: 1.0, 5.0, 10.0)
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Clip gradients to max norm of 1.0 (aggressive clipping for stable training)
+    /// network.trainer()
+    ///     .train_data(&dataset)
+    ///     .max_grad_norm(1.0)
+    ///     .fit();
+    /// ```
+    pub fn max_grad_norm(mut self, max_norm: Float) -> Self {
+        assert!(max_norm > 0.0, "max_grad_norm must be positive");
+        self.max_grad_norm = Some(max_norm);
+        self
+    }
+
+    /// Sets the verbosity level.
+    ///
+    /// # Arguments
+    /// - `level`: 0 = silent, 1 = normal (default), 2 = verbose
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // Silent training (no output)
+    /// network.trainer()
+    ///     .train_data(&dataset)
+    ///     .verbose(0)
+    ///     .fit();
+    ///
+    /// // Verbose training (detailed output)
+    /// network.trainer()
+    ///     .train_data(&dataset)
+    ///     .verbose(2)
+    ///     .fit();
+    /// ```
+    pub fn verbose(mut self, level: u8) -> Self {
+        self.verbose = level.min(2);
+        self
+    }
+
     /// Starts training, returning an error if the device is not available.
     ///
     /// Use this method when using GPU to handle the case where GPU is not available.
@@ -364,7 +419,7 @@ impl<'a> TrainingBuilder<'a> {
     ///
     /// # Panics
     /// Panics if train_data has not been configured.
-    pub fn try_fit(mut self) -> Result<Vec<(f64, Option<f64>)>, ComputeDeviceError> {
+    pub fn try_fit(mut self) -> Result<Vec<(Float, Option<Float>)>, ComputeDeviceError> {
         // Validate device is available
         self.device.validate()?;
 
@@ -392,7 +447,7 @@ impl<'a> TrainingBuilder<'a> {
     /// - Panics if train_data has not been configured.
     /// - Panics if GPU device is selected (GPU not yet available).
     ///   Use `try_fit()` to handle GPU errors gracefully.
-    pub fn fit(self) -> Vec<(f64, Option<f64>)> {
+    pub fn fit(self) -> Vec<(Float, Option<Float>)> {
         self.try_fit()
             .expect("Compute device not available. Use try_fit() to handle errors gracefully.")
     }

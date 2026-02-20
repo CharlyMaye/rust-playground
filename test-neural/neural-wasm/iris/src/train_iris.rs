@@ -8,6 +8,7 @@ use cma_neural_network::callbacks::{DeltaMode, EarlyStopping, ProgressBar};
 use cma_neural_network::dataset::Dataset;
 use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
+use cma_neural_network::Float;
 use csv::ReaderBuilder;
 use ndarray::{array, Array1};
 use neural_wasm_shared::{calculate_multiclass_accuracy, save_model_binary, NormalizationStats};
@@ -35,8 +36,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let iris_data = load_iris_from_csv("data/iris.csv")?;
     println!("   ✅ Loaded {} samples from CSV", iris_data.len());
 
-    let inputs: Vec<Array1<f64>> = iris_data.iter().map(|(i, _)| i.clone()).collect();
-    let targets: Vec<Array1<f64>> = iris_data.iter().map(|(_, t)| t.clone()).collect();
+    let inputs: Vec<Array1<Float>> = iris_data.iter().map(|(i, _)| i.clone()).collect();
+    let targets: Vec<Array1<Float>> = iris_data.iter().map(|(_, t)| t.clone()).collect();
 
     // Normalize inputs (z-score normalization per feature)
     let (inputs, norm_stats) = normalize_features_with_stats(&inputs);
@@ -112,7 +113,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let test_targets = val.targets();
 
     let (correct, total) = calculate_multiclass_accuracy(&network, test_inputs, test_targets);
-    let acc = correct as f64 / total as f64;
+    let acc = correct as Float / total as Float;
 
     println!("   Iris Classification Results:");
     println!("   ┌─────────────────────────────────┐");
@@ -151,7 +152,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 /// Load the real Iris dataset from CSV file
 /// Dataset source: UCI Machine Learning Repository
 /// https://archive.ics.uci.edu/ml/datasets/iris
-fn load_iris_from_csv(path: &str) -> Result<Vec<(Array1<f64>, Array1<f64>)>, Box<dyn Error>> {
+fn load_iris_from_csv(path: &str) -> Result<Vec<(Array1<Float>, Array1<Float>)>, Box<dyn Error>> {
     let mut data = Vec::new();
     let mut rdr = ReaderBuilder::new().has_headers(true).from_path(path)?;
 
@@ -159,10 +160,10 @@ fn load_iris_from_csv(path: &str) -> Result<Vec<(Array1<f64>, Array1<f64>)>, Box
         let record = result?;
 
         // Parse the 4 features
-        let sepal_length: f64 = record[0].parse()?;
-        let sepal_width: f64 = record[1].parse()?;
-        let petal_length: f64 = record[2].parse()?;
-        let petal_width: f64 = record[3].parse()?;
+        let sepal_length: Float = record[0].parse()?;
+        let sepal_width: Float = record[1].parse()?;
+        let petal_length: Float = record[2].parse()?;
+        let petal_width: Float = record[3].parse()?;
 
         // Parse species and convert to one-hot encoding
         let species = &record[4];
@@ -184,13 +185,15 @@ fn load_iris_from_csv(path: &str) -> Result<Vec<(Array1<f64>, Array1<f64>)>, Box
 
 /// Normalize features using z-score normalization (mean=0, std=1)
 /// Returns normalized data AND the normalization statistics for inference
-fn normalize_features_with_stats(inputs: &[Array1<f64>]) -> (Vec<Array1<f64>>, NormalizationStats) {
+fn normalize_features_with_stats(
+    inputs: &[Array1<Float>],
+) -> (Vec<Array1<Float>>, NormalizationStats) {
     if inputs.is_empty() {
         return (vec![], NormalizationStats::new(vec![], vec![]));
     }
 
     let n_features = inputs[0].len();
-    let n_samples = inputs.len() as f64;
+    let n_samples = inputs.len() as Float;
 
     // Calculate mean for each feature
     let mut means = vec![0.0; n_features];

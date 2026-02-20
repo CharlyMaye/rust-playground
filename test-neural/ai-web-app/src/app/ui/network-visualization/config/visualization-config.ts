@@ -12,7 +12,7 @@
 /**
  * Layout strategy for positioning neurons
  */
-export type LayoutStrategy = 'column' | 'grid' | 'spiral' | 'hierarchical';
+export type LayoutStrategy = 'column' | 'row' | 'grid' | 'spiral' | 'hierarchical';
 
 /**
  * Spacing strategy for neurons within a layer
@@ -45,6 +45,7 @@ export type LayerRepresentation =
   | 'sampled' // Subset of neurons
   | 'bar' // Single colored bar
   | 'heatmap' // 2D heatmap grid
+  | 'feature-maps' // Multi-channel 2D heatmaps (CNN feature maps)
   | 'histogram' // Distribution histogram
   | 'stats' // Statistics only (min/max/avg)
   | 'collapsed'; // Single node representing the layer
@@ -59,6 +60,10 @@ export interface LayerConfig {
   readonly sampleCount?: number;
   /** For 'heatmap' or 'grid': shape [rows, cols] or [rows, cols, channels] */
   readonly shape?: readonly number[];
+  /** For 'feature-maps': number of channels */
+  readonly channels?: number;
+  /** For 'feature-maps': max channels to display */
+  readonly maxChannels?: number;
   /** For 'histogram': number of bins */
   readonly bins?: number;
   /** Whether to show layer label */

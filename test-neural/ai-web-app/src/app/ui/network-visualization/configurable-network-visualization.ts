@@ -3,6 +3,7 @@ import {
   computed,
   effect,
   ElementRef,
+  inject,
   input,
   OnDestroy,
   signal,
@@ -65,7 +66,7 @@ import { ConfigurableWebGLRenderer } from './renderers/configurable-webgl-render
   imports: [],
   templateUrl: './configurable-network-visualization.html',
   styleUrl: './configurable-network-visualization.scss',
-  host: { class: 'card' },
+  host: { class: 'card visualization-container' },
 })
 export class ConfigurableNetworkVisualization implements OnDestroy {
   // ============================================================================
@@ -94,6 +95,9 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
   // Internal State (Signals)
   // ============================================================================
 
+  /** Host element reference for resize observation */
+  private readonly hostRef = inject<ElementRef<HTMLElement>>(ElementRef);
+
   /** Canvas element reference */
   readonly canvasRef = viewChild<ElementRef<HTMLCanvasElement>>('networkCanvas');
 
@@ -103,15 +107,15 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
   /** ResizeObserver for responsive canvas */
   private resizeObserver: ResizeObserver | null = null;
 
+  /** VisualViewport resize listener for zoom changes */
+  private viewportResizeListener: (() => void) | null = null;
+
   /** Current renderer type for display */
   readonly currentRendererType = signal<string>('none');
 
   /** Display dimensions (CSS pixels) */
   private readonly displayWidth = signal(500);
   private readonly displayHeight = signal(280);
-
-  /** Aspect ratio for layout calculation */
-  private readonly aspectRatio = computed(() => this.displayWidth() / this.displayHeight());
 
   // ============================================================================
   // Computed Configuration
@@ -215,7 +219,8 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
       untracked(() => {
         if (canvasEl) {
           this.initializeRenderer(canvasEl.nativeElement, config);
-          this.setupResizeObserver(canvasEl.nativeElement);
+          this.setupResizeObserver();
+          this.setupViewportListener();
         }
       });
     });
@@ -257,6 +262,7 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
   ngOnDestroy(): void {
     this.destroyRenderer();
     this.destroyResizeObserver();
+    this.destroyViewportListener();
   }
 
   // ============================================================================
@@ -271,10 +277,12 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
     this.destroyRenderer();
 
     try {
-      // Get display dimensions from canvas
-      const rect = canvas.getBoundingClientRect();
-      this.displayWidth.set(rect.width || 500);
-      this.displayHeight.set(rect.height || 280);
+      // Get initial dimensions from host element
+      const hostRect = this.hostRef.nativeElement.getBoundingClientRect();
+      const initialWidth = hostRect.width > 0 ? hostRect.width : 500;
+      const initialHeight = hostRect.height > 0 ? hostRect.height : 280;
+      this.displayWidth.set(initialWidth);
+      this.displayHeight.set(initialHeight);
 
       // Choose renderer based on config
       const rendererType = this.determineRenderer(config);
@@ -343,42 +351,82 @@ export class ConfigurableNetworkVisualization implements OnDestroy {
   }
 
   /**
-   * Setup ResizeObserver to handle window/container resizing
+   * Handle resize of the host container
    */
-  private setupResizeObserver(canvas: HTMLCanvasElement): void {
+  private handleResize(width: number, height: number): void {
+    if (width <= 0 || height <= 0) return;
+
+    // Update display dimensions
+    this.displayWidth.set(width);
+    this.displayHeight.set(height);
+
+    // Resize renderer if available
+    if (this.renderer) {
+      this.renderer.resize(width, height);
+
+      // Re-render with new viewport
+      const data = this.renderData();
+      const viewport = this.viewport();
+      if (data && viewport) {
+        this.renderer.render(data, viewport);
+      }
+    }
+
+    if (this.debug()) {
+      console.log(
+        `[ConfigurableNetworkVisualization] Resized to ${width.toFixed(0)}×${height.toFixed(0)}`,
+      );
+    }
+  }
+
+  /**
+   * Setup ResizeObserver on host element to handle container resizing
+   */
+  private setupResizeObserver(): void {
     this.destroyResizeObserver();
+
+    const hostElement = this.hostRef.nativeElement;
 
     this.resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-
-        if (width > 0 && height > 0) {
-          // Update display dimensions
-          this.displayWidth.set(width);
-          this.displayHeight.set(height);
-
-          // Resize renderer if available
-          if (this.renderer) {
-            this.renderer.resize(width, height);
-
-            // Re-render with new viewport
-            const data = this.renderData();
-            const viewport = this.viewport();
-            if (data && viewport) {
-              this.renderer.render(data, viewport);
-            }
-          }
-
-          if (this.debug()) {
-            console.log(
-              `[ConfigurableNetworkVisualization] Canvas resized to ${width.toFixed(0)}×${height.toFixed(0)}`,
-            );
-          }
-        }
+        this.handleResize(width, height);
       }
     });
 
-    this.resizeObserver.observe(canvas);
+    this.resizeObserver.observe(hostElement);
+
+    // Initial size from host element
+    const rect = hostElement.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      this.handleResize(rect.width, rect.height);
+    }
+  }
+
+  /**
+   * Setup visualViewport listener for browser zoom changes
+   */
+  private setupViewportListener(): void {
+    this.destroyViewportListener();
+
+    if (window.visualViewport) {
+      this.viewportResizeListener = () => {
+        // Re-read host element size (may have changed due to zoom)
+        const rect = this.hostRef.nativeElement.getBoundingClientRect();
+        this.handleResize(rect.width, rect.height);
+      };
+      window.visualViewport.addEventListener('resize', this.viewportResizeListener);
+    }
+  }
+
+  /**
+   * Destroy visualViewport listener
+   */
+  private destroyViewportListener(): void {
+    if (this.viewportResizeListener && window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', this.viewportResizeListener);
+      this.viewportResizeListener = null;
+    }
   }
 
   /**

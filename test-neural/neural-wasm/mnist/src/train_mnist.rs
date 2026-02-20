@@ -8,6 +8,7 @@ use cma_neural_network::callbacks::{DeltaMode, EarlyStopping, ProgressBar};
 use cma_neural_network::dataset::Dataset;
 use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
+use cma_neural_network::Float;
 use csv::ReaderBuilder;
 use ndarray::Array1;
 use neural_wasm_shared::{calculate_multiclass_accuracy, save_model_binary, NormalizationStats};
@@ -35,8 +36,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mnist_data = load_mnist_from_csv("data/mnist.csv")?;
     println!("   ✅ Loaded {} samples from CSV", mnist_data.len());
 
-    let inputs: Vec<Array1<f64>> = mnist_data.iter().map(|(i, _)| i.clone()).collect();
-    let targets: Vec<Array1<f64>> = mnist_data.iter().map(|(_, t)| t.clone()).collect();
+    let inputs: Vec<Array1<Float>> = mnist_data.iter().map(|(i, _)| i.clone()).collect();
+    let targets: Vec<Array1<Float>> = mnist_data.iter().map(|(_, t)| t.clone()).collect();
 
     // Normalize inputs (z-score normalization per feature)
     let (inputs, norm_stats) = normalize_features_with_stats(&inputs);
@@ -68,19 +69,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         .hidden_layer(64, Activation::ReLU)
         .output_activation(Activation::Softmax)
         .loss(LossFunction::CategoricalCrossEntropy)
-        .optimizer(OptimizerType::adam(0.005)) // Réduit de 0.01 à 0.001
+        .optimizer(OptimizerType::adam(0.001)) // Reduced from 0.01 to 0.001
         .build();
 
     println!("   Architecture: 784 → [128, 64] → 10");
     println!("   Activation: ReLU → ReLU → Softmax");
-    println!("   Optimizer: Adam (lr=0.05)\n");
+    println!("   Optimizer: Adam (lr=0.001)\n");
 
     // ═══════════════════════════════════════════════════════════════════════
     // 3. TRAIN
     // ═══════════════════════════════════════════════════════════════════════
     println!("🏋️  Training...\n");
 
-    let epochs = 100;
+    let epochs = 1_000;
     let history = network
         .trainer()
         // .parallel()
@@ -89,7 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .epochs(epochs)
         .batch_size(1536) // 12 cors => 128samples/core if parallel
         .callback(Box::new(
-            EarlyStopping::new(100, 0.01).mode(DeltaMode::Relative),
+            EarlyStopping::new(100, 0.005).mode(DeltaMode::Relative),
         ))
         .callback(Box::new(ProgressBar::new(epochs)))
         .fit();
@@ -115,7 +116,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let test_targets = val.targets();
 
     let (correct, total) = calculate_multiclass_accuracy(&network, test_inputs, test_targets);
-    let acc = correct as f64 / total as f64;
+    let acc = correct as Float / total as Float;
 
     println!("   MNIST Classification Results:");
     println!("   ┌─────────────────────────────────┐");
@@ -154,7 +155,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 /// Load the MNIST dataset from CSV file (OpenML format)
 /// Format: 784 pixel values (0-255), then label (0-9) as last column
 /// Dataset source: https://www.openml.org/d/554
-fn load_mnist_from_csv(path: &str) -> Result<Vec<(Array1<f64>, Array1<f64>)>, Box<dyn Error>> {
+fn load_mnist_from_csv(path: &str) -> Result<Vec<(Array1<Float>, Array1<Float>)>, Box<dyn Error>> {
     let mut data = Vec::new();
     let mut rdr = ReaderBuilder::new().has_headers(false).from_path(path)?;
 
@@ -172,7 +173,7 @@ fn load_mnist_from_csv(path: &str) -> Result<Vec<(Array1<f64>, Array1<f64>)>, Bo
         // Parse the 784 pixel values (columns 0-783)
         let mut pixels = Vec::with_capacity(784);
         for i in 0..784 {
-            let pixel: f64 = record[i].parse()?;
+            let pixel: Float = record[i].parse()?;
             pixels.push(pixel);
         }
 
@@ -193,13 +194,15 @@ fn load_mnist_from_csv(path: &str) -> Result<Vec<(Array1<f64>, Array1<f64>)>, Bo
 
 /// Normalize features using z-score normalization (mean=0, std=1)
 /// Returns normalized data AND the normalization statistics for inference
-fn normalize_features_with_stats(inputs: &[Array1<f64>]) -> (Vec<Array1<f64>>, NormalizationStats) {
+fn normalize_features_with_stats(
+    inputs: &[Array1<Float>],
+) -> (Vec<Array1<Float>>, NormalizationStats) {
     if inputs.is_empty() {
         return (vec![], NormalizationStats::new(vec![], vec![]));
     }
 
     let n_features = inputs[0].len();
-    let n_samples = inputs.len() as f64;
+    let n_samples = inputs.len() as Float;
 
     // Calculate mean for each feature
     let mut means = vec![0.0; n_features];

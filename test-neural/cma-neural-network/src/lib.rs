@@ -71,6 +71,24 @@ pub mod optimizer;
 // Internal modules (not exposed in public API)
 pub(crate) mod trainer;
 
+// =============================================================================
+// Float Type Alias - Central definition for the entire neural network ecosystem
+// =============================================================================
+
+/// The floating-point type used throughout the neural network library.
+///
+/// Currently set to `f32` which is the standard for deep learning:
+/// - 50% less memory than f64
+/// - 2x SIMD throughput (8 values per AVX register vs 4)
+/// - Native GPU precision
+/// - Sufficient precision for neural network training and inference
+///
+/// To change precision, modify this single line:
+/// - `f32`: Standard deep learning precision (default)
+/// - `f64`: Double precision (for research/debugging only)
+/// - `f16`: Half precision (requires additional support, future)
+pub type Float = f32;
+
 // Re-exports for convenience
 pub use builder::{NetworkBuilder, NetworkTrainer, TrainingBuilder};
 pub use callbacks::{

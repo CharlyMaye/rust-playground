@@ -1,6 +1,7 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import {
   computed,
+  DestroyRef,
   inject,
   Injectable,
   PLATFORM_ID,
@@ -15,7 +16,7 @@ import init, {
   InitOutput as InitIraisOutput,
   IrisClassifier,
 } from '@cma/wasm/iris_wasm/neural_wasm_iris.js';
-import { ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
+import { ArchitectureSummary, ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
 
 /**
  * Service for loading and interacting with the Iris WASM neural network classifier.
@@ -27,12 +28,36 @@ import { ModelInfo, NeuralNetworkLayers, TestResult } from './model-info';
 export class IrisWasmService {
   private readonly _document = inject(DOCUMENT);
   private readonly _platformId = inject(PLATFORM_ID);
+  private readonly _destroyRef = inject(DestroyRef);
 
   protected readonly _wasPath: WritableSignal<string> = signal('');
+
+  /** Cached network instance to avoid recreating on each computed access */
+  private _networkInstance: IrisClassifier | null = null;
 
   constructor() {
     const base = this.computeWasmBase();
     this._wasPath.set(`${base}wasm/iris_wasm/neural_wasm_iris_bg.wasm`);
+
+    // Cleanup WASM memory when service is destroyed
+    this._destroyRef.onDestroy(() => {
+      this.dispose();
+    });
+  }
+
+  /**
+   * Dispose of WASM resources and free memory.
+   * Called automatically on service destroy.
+   */
+  public dispose(): void {
+    if (this._networkInstance) {
+      try {
+        this._networkInstance.free();
+      } catch {
+        // Ignore errors if already freed
+      }
+      this._networkInstance = null;
+    }
   }
 
   private computeWasmBase(): string {
@@ -47,7 +72,7 @@ export class IrisWasmService {
   /** Resource managing WASM module loading state */
   public readonly wasmResource: ResourceRef<InitIraisOutput | undefined> = resource({
     params: this._wasPath,
-    loader: (param: ResourceLoaderParams<string>) => init(param.params),
+    loader: (param: ResourceLoaderParams<string>) => init({ module_or_path: param.params }),
     defaultValue: undefined,
   });
 
@@ -57,7 +82,11 @@ export class IrisWasmService {
     if (!initOutput) {
       return undefined;
     }
-    return new IrisClassifier();
+    // Reuse existing instance or create new one
+    if (!this._networkInstance) {
+      this._networkInstance = new IrisClassifier();
+    }
+    return this._networkInstance;
   });
 
   /** Model metadata including name, accuracy, and description */
@@ -69,6 +98,16 @@ export class IrisWasmService {
     const modelInfoJson: string = network.model_info();
     const modelInfo: ModelInfo = JSON.parse(modelInfoJson);
     return modelInfo;
+  });
+
+  /** Architecture summary (unified format for all models) */
+  public readonly architectureSummary = computed(() => {
+    const network = this.network();
+    if (!network) {
+      return undefined;
+    }
+    const json: string = network.get_architecture();
+    return JSON.parse(json) as ArchitectureSummary;
   });
 
   /** Network architecture as an array of layer sizes */

@@ -1,4 +1,5 @@
 @let _modelInfo = modelInfo();
+@let _activations = activations();
 
 <div class="card-title"><span aria-hidden="true">ℹ️</span> Model Information</div>
 <dl id="modelInfo" class="model-info">
@@ -10,11 +11,12 @@
     <dt class="info-label">Accuracy</dt>
     <dd class="info-value" id="accuracy">{{ _modelInfo?.accuracy | number: '1.1-1' }}%</dd>
   </div>
-  <!--TODO-->
-  <div class="info-item">
-    <dt class="info-label">Activations</dt>
-    <dd class="info-value">Tanh → Sigmoid</dd>
-  </div>
+  @if (_activations) {
+    <div class="info-item">
+      <dt class="info-label">Activations</dt>
+      <dd class="info-value">{{ _activations }}</dd>
+    </div>
+  }
   <div class="info-item">
     <dt class="info-label">Runtime</dt>
     <dd class="info-value">WASM</dd>

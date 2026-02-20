@@ -4,10 +4,11 @@
 //! Uses cma_neural_network for all neural network operations.
 
 use cma_neural_network::network::Network;
+use cma_neural_network::Float;
 use ndarray::array;
 use neural_wasm_shared::{
-    build_test_result, load_model_from_bytes, ActivationsResponse, LayerActivation, LayerInfo,
-    ModelInfo, PredictionResult, TestResult, WeightsInfo,
+    build_test_result, load_model_from_bytes, ActivationsResponse, ArchitectureSummary,
+    LayerActivation, LayerInfo, LayerSummary, ModelInfo, PredictionResult, TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
 
@@ -23,7 +24,7 @@ const CLASS_NAMES: [&str; 2] = ["0", "1"];
 #[wasm_bindgen]
 pub struct XorNetwork {
     network: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     trained_at: String,
 }
@@ -47,7 +48,7 @@ impl XorNetwork {
     /// Predict XOR result for two binary inputs
     /// Returns JSON with prediction details
     #[wasm_bindgen]
-    pub fn predict(&self, x1: f64, x2: f64) -> String {
+    pub fn predict(&self, x1: Float, x2: Float) -> String {
         let input = array![x1, x2];
         let output = self.network.predict(&input);
         let raw = output[0];
@@ -69,7 +70,7 @@ impl XorNetwork {
 
     /// Get class probabilities
     #[wasm_bindgen]
-    pub fn get_probabilities(&self, x1: f64, x2: f64) -> String {
+    pub fn get_probabilities(&self, x1: Float, x2: Float) -> String {
         let input = array![x1, x2];
         let output = self.network.predict(&input);
         let raw = output[0];
@@ -84,7 +85,7 @@ impl XorNetwork {
     }
 
     // Private helper methods
-    fn predict_probs(&self, x1: f64, x2: f64) -> Vec<f64> {
+    fn predict_probs(&self, x1: Float, x2: Float) -> Vec<Float> {
         let input = array![x1, x2];
         let output = self.network.predict(&input);
         let raw = output[0];
@@ -131,7 +132,7 @@ impl XorNetwork {
             layers: layers
                 .iter()
                 .map(|(weights, biases, activation_name)| {
-                    let weights_2d: Vec<Vec<f64>> =
+                    let weights_2d: Vec<Vec<Float>> =
                         weights.rows().into_iter().map(|row| row.to_vec()).collect();
 
                     LayerInfo {
@@ -149,7 +150,7 @@ impl XorNetwork {
 
     /// Run inference and return all neuron activations for visualization
     #[wasm_bindgen]
-    pub fn get_activations(&self, x1: f64, x2: f64) -> String {
+    pub fn get_activations(&self, x1: Float, x2: Float) -> String {
         let input = array![x1, x2];
         let activations = self.network.get_all_activations(&input);
 
@@ -174,6 +175,39 @@ impl XorNetwork {
 
         serde_json::to_string(&response)
             .unwrap_or_else(|_| r#"{"inputs":[],"layers":[],"output":[]}"#.to_string())
+    }
+
+    /// Get CNN intermediate activations (not available for FC-only models)
+    #[wasm_bindgen]
+    pub fn get_cnn_activations(&self, _x1: Float, _x2: Float) -> String {
+        serde_json::json!({"error": "This model has no CNN layers"}).to_string()
+    }
+
+    /// Get architecture summary
+    #[wasm_bindgen]
+    pub fn get_architecture(&self) -> String {
+        let layers_info = self.network.get_layers_info();
+        let layers: Vec<LayerSummary> = layers_info
+            .iter()
+            .enumerate()
+            .map(|(i, (weights, _, activation))| LayerSummary {
+                name: format!("FC{}", i + 1),
+                config: format!("{}→{} ({})", weights.ncols(), weights.nrows(), activation),
+            })
+            .collect();
+
+        let num_params: usize = layers_info.iter().map(|(w, b, _)| w.len() + b.len()).sum();
+
+        let summary = ArchitectureSummary {
+            name: "XOR Network".to_string(),
+            model_type: "fc".to_string(),
+            input_shape: vec![2],
+            output_features: 1,
+            num_parameters: num_params,
+            layers,
+        };
+
+        serde_json::to_string(&summary).unwrap_or_else(|_| "{}".to_string())
     }
 }
 

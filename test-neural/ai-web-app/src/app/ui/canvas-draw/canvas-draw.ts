@@ -14,6 +14,10 @@ export class CanvasDraw {
 
   public readonly dataChanged = output<number[][]>();
 
+  /** Emitted only when the user lifts the mouse/finger (end of stroke).
+   *  Use for expensive operations like CNN activation computation. */
+  public readonly drawingComplete = output<number[][]>();
+
   private readonly canvasRef = viewChild.required<ElementRef<HTMLCanvasElement>>('canvas');
   private ctx: CanvasRenderingContext2D | null = null;
   private isDrawing = false;
@@ -102,32 +106,44 @@ export class CanvasDraw {
     canvas.addEventListener('mouseup', () => this.stopDrawing());
     canvas.addEventListener('mouseleave', () => this.stopDrawing());
 
-    // Touch events for mobile
-    canvas.addEventListener('touchstart', (e) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const mouseEvent = new MouseEvent('mousedown', {
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-      });
-      canvas.dispatchEvent(mouseEvent);
-    });
+    // Touch events for mobile - must be non-passive to allow preventDefault()
+    canvas.addEventListener(
+      'touchstart',
+      (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousedown', {
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+        });
+        canvas.dispatchEvent(mouseEvent);
+      },
+      { passive: false },
+    );
 
-    canvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      const mouseEvent = new MouseEvent('mousemove', {
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-      });
-      canvas.dispatchEvent(mouseEvent);
-    });
+    canvas.addEventListener(
+      'touchmove',
+      (e) => {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const mouseEvent = new MouseEvent('mousemove', {
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+        });
+        canvas.dispatchEvent(mouseEvent);
+      },
+      { passive: false },
+    );
 
-    canvas.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      const mouseEvent = new MouseEvent('mouseup', {});
-      canvas.dispatchEvent(mouseEvent);
-    });
+    canvas.addEventListener(
+      'touchend',
+      (e) => {
+        e.preventDefault();
+        const mouseEvent = new MouseEvent('mouseup', {});
+        canvas.dispatchEvent(mouseEvent);
+      },
+      { passive: false },
+    );
   }
 
   private startDrawing(event: MouseEvent): void {
@@ -151,14 +167,14 @@ export class CanvasDraw {
       this.grid[row][col] = 255; // Full intensity (0-255 like MNIST)
       this.drawGrid();
       // Emit a clone for zoneless change detection
-      this.dataChanged.emit(this.grid.map(row => [...row]));
+      this.dataChanged.emit(this.grid.map((row) => [...row]));
     }
   }
 
   private stopDrawing(): void {
     if (this.isDrawing) {
       this.isDrawing = false;
-      // Final emit at the end (already cloned during drawing)
+      this.drawingComplete.emit(this.grid.map((row) => [...row]));
     }
   }
 
@@ -169,7 +185,7 @@ export class CanvasDraw {
       .map(() => Array(cols).fill(0));
     this.drawGrid();
     // Emit a clone for zoneless change detection
-    this.dataChanged.emit(this.grid.map(row => [...row]));
+    this.dataChanged.emit(this.grid.map((row) => [...row]));
   }
 
   public getGridData(): number[][] {

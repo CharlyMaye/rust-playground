@@ -1,3 +1,4 @@
+use cma_neural_network::Float;
 use ndarray::array;
 use neural_wasm_shared::ModelWithMetadata;
 
@@ -12,8 +13,8 @@ fn main() {
         println!("   Means: {:?}", norm.means);
         println!("   Stds: {:?}", norm.stds);
 
-        // Test avec Setosa typique
-        let raw = [5.0_f64, 3.5, 1.4, 0.2];
+        // Test with typical Setosa
+        let raw = [5.0 as Float, 3.5, 1.4, 0.2];
         let normalized = norm.normalize(&raw);
         println!("\n🌸 Setosa test (5.0, 3.5, 1.4, 0.2):");
         println!(
@@ -21,7 +22,7 @@ fn main() {
             normalized[0], normalized[1], normalized[2], normalized[3]
         );
 
-        // Prédiction
+        // Prediction
         let input = array![normalized[0], normalized[1], normalized[2], normalized[3]];
         let output = model.network.predict(&input);
         println!(
@@ -37,7 +38,7 @@ fn main() {
             } else {
                 "Virginica"
             },
-            output.iter().cloned().fold(0.0_f64, f64::max) * 100.0
+            output.iter().cloned().fold(0.0 as Float, Float::max) * 100.0
         );
     } else {
         println!("❌ ERROR: No normalization stats found!");

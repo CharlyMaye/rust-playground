@@ -32,6 +32,22 @@ export class IrisClassifier {
         }
     }
     /**
+     * Get architecture summary
+     * @returns {string}
+     */
+    get_architecture() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.irisclassifier_get_architecture(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
      * @returns {string}
      */
     get_class_names() {
@@ -39,6 +55,26 @@ export class IrisClassifier {
         let deferred1_1;
         try {
             const ret = wasm.irisclassifier_get_class_names(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+        }
+    }
+    /**
+     * Get CNN intermediate activations (not available for FC-only models)
+     * @param {number} _sepal_length
+     * @param {number} _sepal_width
+     * @param {number} _petal_length
+     * @param {number} _petal_width
+     * @returns {string}
+     */
+    get_cnn_activations(_sepal_length, _sepal_width, _petal_length, _petal_width) {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.irisclassifier_get_cnn_activations(this.__wbg_ptr, _sepal_length, _sepal_width, _petal_length, _petal_width);
             deferred1_0 = ret[0];
             deferred1_1 = ret[1];
             return getStringFromWasm0(ret[0], ret[1]);

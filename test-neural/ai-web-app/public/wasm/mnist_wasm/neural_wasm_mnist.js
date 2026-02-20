@@ -16,14 +16,14 @@ export class MnistNetwork {
     }
     /**
      * Run inference and return all neuron activations for visualization
-     * @param {Float64Array} pixels
+     * @param {Float32Array} pixels
      * @returns {string}
      */
     get_activations(pixels) {
         let deferred2_0;
         let deferred2_1;
         try {
-            const ptr0 = passArrayF64ToWasm0(pixels, wasm.__wbindgen_malloc);
+            const ptr0 = passArrayF32ToWasm0(pixels, wasm.__wbindgen_malloc);
             const len0 = WASM_VECTOR_LEN;
             const ret = wasm.mnistnetwork_get_activations(this.__wbg_ptr, ptr0, len0);
             deferred2_0 = ret[0];
@@ -31,6 +31,22 @@ export class MnistNetwork {
             return getStringFromWasm0(ret[0], ret[1]);
         } finally {
             wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+        }
+    }
+    /**
+     * Get architecture summary
+     * @returns {string}
+     */
+    get_architecture() {
+        let deferred1_0;
+        let deferred1_1;
+        try {
+            const ret = wasm.mnistnetwork_get_architecture(this.__wbg_ptr);
+            deferred1_0 = ret[0];
+            deferred1_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
         }
     }
     /**
@@ -50,15 +66,34 @@ export class MnistNetwork {
         }
     }
     /**
+     * Get CNN intermediate activations (not available for FC-only models)
+     * @param {Float32Array} _pixels
+     * @returns {string}
+     */
+    get_cnn_activations(_pixels) {
+        let deferred2_0;
+        let deferred2_1;
+        try {
+            const ptr0 = passArrayF32ToWasm0(_pixels, wasm.__wbindgen_malloc);
+            const len0 = WASM_VECTOR_LEN;
+            const ret = wasm.mnistnetwork_get_cnn_activations(this.__wbg_ptr, ptr0, len0);
+            deferred2_0 = ret[0];
+            deferred2_1 = ret[1];
+            return getStringFromWasm0(ret[0], ret[1]);
+        } finally {
+            wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+        }
+    }
+    /**
      * Get class probabilities for 784 pixels
-     * @param {Float64Array} pixels
+     * @param {Float32Array} pixels
      * @returns {string}
      */
     get_probabilities(pixels) {
         let deferred2_0;
         let deferred2_1;
         try {
-            const ptr0 = passArrayF64ToWasm0(pixels, wasm.__wbindgen_malloc);
+            const ptr0 = passArrayF32ToWasm0(pixels, wasm.__wbindgen_malloc);
             const len0 = WASM_VECTOR_LEN;
             const ret = wasm.mnistnetwork_get_probabilities(this.__wbg_ptr, ptr0, len0);
             deferred2_0 = ret[0];
@@ -116,14 +151,14 @@ export class MnistNetwork {
      * Predict MNIST digit from pixel array
      * Accepts 784 pixels (28x28 image) or normalized values
      * Returns JSON with digit prediction (0-9), probabilities, and confidence
-     * @param {Float64Array} pixels
+     * @param {Float32Array} pixels
      * @returns {string}
      */
     predict(pixels) {
         let deferred2_0;
         let deferred2_1;
         try {
-            const ptr0 = passArrayF64ToWasm0(pixels, wasm.__wbindgen_malloc);
+            const ptr0 = passArrayF32ToWasm0(pixels, wasm.__wbindgen_malloc);
             const len0 = WASM_VECTOR_LEN;
             const ret = wasm.mnistnetwork_predict(this.__wbg_ptr, ptr0, len0);
             deferred2_0 = ret[0];
@@ -221,12 +256,12 @@ function getDataViewMemory0() {
     return cachedDataViewMemory0;
 }
 
-let cachedFloat64ArrayMemory0 = null;
-function getFloat64ArrayMemory0() {
-    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
-        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
+let cachedFloat32ArrayMemory0 = null;
+function getFloat32ArrayMemory0() {
+    if (cachedFloat32ArrayMemory0 === null || cachedFloat32ArrayMemory0.byteLength === 0) {
+        cachedFloat32ArrayMemory0 = new Float32Array(wasm.memory.buffer);
     }
-    return cachedFloat64ArrayMemory0;
+    return cachedFloat32ArrayMemory0;
 }
 
 function getStringFromWasm0(ptr, len) {
@@ -242,9 +277,9 @@ function getUint8ArrayMemory0() {
     return cachedUint8ArrayMemory0;
 }
 
-function passArrayF64ToWasm0(arg, malloc) {
-    const ptr = malloc(arg.length * 8, 8) >>> 0;
-    getFloat64ArrayMemory0().set(arg, ptr / 8);
+function passArrayF32ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 4, 4) >>> 0;
+    getFloat32ArrayMemory0().set(arg, ptr / 4);
     WASM_VECTOR_LEN = arg.length;
     return ptr;
 }
@@ -326,7 +361,7 @@ function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
     cachedDataViewMemory0 = null;
-    cachedFloat64ArrayMemory0 = null;
+    cachedFloat32ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
     return wasm;

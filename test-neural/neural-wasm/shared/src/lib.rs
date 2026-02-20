@@ -1,22 +1,24 @@
 use chrono;
+use cma_cnn::sequential::Sequential as CnnSequential;
 use cma_neural_network::network::Network;
+use cma_neural_network::Float;
 use ndarray;
 use serde::{Deserialize, Serialize};
 
 /// Normalization statistics for input features
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct NormalizationStats {
-    pub means: Vec<f64>,
-    pub stds: Vec<f64>,
+    pub means: Vec<Float>,
+    pub stds: Vec<Float>,
 }
 
 impl NormalizationStats {
-    pub fn new(means: Vec<f64>, stds: Vec<f64>) -> Self {
+    pub fn new(means: Vec<Float>, stds: Vec<Float>) -> Self {
         Self { means, stds }
     }
 
     /// Normalize a single input using these statistics
-    pub fn normalize(&self, input: &[f64]) -> Vec<f64> {
+    pub fn normalize(&self, input: &[Float]) -> Vec<Float> {
         input
             .iter()
             .enumerate()
@@ -28,7 +30,7 @@ impl NormalizationStats {
 /// Model metadata saved during training
 #[derive(Serialize, Deserialize)]
 pub struct ModelMetadata {
-    pub accuracy: f64,
+    pub accuracy: Float,
     pub test_samples: usize,
     pub trained_at: String,
     #[serde(default)]
@@ -42,12 +44,68 @@ pub struct ModelWithMetadata {
     pub metadata: ModelMetadata,
 }
 
+/// CNN model wrapper: CNN feature extractor + FC classifier + metadata
+///
+/// This is the new format for models that use trained CNN weights (ResNet, LeNet, etc.).
+/// Unlike `ModelWithMetadata` which only saves the FC head, this saves the full pipeline.
+#[derive(Serialize, Deserialize)]
+pub struct CnnModelWithMetadata {
+    /// Trained CNN feature extractor (Conv2D, BatchNorm2D, Pool, etc.)
+    pub cnn: CnnSequential,
+    /// FC classifier head
+    pub classifier: Network,
+    /// Training metadata (accuracy, normalization stats, etc.)
+    pub metadata: ModelMetadata,
+}
+
+/// Save a CNN model (feature extractor + classifier) to binary file
+pub fn save_cnn_model_binary(
+    cnn: CnnSequential,
+    classifier: Network,
+    accuracy: Float,
+    test_samples: usize,
+    normalization: Option<NormalizationStats>,
+    path: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let model = CnnModelWithMetadata {
+        cnn,
+        classifier,
+        metadata: ModelMetadata {
+            accuracy,
+            test_samples,
+            trained_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            normalization,
+        },
+    };
+
+    let bin = bincode::serialize(&model)?;
+    std::fs::write(path, &bin)?;
+
+    let size_kb = bin.len() as f64 / 1024.0;
+    eprintln!(
+        "Saved CNN model to {} ({:.1} KB, accuracy={:.1}%)",
+        path,
+        size_kb,
+        accuracy * 100.0
+    );
+
+    Ok(())
+}
+
+/// Load a CNN model from binary bytes (for WASM with include_bytes!)
+pub fn load_cnn_model_from_bytes(
+    bytes: &[u8],
+) -> Result<CnnModelWithMetadata, Box<dyn std::error::Error>> {
+    let model: CnnModelWithMetadata = bincode::deserialize(bytes)?;
+    Ok(model)
+}
+
 /// Information about a trained model
 #[derive(Serialize)]
 pub struct ModelInfo {
     pub name: String,
     pub architecture: String,
-    pub accuracy: f64,
+    pub accuracy: Float,
     pub description: String,
     pub test_samples: usize,
     pub trained_at: String,
@@ -56,8 +114,8 @@ pub struct ModelInfo {
 /// Information about a network layer
 #[derive(Serialize)]
 pub struct LayerInfo {
-    pub weights: Vec<Vec<f64>>,
-    pub biases: Vec<f64>,
+    pub weights: Vec<Vec<Float>>,
+    pub biases: Vec<Float>,
     pub activation: String,
     pub shape: [usize; 2],
 }
@@ -68,6 +126,65 @@ pub struct WeightsInfo {
     pub layers: Vec<LayerInfo>,
 }
 
+/// Architecture summary for any model (FC, CNN, ResNet, etc.)
+#[derive(Serialize)]
+pub struct ArchitectureSummary {
+    pub name: String,
+    pub model_type: String, // "fc", "cnn", "resnet"
+    pub input_shape: Vec<usize>,
+    pub output_features: usize,
+    pub num_parameters: usize,
+    pub layers: Vec<LayerSummary>,
+}
+
+/// Layer summary for architecture display
+#[derive(Serialize)]
+pub struct LayerSummary {
+    pub name: String,
+    pub config: String,
+}
+
+impl ArchitectureSummary {
+    /// Create a summary for a fully-connected network
+    pub fn fc(name: &str, input_size: usize, architecture: &str, num_params: usize) -> Self {
+        Self {
+            name: name.to_string(),
+            model_type: "fc".to_string(),
+            input_shape: vec![input_size],
+            output_features: 0,
+            num_parameters: num_params,
+            layers: vec![LayerSummary {
+                name: "FC".to_string(),
+                config: architecture.to_string(),
+            }],
+        }
+    }
+
+    /// Create a summary for a CNN
+    pub fn cnn(
+        name: &str,
+        input_shape: Vec<usize>,
+        output_features: usize,
+        num_params: usize,
+        layers: Vec<(&str, &str)>,
+    ) -> Self {
+        Self {
+            name: name.to_string(),
+            model_type: "cnn".to_string(),
+            input_shape,
+            output_features,
+            num_parameters: num_params,
+            layers: layers
+                .into_iter()
+                .map(|(n, c)| LayerSummary {
+                    name: n.to_string(),
+                    config: c.to_string(),
+                })
+                .collect(),
+        }
+    }
+}
+
 // ===== Common Response Structures =====
 
 /// Prediction result for any classifier
@@ -75,43 +192,112 @@ pub struct WeightsInfo {
 pub struct PredictionResult {
     pub class_name: String,
     pub class_index: usize,
-    pub probabilities: Vec<f64>,
-    pub confidence: f64,
+    pub probabilities: Vec<Float>,
+    pub confidence: Float,
 }
 
 /// Layer activation data for visualization
 #[derive(Serialize)]
 pub struct LayerActivation {
-    pub pre_activation: Vec<f64>,
-    pub activation: Vec<f64>,
+    pub pre_activation: Vec<Float>,
+    pub activation: Vec<Float>,
     pub function: String,
 }
 
 /// Full activation response for network visualization
 #[derive(Serialize)]
 pub struct ActivationsResponse {
-    pub inputs: Vec<f64>,
+    pub inputs: Vec<Float>,
     pub layers: Vec<LayerActivation>,
-    pub output: Vec<f64>,
+    pub output: Vec<Float>,
+}
+
+// ===== CNN Activation Types =====
+
+/// One CNN layer's intermediate output for visualization
+#[derive(Serialize)]
+pub struct CnnLayerActivation {
+    /// Layer type name: "Conv2D", "MaxPool2D", "ReLU", "BatchNorm2D", "Flatten", etc.
+    pub layer_type: String,
+    /// Human-readable config: "1→32, 3×3, s=1, p=1"
+    pub config: String,
+    /// Output shape [channels, height, width]
+    pub shape: Vec<usize>,
+    /// Flattened activation data (C×H×W values for a single sample)
+    pub activations: Vec<Float>,
+}
+
+/// Full CNN forward pass result with all intermediate activations
+#[derive(Serialize)]
+pub struct CnnActivationsResponse {
+    /// Input shape [channels, height, width]
+    pub input_shape: Vec<usize>,
+    /// Per-layer intermediate activations
+    pub layers: Vec<CnnLayerActivation>,
+    /// Output shape of the last CNN layer
+    pub output_shape: Vec<usize>,
+}
+
+/// Build CNN activations response from a CnnSequential forward pass
+pub fn build_cnn_activations(
+    cnn: &CnnSequential,
+    input: &cma_cnn::Tensor4D,
+) -> CnnActivationsResponse {
+    let input_shape = input.shape();
+    let intermediates = cnn.forward_with_intermediates(input);
+
+    let layers: Vec<CnnLayerActivation> = intermediates
+        .iter()
+        .map(|(layer_type, config, tensor)| {
+            let shape = tensor.shape();
+            // Extract data for sample 0 only (batch=0)
+            let sample_data: Vec<Float> = tensor
+                .data()
+                .slice(ndarray::s![0, .., .., ..])
+                .iter()
+                .copied()
+                .collect();
+
+            CnnLayerActivation {
+                layer_type: layer_type.clone(),
+                config: config.clone(),
+                shape: vec![shape.channels, shape.height, shape.width],
+                activations: sample_data,
+            }
+        })
+        .collect();
+
+    let output_shape = if let Some(last) = intermediates.last() {
+        let s = last.2.shape();
+        vec![s.channels, s.height, s.width]
+    } else {
+        vec![]
+    };
+
+    CnnActivationsResponse {
+        input_shape: vec![input_shape.channels, input_shape.height, input_shape.width],
+        layers,
+        output_shape,
+    }
 }
 
 /// Generic test result for any classifier
 #[derive(Serialize)]
 pub struct TestResult {
-    pub inputs: Vec<f64>,
+    pub inputs: Vec<Float>,
     pub expected_class: String,
     pub expected_index: usize,
     pub predicted_class: String,
     pub predicted_index: usize,
-    pub probabilities: Vec<f64>,
-    pub confidence: f64,
+    pub probabilities: Vec<Float>,
+    pub confidence: Float,
     pub is_correct: bool,
 }
 
 // ===== Utility Functions =====
 
 /// Find the class with highest probability
-pub fn find_max_class(probs: &[f64]) -> (usize, f64) {
+pub fn find_max_class(probs: &[Float]) -> (usize, Float) {
     probs
         .iter()
         .enumerate()
@@ -121,7 +307,7 @@ pub fn find_max_class(probs: &[f64]) -> (usize, f64) {
 }
 
 /// Validate input size
-pub fn validate_input_size(input: &[f64], expected: usize) -> Result<(), String> {
+pub fn validate_input_size(input: &[Float], expected: usize) -> Result<(), String> {
     if input.len() != expected {
         Err(format!("Expected {} inputs, got {}", expected, input.len()))
     } else {
@@ -130,7 +316,7 @@ pub fn validate_input_size(input: &[f64], expected: usize) -> Result<(), String>
 }
 
 /// Build a prediction result from probabilities
-pub fn build_prediction_result(probs: &[f64], class_names: &[String]) -> PredictionResult {
+pub fn build_prediction_result(probs: &[Float], class_names: &[String]) -> PredictionResult {
     let (class_index, confidence) = find_max_class(probs);
     let class_name = class_names
         .get(class_index)
@@ -147,9 +333,9 @@ pub fn build_prediction_result(probs: &[f64], class_names: &[String]) -> Predict
 
 /// Build a test result from prediction
 pub fn build_test_result(
-    inputs: Vec<f64>,
+    inputs: Vec<Float>,
     expected_index: usize,
-    probs: &[f64],
+    probs: &[Float],
     class_names: &[String],
 ) -> TestResult {
     let (predicted_index, confidence) = find_max_class(probs);
@@ -176,23 +362,23 @@ pub fn build_test_result(
 }
 
 /// Convert confidence to percentage
-pub fn confidence_to_percentage(value: f64) -> f64 {
+pub fn confidence_to_percentage(value: Float) -> Float {
     (value * 100.0).max(0.0).min(100.0)
 }
 
 /// Softmax function for multi-class probability
-pub fn softmax(values: &[f64]) -> Vec<f64> {
-    let max = values.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
-    let exp_values: Vec<f64> = values.iter().map(|&v| (v - max).exp()).collect();
-    let sum: f64 = exp_values.iter().sum();
+pub fn softmax(values: &[Float]) -> Vec<Float> {
+    let max = values.iter().cloned().fold(Float::NEG_INFINITY, Float::max);
+    let exp_values: Vec<Float> = values.iter().map(|&v| (v - max).exp()).collect();
+    let sum: Float = exp_values.iter().sum();
     exp_values.iter().map(|&v| v / sum).collect()
 }
 
 /// Calculate accuracy for multi-class classification
 pub fn calculate_multiclass_accuracy(
     network: &Network,
-    inputs: &[ndarray::Array1<f64>],
-    targets: &[ndarray::Array1<f64>],
+    inputs: &[ndarray::Array1<Float>],
+    targets: &[ndarray::Array1<Float>],
 ) -> (usize, usize) {
     let mut correct = 0;
     let total = inputs.len();
@@ -224,7 +410,7 @@ pub fn calculate_multiclass_accuracy(
 /// Save model with metadata to JSON file
 pub fn save_model_with_metadata(
     network: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     path: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -234,7 +420,7 @@ pub fn save_model_with_metadata(
 /// Save model with metadata and normalization statistics to JSON file
 pub fn save_model_with_normalization(
     network: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     normalization: Option<NormalizationStats>,
     path: &str,
@@ -257,7 +443,7 @@ pub fn save_model_with_normalization(
 /// Save model with metadata to binary file (compact format for WASM)
 pub fn save_model_binary(
     network: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     normalization: Option<NormalizationStats>,
     path: &str,
@@ -294,7 +480,7 @@ mod tests {
     fn test_softmax() {
         let values = vec![1.0, 2.0, 3.0];
         let result = softmax(&values);
-        let sum: f64 = result.iter().sum();
+        let sum: Float = result.iter().sum();
         assert!((sum - 1.0).abs() < 1e-6);
     }
 
@@ -304,4 +490,168 @@ mod tests {
         assert_eq!(confidence_to_percentage(1.0), 100.0);
         assert_eq!(confidence_to_percentage(0.0), 0.0);
     }
+
+    #[test]
+    fn test_cnn_model_roundtrip() {
+        use cma_cnn::layers::{Conv2D, MaxPool2D, ActivationLayer};
+        use cma_cnn::sequential::Sequential as CnnSeq;
+
+        // Build a small CNN
+        let cnn = CnnSeq::new()
+            .add_conv2d(Conv2D::new(1, 4, 3, 1, 0))
+            .add_activation(ActivationLayer::relu())
+            .add_maxpool(MaxPool2D::new(2, 2))
+            .add_flatten();
+
+        // Build a small FC classifier
+        use cma_neural_network::builder::NetworkBuilder;
+        use cma_neural_network::network::Activation;
+        let classifier = NetworkBuilder::new(36, 10)
+            .hidden_layer(32, Activation::ReLU)
+            .output_activation(Activation::Softmax)
+            .build();
+
+        // Build the combined model
+        let model = CnnModelWithMetadata {
+            cnn: cnn.clone(),
+            classifier,
+            metadata: ModelMetadata {
+                accuracy: 0.95,
+                test_samples: 1000,
+                trained_at: "2025-01-01 00:00:00".to_string(),
+                normalization: Some(NormalizationStats::new(vec![0.5; 36], vec![0.25; 36])),
+            },
+        };
+
+        // Serialize to bincode
+        let bytes = bincode::serialize(&model).expect("serialize failed");
+        assert!(bytes.len() > 0, "Serialized bytes should not be empty");
+
+        // Deserialize
+        let loaded: CnnModelWithMetadata =
+            bincode::deserialize(&bytes).expect("deserialize failed");
+
+        // Verify metadata
+        assert!((loaded.metadata.accuracy - 0.95).abs() < 1e-6);
+        assert_eq!(loaded.metadata.test_samples, 1000);
+        assert!(loaded.metadata.normalization.is_some());
+
+        // Verify CNN has same structure (layer count)
+        assert_eq!(loaded.cnn.layers().len(), model.cnn.layers().len());
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// MNIST Data Loading (shared across all MNIST variants)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Load the MNIST dataset from CSV file (OpenML format)
+/// Format: 784 pixel values (0-255), then label (0-9) as last column
+/// Dataset source: https://www.openml.org/d/554
+pub fn load_mnist_from_csv(
+    path: &str,
+) -> Result<Vec<(ndarray::Array1<Float>, ndarray::Array1<Float>)>, Box<dyn std::error::Error>> {
+    use csv::ReaderBuilder;
+
+    let mut data = Vec::new();
+    let mut rdr = ReaderBuilder::new().has_headers(false).from_path(path)?;
+
+    for result in rdr.records() {
+        let record = result?;
+
+        if record.len() != 785 {
+            return Err(format!(
+                "Expected 785 columns (784 pixels + 1 label), got {}",
+                record.len()
+            )
+            .into());
+        }
+
+        // Parse the 784 pixel values (columns 0-783)
+        let mut pixels = Vec::with_capacity(784);
+        for i in 0..784 {
+            let pixel: Float = record[i].parse()?;
+            pixels.push(pixel);
+        }
+
+        // Parse label (last column, index 784) and convert to one-hot encoding (10 classes)
+        let label: usize = record[784].parse()?;
+        if label > 9 {
+            return Err(format!("Invalid label: {} (expected 0-9)", label).into());
+        }
+
+        let mut one_hot = vec![0.0; 10];
+        one_hot[label] = 1.0;
+
+        data.push((
+            ndarray::Array1::from_vec(pixels),
+            ndarray::Array1::from_vec(one_hot),
+        ));
+    }
+
+    Ok(data)
+}
+
+/// Normalize features using z-score normalization (mean=0, std=1)
+/// Returns normalized data AND the normalization statistics for inference
+pub fn normalize_features_with_stats(
+    inputs: &[ndarray::Array1<Float>],
+) -> (Vec<ndarray::Array1<Float>>, NormalizationStats) {
+    if inputs.is_empty() {
+        return (vec![], NormalizationStats::new(vec![], vec![]));
+    }
+
+    let n_features = inputs[0].len();
+    let n_samples = inputs.len() as Float;
+
+    // Calculate mean for each feature
+    let mut means = vec![0.0; n_features];
+    for input in inputs {
+        for (i, &val) in input.iter().enumerate() {
+            means[i] += val;
+        }
+    }
+    for mean in &mut means {
+        *mean /= n_samples;
+    }
+
+    // Calculate standard deviation for each feature
+    let mut stds = vec![0.0; n_features];
+    for input in inputs {
+        for (i, &val) in input.iter().enumerate() {
+            stds[i] += (val - means[i]).powi(2);
+        }
+    }
+    for std in &mut stds {
+        *std = (*std / n_samples).sqrt();
+        // Prevent division by zero
+        if *std < 1e-8 {
+            *std = 1.0;
+        }
+    }
+
+    // Normalize each input
+    let normalized = inputs
+        .iter()
+        .map(|input| {
+            ndarray::Array1::from_vec(
+                input
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &val)| (val - means[i]) / stds[i])
+                    .collect(),
+            )
+        })
+        .collect();
+
+    (normalized, NormalizationStats::new(means, stds))
+}
+
+/// Reshape flat MNIST pixels to 2D image format for CNN
+/// Input: 784 values (flattened 28x28)
+/// Output: [1, 28, 28] for single channel grayscale
+pub fn reshape_mnist_to_image(pixels: &[Float]) -> ndarray::Array3<Float> {
+    assert_eq!(pixels.len(), 784, "MNIST images must be 784 pixels");
+    ndarray::Array3::from_shape_vec((1, 28, 28), pixels.to_vec())
+        .expect("Failed to reshape MNIST pixels")
 }

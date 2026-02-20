@@ -1,0 +1,16 @@
+{
+  "name": "neural-wasm-mnist-lenet",
+  "type": "module",
+  "description": "LeNet-5 CNN for MNIST - WebAssembly module",
+  "version": "0.1.0",
+  "files": [
+    "neural_wasm_mnist_lenet_bg.wasm",
+    "neural_wasm_mnist_lenet.js",
+    "neural_wasm_mnist_lenet.d.ts"
+  ],
+  "main": "neural_wasm_mnist_lenet.js",
+  "types": "neural_wasm_mnist_lenet.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

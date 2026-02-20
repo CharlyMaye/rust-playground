@@ -1,0 +1,16 @@
+[package]
+name = "cma-models"
+version = "0.1.0"
+edition = "2024"
+description = "Historical neural network architectures (LeNet, AlexNet, VGG, ResNet, EfficientNet)"
+license = "MIT"
+
+[lib]
+name = "cma_models"
+path = "src/lib.rs"
+
+[dependencies]
+cma-neural-network = { path = "../cma-neural-network" }
+cma-cnn = { path = "../cma-cnn" }
+ndarray = { version = "0.17.1", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }

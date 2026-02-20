@@ -17,6 +17,7 @@ use rand::rng;
 #[cfg(feature = "parallel")]
 use rayon::prelude::*;
 
+use crate::Float;
 use crate::compute::{ComputeDevice, ComputeDeviceError};
 use crate::network::{Activation, ForwardResult, LossFunction, Network};
 
@@ -26,9 +27,9 @@ use crate::network::{Activation, ForwardResult, LossFunction, Network};
 #[allow(dead_code)]
 pub(crate) struct BatchGradients {
     /// Weight gradients for each layer (averaged over batch)
-    pub weights: Vec<Array2<f64>>,
+    pub weights: Vec<Array2<Float>>,
     /// Bias gradients for each layer (averaged over batch)
-    pub biases: Vec<Array1<f64>>,
+    pub biases: Vec<Array1<Float>>,
 }
 
 /// Internal trainer that executes the training logic.
@@ -41,9 +42,9 @@ pub(crate) struct Trainer<'a> {
     network: &'a mut Network,
     device: ComputeDevice,
     /// Pre-allocated gradient buffers for weights (reused across batches)
-    accumulated_weights: Vec<Array2<f64>>,
+    accumulated_weights: Vec<Array2<Float>>,
     /// Pre-allocated gradient buffers for biases (reused across batches)
-    accumulated_biases: Vec<Array1<f64>>,
+    accumulated_biases: Vec<Array1<Float>>,
 }
 
 impl<'a> Trainer<'a> {
@@ -66,13 +67,13 @@ impl<'a> Trainer<'a> {
         device.validate()?;
 
         // Pre-allocate gradient buffers based on network architecture
-        let accumulated_weights: Vec<Array2<f64>> = network
+        let accumulated_weights: Vec<Array2<Float>> = network
             .layers
             .iter()
             .map(|layer| Array2::zeros(layer.weights.dim()))
             .collect();
 
-        let accumulated_biases: Vec<Array1<f64>> = network
+        let accumulated_biases: Vec<Array1<Float>> = network
             .layers
             .iter()
             .map(|layer| Array1::zeros(layer.biases.dim()))
@@ -89,13 +90,13 @@ impl<'a> Trainer<'a> {
     /// Creates a new trainer with CPU device (infallible).
     pub fn cpu(network: &'a mut Network) -> Self {
         // Pre-allocate gradient buffers based on network architecture
-        let accumulated_weights: Vec<Array2<f64>> = network
+        let accumulated_weights: Vec<Array2<Float>> = network
             .layers
             .iter()
             .map(|layer| Array2::zeros(layer.weights.dim()))
             .collect();
 
-        let accumulated_biases: Vec<Array1<f64>> = network
+        let accumulated_biases: Vec<Array1<Float>> = network
             .layers
             .iter()
             .map(|layer| Array1::zeros(layer.biases.dim()))
@@ -110,7 +111,7 @@ impl<'a> Trainer<'a> {
     }
 
     /// Trains on a single example.
-    pub fn train_single(&mut self, input: &Array1<f64>, target: &Array1<f64>) {
+    pub fn train_single(&mut self, input: &Array1<Float>, target: &Array1<Float>) {
         match self.device {
             ComputeDevice::Cpu => self.train_single_cpu(input, target),
             // For single example, parallel doesn't make sense, use CPU
@@ -120,7 +121,7 @@ impl<'a> Trainer<'a> {
     }
 
     /// Trains on a batch of examples.
-    pub fn train_batch(&mut self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) {
+    pub fn train_batch(&mut self, inputs: &[Array1<Float>], targets: &[Array1<Float>]) {
         assert_eq!(
             inputs.len(),
             targets.len(),
@@ -143,7 +144,7 @@ impl<'a> Trainer<'a> {
     // =========================================================================
 
     /// CPU implementation of single-example training.
-    fn train_single_cpu(&mut self, input: &Array1<f64>, target: &Array1<f64>) {
+    fn train_single_cpu(&mut self, input: &Array1<Float>, target: &Array1<Float>) {
         // Forward pass with full information
         let forward_result = self.forward_with_rng(input);
         let activations = &forward_result.activations;
@@ -165,8 +166,8 @@ impl<'a> Trainer<'a> {
     }
 
     /// CPU implementation of batch training.
-    fn train_batch_cpu(&mut self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) {
-        let batch_size = inputs.len() as f64;
+    fn train_batch_cpu(&mut self, inputs: &[Array1<Float>], targets: &[Array1<Float>]) {
+        let batch_size = inputs.len() as Float;
 
         // Reset accumulated gradients to zero (reuse pre-allocated buffers)
         for grad in self.accumulated_weights.iter_mut() {
@@ -217,8 +218,8 @@ impl<'a> Trainer<'a> {
     /// Parallelizes the forward pass and gradient computation across the batch,
     /// then reduces (sums) the gradients and applies them.
     #[cfg(feature = "parallel")]
-    fn train_batch_parallel(&mut self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) {
-        let batch_size = inputs.len() as f64;
+    fn train_batch_parallel(&mut self, inputs: &[Array1<Float>], targets: &[Array1<Float>]) {
+        let batch_size = inputs.len() as Float;
         let num_layers = self.network.layers.len();
 
         // Get layer dimensions for initializing gradient accumulators
@@ -232,7 +233,7 @@ impl<'a> Trainer<'a> {
 
         // Compute gradients in parallel for each sample
         // Note: We don't use dropout in parallel mode to avoid RNG synchronization issues
-        let gradients: Vec<(Vec<Array2<f64>>, Vec<Array1<f64>>)> = inputs
+        let gradients: Vec<(Vec<Array2<Float>>, Vec<Array1<Float>>)> = inputs
             .par_iter()
             .zip(targets.par_iter())
             .map(|(input, target)| self.compute_sample_gradients(input, target))
@@ -263,9 +264,9 @@ impl<'a> Trainer<'a> {
     #[cfg(feature = "parallel")]
     fn compute_sample_gradients(
         &self,
-        input: &Array1<f64>,
-        target: &Array1<f64>,
-    ) -> (Vec<Array2<f64>>, Vec<Array1<f64>>) {
+        input: &Array1<Float>,
+        target: &Array1<Float>,
+    ) -> (Vec<Array2<Float>>, Vec<Array1<Float>>) {
         // Forward pass without dropout (deterministic for parallel execution)
         let forward_result = self.network.forward_full_internal(input, &mut rand::rng());
         let activations = &forward_result.activations;
@@ -307,7 +308,7 @@ impl<'a> Trainer<'a> {
     // =========================================================================
 
     /// Performs forward pass using stored RNG for reproducibility.
-    fn forward_with_rng(&mut self, input: &Array1<f64>) -> ForwardResult {
+    fn forward_with_rng(&mut self, input: &Array1<Float>) -> ForwardResult {
         // Take ownership of stored RNG temporarily
         if let Some(mut stored_rng) = self.network.rng.take() {
             let result = self.network.forward_full_internal(input, &mut stored_rng);
@@ -321,12 +322,12 @@ impl<'a> Trainer<'a> {
     /// Computes deltas (error signals) for all layers via backpropagation.
     fn compute_deltas(
         &self,
-        target: &Array1<f64>,
-        final_output: &Array1<f64>,
-        _activations: &[Array1<f64>],
-        pre_activations: &[Array1<f64>],
-        dropout_masks: &[Option<Array1<f64>>],
-    ) -> Vec<Array1<f64>> {
+        target: &Array1<Float>,
+        final_output: &Array1<Float>,
+        _activations: &[Array1<Float>],
+        pre_activations: &[Array1<Float>],
+        dropout_masks: &[Option<Array1<Float>>],
+    ) -> Vec<Array1<Float>> {
         let output_layer_idx = self.network.layers.len() - 1;
         let output_activation = self.network.layers[output_layer_idx].activation;
 
@@ -373,7 +374,7 @@ impl<'a> Trainer<'a> {
     }
 
     /// Applies gradients from a single example.
-    fn apply_gradients_single(&mut self, deltas: &[Array1<f64>], activations: &[Array1<f64>]) {
+    fn apply_gradients_single(&mut self, deltas: &[Array1<Float>], activations: &[Array1<Float>]) {
         for (i, delta) in deltas.iter().enumerate() {
             let prev_activation = &activations[i];
 
@@ -409,7 +410,7 @@ impl<'a> Trainer<'a> {
     }
 
     /// Applies averaged gradients from a batch.
-    fn apply_gradients_batch(&mut self, batch_size: f64) {
+    fn apply_gradients_batch(&mut self, batch_size: Float) {
         for i in 0..self.network.layers.len() {
             // Average the gradients (modify in place)
             self.accumulated_weights[i].mapv_inplace(|g| g / batch_size);

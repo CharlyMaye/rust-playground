@@ -100,3 +100,61 @@ export type IrisPrediction = PredictionResult;
  * @deprecated Use TestResult instead
  */
 export type IrisTestResult = TestResult;
+
+/**
+ * Layer summary for architecture display.
+ */
+export interface LayerSummary {
+  /** Layer name (e.g., "Conv2D", "FC1", "ReLU") */
+  name: string;
+  /** Layer configuration (e.g., "1→32, 3x3, pad=1") */
+  config: string;
+}
+
+/**
+ * Architecture summary for any model (FC, CNN, ResNet, etc.)
+ * Unified format returned by get_architecture() from all WASM modules.
+ */
+export interface ArchitectureSummary {
+  /** Model name (e.g., "LeNet-5", "VGG-Tiny", "XOR Network") */
+  name: string;
+  /** Model type: "fc", "cnn", or "resnet" */
+  model_type: 'fc' | 'cnn' | 'resnet';
+  /** Input shape dimensions (e.g., [1, 1, 28, 28] for CNN, [784] for FC) */
+  input_shape: number[];
+  /** Number of output features */
+  output_features: number;
+  /** Total number of trainable parameters */
+  num_parameters: number;
+  /** Layer descriptions */
+  layers: LayerSummary[];
+}
+
+/**
+ * One CNN layer's intermediate activation output.
+ * Returned by get_cnn_activations() from CNN WASM modules.
+ */
+export interface CnnLayerActivation {
+  /** Layer type: "Conv2D", "ReLU", "MaxPool2D", "BatchNorm2D", "Flatten", etc. */
+  layer_type: string;
+  /** Human-readable config: "1→32, 3×3, s=1, p=1" */
+  config: string;
+  /** Output shape [channels, height, width] */
+  shape: number[];
+  /** Flattened activation data (C×H×W values for a single sample) */
+  activations: number[];
+}
+
+/**
+ * Full CNN forward-pass result with all intermediate activations.
+ * Returned by get_cnn_activations() from CNN WASM modules.
+ * Non-CNN modules return `{ error: string }` instead.
+ */
+export interface CnnActivationsResponse {
+  /** Input shape [channels, height, width] */
+  input_shape: number[];
+  /** Per-layer intermediate activations */
+  layers: CnnLayerActivation[];
+  /** Output shape of the last CNN layer */
+  output_shape: number[];
+}

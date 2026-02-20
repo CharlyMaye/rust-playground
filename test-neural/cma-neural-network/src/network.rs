@@ -1,3 +1,4 @@
+use crate::Float;
 use crate::callbacks::Callback;
 use crate::optimizer::{OptimizerState1D, OptimizerState2D, OptimizerType};
 use ndarray::{Array1, Array2};
@@ -13,31 +14,31 @@ pub enum RegularizationType {
     /// No regularization
     None,
     /// L1 regularization (Lasso) - encourages sparsity
-    L1 { lambda: f64 },
+    L1 { lambda: Float },
     /// L2 regularization (Ridge/Weight Decay) - penalizes large weights
-    L2 { lambda: f64 },
+    L2 { lambda: Float },
     /// Elastic Net - combines L1 and L2
-    ElasticNet { l1_ratio: f64, lambda: f64 },
+    ElasticNet { l1_ratio: Float, lambda: Float },
 }
 
 impl RegularizationType {
     /// Creates L1 regularization with the specified lambda.
-    pub fn l1(lambda: f64) -> Self {
+    pub fn l1(lambda: Float) -> Self {
         RegularizationType::L1 { lambda }
     }
 
     /// Creates L2 regularization with the specified lambda (typical: 0.0001 - 0.01).
-    pub fn l2(lambda: f64) -> Self {
+    pub fn l2(lambda: Float) -> Self {
         RegularizationType::L2 { lambda }
     }
 
     /// Creates Elastic Net regularization.
-    pub fn elastic_net(l1_ratio: f64, lambda: f64) -> Self {
+    pub fn elastic_net(l1_ratio: Float, lambda: Float) -> Self {
         RegularizationType::ElasticNet { l1_ratio, lambda }
     }
 
     /// Computes the regularization penalty on weights.
-    pub fn penalty(&self, weights: &Array2<f64>) -> f64 {
+    pub fn penalty(&self, weights: &Array2<Float>) -> Float {
         match self {
             RegularizationType::None => 0.0,
             RegularizationType::L1 { lambda } => lambda * weights.mapv(|w| w.abs()).sum(),
@@ -52,7 +53,7 @@ impl RegularizationType {
 
     /// Computes the regularization gradient to add to weight gradients.
     /// Returns None if no regularization (to avoid allocation).
-    pub fn gradient_opt(&self, weights: &Array2<f64>) -> Option<Array2<f64>> {
+    pub fn gradient_opt(&self, weights: &Array2<Float>) -> Option<Array2<Float>> {
         match self {
             RegularizationType::None => None,
             RegularizationType::L1 { lambda } => Some(weights.mapv(|w| lambda * w.signum())),
@@ -64,7 +65,7 @@ impl RegularizationType {
     }
 
     /// Computes the regularization gradient to add to weight gradients.
-    pub fn gradient(&self, weights: &Array2<f64>) -> Array2<f64> {
+    pub fn gradient(&self, weights: &Array2<Float>) -> Array2<Float> {
         self.gradient_opt(weights)
             .unwrap_or_else(|| Array2::zeros(weights.dim()))
     }
@@ -74,12 +75,12 @@ impl RegularizationType {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct DropoutConfig {
     /// Probability of deactivating a neuron (0.0 = no dropout, 0.5 = 50% deactivated)
-    pub rate: f64,
+    pub rate: Float,
 }
 
 impl DropoutConfig {
     /// Creates a dropout configuration with the specified rate.
-    pub fn new(rate: f64) -> Self {
+    pub fn new(rate: Float) -> Self {
         assert!(
             (0.0..1.0).contains(&rate),
             "Dropout rate must be in [0.0, 1.0)"
@@ -111,41 +112,41 @@ impl WeightInit {
     ///
     /// # Returns
     /// Initialized weight matrix
-    fn initialize_weights(&self, rows: usize, cols: usize, rng: &mut impl Rng) -> Array2<f64> {
+    fn initialize_weights(&self, rows: usize, cols: usize, rng: &mut impl Rng) -> Array2<Float> {
         match self {
             WeightInit::Uniform => {
                 Array2::from_shape_fn((rows, cols), |_| rng.random_range(-1.0..1.0))
             }
             WeightInit::Xavier => {
                 // Xavier: std = sqrt(2 / (input_size + output_size))
-                let std = (2.0 / (rows + cols) as f64).sqrt();
+                let std = (2.0 / (rows + cols) as Float).sqrt();
                 Array2::from_shape_fn((rows, cols), |_| {
                     // Box-Muller transform for Gaussian distribution
-                    let u1: f64 = rng.random();
-                    let u2: f64 = rng.random();
-                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+                    let u1: Float = rng.random();
+                    let u2: Float = rng.random();
+                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
                     z * std
                 })
             }
             WeightInit::He => {
                 // He: std = sqrt(2 / input_size)
-                let std = (2.0 / cols as f64).sqrt();
+                let std = (2.0 / cols as Float).sqrt();
                 Array2::from_shape_fn((rows, cols), |_| {
                     // Box-Muller transform for Gaussian distribution
-                    let u1: f64 = rng.random();
-                    let u2: f64 = rng.random();
-                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+                    let u1: Float = rng.random();
+                    let u2: Float = rng.random();
+                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
                     z * std
                 })
             }
             WeightInit::LeCun => {
                 // LeCun: std = sqrt(1 / input_size)
-                let std = (1.0 / cols as f64).sqrt();
+                let std = (1.0 / cols as Float).sqrt();
                 Array2::from_shape_fn((rows, cols), |_| {
                     // Box-Muller transform for Gaussian distribution
-                    let u1: f64 = rng.random();
-                    let u2: f64 = rng.random();
-                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+                    let u1: Float = rng.random();
+                    let u2: Float = rng.random();
+                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
                     z * std
                 })
             }
@@ -211,14 +212,14 @@ pub enum LossFunction {
 
 impl LossFunction {
     /// Compute the loss value between predictions and targets.
-    pub fn compute(&self, predictions: &Array1<f64>, targets: &Array1<f64>) -> f64 {
+    pub fn compute(&self, predictions: &Array1<Float>, targets: &Array1<Float>) -> Float {
         match self {
             LossFunction::MSE => {
                 let diff = predictions - targets;
-                (&diff * &diff).sum() / predictions.len() as f64
+                (&diff * &diff).sum() / predictions.len() as Float
             }
             LossFunction::MAE => {
-                (predictions - targets).mapv(|x| x.abs()).sum() / predictions.len() as f64
+                (predictions - targets).mapv(|x| x.abs()).sum() / predictions.len() as Float
             }
             LossFunction::BinaryCrossEntropy => {
                 let epsilon = 1e-15;
@@ -227,7 +228,7 @@ impl LossFunction {
                     let p_clamped = p.max(epsilon).min(1.0 - epsilon);
                     sum += -(t * p_clamped.ln() + (1.0 - t) * (1.0 - p_clamped).ln());
                 }
-                sum / predictions.len() as f64
+                sum / predictions.len() as Float
             }
             LossFunction::CategoricalCrossEntropy => {
                 let epsilon = 1e-15;
@@ -250,14 +251,18 @@ impl LossFunction {
                         sum += delta * (abs_d - 0.5 * delta);
                     }
                 }
-                sum / predictions.len() as f64
+                sum / predictions.len() as Float
             }
         }
     }
 
     /// Compute the derivative (gradient) of the loss function.
     /// Returns the error signal to be backpropagated.
-    pub fn derivative(&self, predictions: &Array1<f64>, targets: &Array1<f64>) -> Array1<f64> {
+    pub fn derivative(
+        &self,
+        predictions: &Array1<Float>,
+        targets: &Array1<Float>,
+    ) -> Array1<Float> {
         match self {
             LossFunction::MSE => {
                 // d/dx[(y - x)^2] = -2(y - x) = 2(x - y)
@@ -336,7 +341,7 @@ impl Activation {
     }
 
     /// Apply the activation function to an array.
-    pub fn apply(&self, x: &Array1<f64>) -> Array1<f64> {
+    pub fn apply(&self, x: &Array1<Float>) -> Array1<Float> {
         match self {
             Activation::Sigmoid => x.mapv(|x| 1.0 / (1.0 + (-x).exp())),
             Activation::Tanh => x.mapv(|x| x.tanh()),
@@ -352,7 +357,7 @@ impl Activation {
             Activation::GELU => x.mapv(|x| {
                 0.5 * x
                     * (1.0
-                        + ((2.0 / std::f64::consts::PI).sqrt() * (x + 0.044715 * x.powi(3))).tanh())
+                        + ((2.0 / std::f32::consts::PI).sqrt() * (x + 0.044715 * x.powi(3))).tanh())
             }),
             Activation::Mish => x.mapv(|x| x * ((1.0 + x.exp()).ln()).tanh()),
             Activation::Softplus => x.mapv(|x| (1.0 + x.exp()).ln()),
@@ -361,7 +366,7 @@ impl Activation {
             Activation::HardTanh => x.mapv(|x| x.clamp(-1.0, 1.0)),
             Activation::Softmax => {
                 // Numerical stability: subtract max before exp
-                let max = x.fold(f64::NEG_INFINITY, |a, &b| a.max(b));
+                let max = x.fold(Float::NEG_INFINITY, |a, &b| a.max(b));
                 let exp_x = x.mapv(|v| (v - max).exp());
                 let sum = exp_x.sum();
                 exp_x / sum
@@ -373,7 +378,7 @@ impl Activation {
     /// Compute the derivative of the activation function from POST-activation values.
     /// Use this for Sigmoid, Tanh, ReLU, LeakyReLU, HardSigmoid, HardTanh, Linear.
     /// For other activations, prefer `derivative_from_preactivation`.
-    pub fn derivative(&self, a: &Array1<f64>) -> Array1<f64> {
+    pub fn derivative(&self, a: &Array1<Float>) -> Array1<Float> {
         match self {
             // These can be computed from post-activation
             Activation::Sigmoid => a * &(1.0 - a),
@@ -401,7 +406,7 @@ impl Activation {
 
     /// Compute the derivative of the activation function from PRE-activation values (z).
     /// This is mathematically correct for all activation functions.
-    pub fn derivative_from_preactivation(&self, z: &Array1<f64>) -> Array1<f64> {
+    pub fn derivative_from_preactivation(&self, z: &Array1<Float>) -> Array1<Float> {
         match self {
             Activation::Sigmoid => {
                 let sig = z.mapv(|x| 1.0 / (1.0 + (-x).exp()));
@@ -437,7 +442,7 @@ impl Activation {
             Activation::GELU => {
                 // GELU(z) ≈ 0.5 * z * (1 + tanh(sqrt(2/π) * (z + 0.044715 * z³)))
                 // Derivative: more complex, using the standard approximation
-                let sqrt_2_over_pi = (2.0 / std::f64::consts::PI).sqrt();
+                let sqrt_2_over_pi = (2.0 / std::f32::consts::PI).sqrt();
                 z.mapv(|x| {
                     let inner = sqrt_2_over_pi * (x + 0.044715 * x.powi(3));
                     let tanh_inner = inner.tanh();
@@ -512,8 +517,8 @@ impl Activation {
 /// A layer in the neural network.
 #[derive(Clone, Serialize, Deserialize)]
 pub(crate) struct Layer {
-    pub(crate) weights: Array2<f64>,
-    pub(crate) biases: Array1<f64>,
+    pub(crate) weights: Array2<Float>,
+    pub(crate) biases: Array1<Float>,
     pub(crate) activation: Activation,
     pub(crate) dropout: Option<DropoutConfig>,
 }
@@ -522,11 +527,11 @@ pub(crate) struct Layer {
 #[derive(Clone)]
 pub(crate) struct ForwardResult {
     /// Pre-activation values (z) for each layer
-    pub(crate) pre_activations: Vec<Array1<f64>>,
+    pub(crate) pre_activations: Vec<Array1<Float>>,
     /// Post-activation values (a) for each layer, including input at index 0
-    pub(crate) activations: Vec<Array1<f64>>,
+    pub(crate) activations: Vec<Array1<Float>>,
     /// Dropout masks for each layer (None if no dropout or eval mode)
-    pub(crate) dropout_masks: Vec<Option<Array1<f64>>>,
+    pub(crate) dropout_masks: Vec<Option<Array1<Float>>>,
 }
 
 /// A feedforward neural network with configurable depth.
@@ -634,7 +639,7 @@ impl Network {
                 weights,
                 biases,
                 activation: hidden_activations[i],
-                dropout: None, // Pas de dropout par défaut
+                dropout: None, // No dropout by default
             });
 
             prev_size = size;
@@ -648,7 +653,7 @@ impl Network {
             weights,
             biases,
             activation: output_activation,
-            dropout: None, // Pas de dropout sur la couche de sortie
+            dropout: None, // No dropout on the output layer
         });
 
         // Initialize optimizer states for all layers
@@ -735,7 +740,7 @@ impl Network {
     /// Vector of all layer activations (including input and final output).
     /// Index 0 is the input, last index is the final output.
     #[allow(dead_code)]
-    fn forward(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
+    fn forward(&self, input: &Array1<Float>) -> Vec<Array1<Float>> {
         if self.training_mode {
             self.forward_full(input, &mut rng()).activations
         } else {
@@ -745,7 +750,7 @@ impl Network {
 
     /// Forward pass for evaluation (no dropout, no RNG needed).
     /// Always runs in "eval mode" regardless of training_mode flag.
-    fn forward_eval(&self, input: &Array1<f64>) -> Vec<Array1<f64>> {
+    fn forward_eval(&self, input: &Array1<Float>) -> Vec<Array1<Float>> {
         let mut activations = vec![input.clone()];
 
         for layer in &self.layers {
@@ -760,7 +765,7 @@ impl Network {
 
     /// Forward pass using the stored RNG (for reproducibility) or system entropy.
     #[allow(dead_code)]
-    fn forward_with_stored_rng(&mut self, input: &Array1<f64>) -> ForwardResult {
+    fn forward_with_stored_rng(&mut self, input: &Array1<Float>) -> ForwardResult {
         // Take ownership of stored RNG temporarily to avoid borrow issues
         if let Some(mut stored_rng) = self.rng.take() {
             let result = self.forward_full_internal(input, &mut stored_rng);
@@ -773,7 +778,7 @@ impl Network {
 
     /// Forward pass returning full result with pre-activations and dropout masks.
     #[allow(dead_code)]
-    fn forward_full(&self, input: &Array1<f64>, rng: &mut impl Rng) -> ForwardResult {
+    fn forward_full(&self, input: &Array1<Float>, rng: &mut impl Rng) -> ForwardResult {
         self.forward_full_internal(input, rng)
     }
 
@@ -782,7 +787,7 @@ impl Network {
     /// This is exposed to the trainer module for backpropagation.
     pub(crate) fn forward_full_internal(
         &self,
-        input: &Array1<f64>,
+        input: &Array1<Float>,
         rng: &mut impl Rng,
     ) -> ForwardResult {
         let mut activations = vec![input.clone()];
@@ -803,8 +808,8 @@ impl Network {
             {
                 let keep_prob = 1.0 - dropout_config.rate;
                 // Create dropout mask with inverted scaling
-                let mask: Array1<f64> = Array1::from_shape_fn(a.len(), |_| {
-                    if rng.random::<f64>() < keep_prob {
+                let mask: Array1<Float> = Array1::from_shape_fn(a.len(), |_| {
+                    if rng.random::<Float>() < keep_prob {
                         1.0 / keep_prob // Inverted dropout (scaling during training)
                     } else {
                         0.0
@@ -844,7 +849,7 @@ impl Network {
     /// 2. Calculate output layer error using loss function
     /// 3. Backpropagate error through all hidden layers (with dropout mask)
     /// 4. Update all weights and biases using the optimizer
-    pub fn train(&mut self, input: &Array1<f64>, target: &Array1<f64>) {
+    pub fn train(&mut self, input: &Array1<Float>, target: &Array1<Float>) {
         // Delegate to the Trainer (CPU by default)
         let mut trainer = crate::trainer::Trainer::cpu(self);
         trainer.train_single(input, target);
@@ -880,7 +885,7 @@ impl Network {
     ///
     /// network.train_batch(&inputs, &targets);
     /// ```
-    pub fn train_batch(&mut self, inputs: &[Array1<f64>], targets: &[Array1<f64>]) {
+    pub fn train_batch(&mut self, inputs: &[Array1<Float>], targets: &[Array1<Float>]) {
         // Delegate to the Trainer (CPU by default)
         let mut trainer = crate::trainer::Trainer::cpu(self);
         trainer.train_batch(inputs, targets);
@@ -896,7 +901,7 @@ impl Network {
     ///
     /// # Returns
     /// Average loss value
-    pub fn evaluate(&self, inputs: &Vec<Array1<f64>>, targets: &Vec<Array1<f64>>) -> f64 {
+    pub fn evaluate(&self, inputs: &Vec<Array1<Float>>, targets: &Vec<Array1<Float>>) -> Float {
         let mut total_loss = 0.0;
 
         for (input, target) in inputs.iter().zip(targets.iter()) {
@@ -906,16 +911,16 @@ impl Network {
             total_loss += self.loss_function.compute(prediction, target);
         }
 
-        let base_loss = total_loss / inputs.len() as f64;
+        let base_loss = total_loss / inputs.len() as Float;
 
         // Add regularization penalty
-        let reg_penalty: f64 = self
+        let reg_penalty: Float = self
             .layers
             .iter()
             .map(|layer| self.regularization.penalty(&layer.weights))
             .sum();
 
-        base_loss + reg_penalty / inputs.len() as f64
+        base_loss + reg_penalty / inputs.len() as Float
     }
 
     /// Makes a prediction for a single input.
@@ -928,7 +933,7 @@ impl Network {
     ///
     /// # Returns
     /// Output vector (network's prediction)
-    pub fn predict(&self, input: &Array1<f64>) -> Array1<f64> {
+    pub fn predict(&self, input: &Array1<Float>) -> Array1<Float> {
         // Always use eval mode for predictions (no dropout)
         let activations = self.forward_eval(input);
         activations.last().unwrap().clone()
@@ -947,8 +952,8 @@ impl Network {
         mut scheduler: Option<&mut crate::callbacks::LearningRateScheduler>,
         callbacks: &mut Vec<Box<dyn crate::callbacks::Callback>>,
         eval_every: usize,
-    ) -> Vec<(f64, Option<f64>)> {
-        // Initialise le scheduler s'il existe
+    ) -> Vec<(Float, Option<Float>)> {
+        // Initialize the scheduler if it exists
         if let Some(sched) = scheduler.as_mut() {
             sched.current_lr = match &self.optimizer {
                 crate::optimizer::OptimizerType::SGD { learning_rate } => *learning_rate,
@@ -960,7 +965,7 @@ impl Network {
             sched.on_train_begin(self);
         }
 
-        // Appel on_train_begin
+        // Call on_train_begin
         for callback in callbacks.iter_mut() {
             callback.on_train_begin(self);
         }
@@ -972,7 +977,7 @@ impl Network {
             .expect("Device should be validated before calling fit()");
 
         for epoch in 0..epochs {
-            // Appel on_epoch_begin
+            // Call on_epoch_begin
             if let Some(sched) = scheduler.as_mut() {
                 sched.on_epoch_begin(epoch, trainer.network_mut());
             }
@@ -1005,13 +1010,13 @@ impl Network {
 
             history.push((train_loss, val_loss));
 
-            // Appel scheduler on_epoch_end et update
+            // Call scheduler on_epoch_end and update
             if let Some(sched) = scheduler.as_mut() {
                 sched.on_epoch_end(epoch, trainer.network_mut(), train_loss, val_loss);
                 sched.update_optimizer_lr(&mut trainer.network_mut().optimizer);
             }
 
-            // Appel on_epoch_end
+            // Call on_epoch_end
             let mut should_continue = true;
             for callback in callbacks.iter_mut() {
                 if !callback.on_epoch_end(epoch, trainer.network_mut(), train_loss, val_loss) {
@@ -1025,7 +1030,7 @@ impl Network {
             }
         }
 
-        // Appel on_train_end
+        // Call on_train_end
         if let Some(sched) = scheduler.as_mut() {
             sched.on_train_end(trainer.network_mut());
         }
@@ -1081,7 +1086,7 @@ impl Network {
 
     /// Returns information about each layer for visualization.
     /// Each tuple contains: (weights, biases, activation_name)
-    pub fn get_layers_info(&self) -> Vec<(&Array2<f64>, &Array1<f64>, &str)> {
+    pub fn get_layers_info(&self) -> Vec<(&Array2<Float>, &Array1<Float>, &str)> {
         self.layers
             .iter()
             .map(|l| (&l.weights, &l.biases, l.activation.name()))
@@ -1092,8 +1097,8 @@ impl Network {
     /// Returns: Vec of (pre_activation, post_activation, activation_name) for each layer.
     pub fn get_all_activations(
         &self,
-        input: &Array1<f64>,
-    ) -> Vec<(Array1<f64>, Array1<f64>, String)> {
+        input: &Array1<Float>,
+    ) -> Vec<(Array1<Float>, Array1<Float>, String)> {
         let mut current = input.clone();
         let mut results = Vec::new();
 

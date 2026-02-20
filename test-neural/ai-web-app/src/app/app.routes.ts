@@ -16,6 +16,26 @@ export const routes: Routes = [
       import('./pages/mnist-digit').then((m) => m.getRoutes({ showBackButton: true })),
   },
   {
+    path: 'mnist-lenet',
+    loadChildren: () =>
+      import('./pages/mnist-lenet').then((m) => m.getRoutes({ showBackButton: true })),
+  },
+  {
+    path: 'mnist-resnet',
+    loadChildren: () =>
+      import('./pages/mnist-resnet').then((m) => m.getRoutes({ showBackButton: true })),
+  },
+  {
+    path: 'mnist-alexnet',
+    loadChildren: () =>
+      import('./pages/mnist-alexnet').then((m) => m.getRoutes({ showBackButton: true })),
+  },
+  {
+    path: 'mnist-vgg',
+    loadChildren: () =>
+      import('./pages/mnist-vgg').then((m) => m.getRoutes({ showBackButton: true })),
+  },
+  {
     path: 'iris-classifier',
     loadChildren: () =>
       import('./pages/iris-classifier').then((m) => m.getRoutes({ showBackButton: true })),

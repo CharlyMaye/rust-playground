@@ -4,10 +4,12 @@
 //! Uses cma_neural_network for all neural network operations.
 
 use cma_neural_network::network::Network;
+use cma_neural_network::Float;
 use ndarray::Array1;
 use neural_wasm_shared::{
     build_prediction_result, build_test_result, load_model_from_bytes, ActivationsResponse,
-    LayerActivation, LayerInfo, ModelInfo, NormalizationStats, TestResult, WeightsInfo,
+    ArchitectureSummary, LayerActivation, LayerInfo, LayerSummary, ModelInfo, NormalizationStats,
+    TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
 
@@ -23,7 +25,7 @@ const CLASS_NAMES: [&str; 10] = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9
 #[wasm_bindgen]
 pub struct MnistNetwork {
     network: Network,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     trained_at: String,
     normalization: Option<NormalizationStats>,
@@ -50,7 +52,7 @@ impl MnistNetwork {
     /// Accepts 784 pixels (28x28 image) or normalized values
     /// Returns JSON with digit prediction (0-9), probabilities, and confidence
     #[wasm_bindgen]
-    pub fn predict(&self, pixels: &[f64]) -> String {
+    pub fn predict(&self, pixels: &[Float]) -> String {
         if pixels.len() != 784 {
             return serde_json::json!({
                 "error": format!("Expected 784 pixels, got {}", pixels.len())
@@ -69,7 +71,7 @@ impl MnistNetwork {
     }
 
     /// Normalize input pixels using stored normalization statistics
-    fn normalize_input(&self, pixels: &[f64]) -> Vec<f64> {
+    fn normalize_input(&self, pixels: &[Float]) -> Vec<Float> {
         if let Some(ref norm) = self.normalization {
             norm.normalize(pixels)
         } else {
@@ -79,7 +81,7 @@ impl MnistNetwork {
 
     /// Get class probabilities for 784 pixels
     #[wasm_bindgen]
-    pub fn get_probabilities(&self, pixels: &[f64]) -> String {
+    pub fn get_probabilities(&self, pixels: &[Float]) -> String {
         if pixels.len() != 784 {
             return serde_json::json!({"error": "Expected 784 pixels"}).to_string();
         }
@@ -98,7 +100,7 @@ impl MnistNetwork {
     }
 
     // Private helper methods
-    fn predict_probs(&self, pixels: &[f64]) -> Vec<f64> {
+    fn predict_probs(&self, pixels: &[Float]) -> Vec<Float> {
         if pixels.len() != 784 {
             return vec![0.0; 10];
         }
@@ -148,7 +150,7 @@ impl MnistNetwork {
             layers: layers
                 .iter()
                 .map(|(weights, biases, activation_name)| {
-                    let weights_2d: Vec<Vec<f64>> =
+                    let weights_2d: Vec<Vec<Float>> =
                         weights.rows().into_iter().map(|row| row.to_vec()).collect();
 
                     LayerInfo {
@@ -166,7 +168,7 @@ impl MnistNetwork {
 
     /// Run inference and return all neuron activations for visualization
     #[wasm_bindgen]
-    pub fn get_activations(&self, pixels: &[f64]) -> String {
+    pub fn get_activations(&self, pixels: &[Float]) -> String {
         if pixels.len() != 784 {
             return r#"{"inputs":[],"layers":[],"output":[]}"#.to_string();
         }
@@ -196,6 +198,39 @@ impl MnistNetwork {
         serde_json::to_string(&response)
             .unwrap_or_else(|_| r#"{"inputs":[],"layers":[],"output":[]}"#.to_string())
     }
+
+    /// Get CNN intermediate activations (not available for FC-only models)
+    #[wasm_bindgen]
+    pub fn get_cnn_activations(&self, _pixels: &[Float]) -> String {
+        serde_json::json!({"error": "This model has no CNN layers"}).to_string()
+    }
+
+    /// Get architecture summary
+    #[wasm_bindgen]
+    pub fn get_architecture(&self) -> String {
+        let layers_info = self.network.get_layers_info();
+        let layers: Vec<LayerSummary> = layers_info
+            .iter()
+            .enumerate()
+            .map(|(i, (weights, _, activation))| LayerSummary {
+                name: format!("FC{}", i + 1),
+                config: format!("{}→{} ({})", weights.ncols(), weights.nrows(), activation),
+            })
+            .collect();
+
+        let num_params: usize = layers_info.iter().map(|(w, b, _)| w.len() + b.len()).sum();
+
+        let summary = ArchitectureSummary {
+            name: "MNIST FC Classifier".to_string(),
+            model_type: "fc".to_string(),
+            input_shape: vec![784],
+            output_features: 10,
+            num_parameters: num_params,
+            layers,
+        };
+
+        serde_json::to_string(&summary).unwrap_or_else(|_| "{}".to_string())
+    }
 }
 
 /// Initialize the module
@@ -207,7 +242,7 @@ pub fn main() {
 
 /// Sample MNIST test data (10 digits with normalized pixel values)
 /// These are simplified representations - real MNIST pixels would be 0-255
-fn get_mnist_test_samples() -> Vec<(Vec<f64>, u8)> {
+fn get_mnist_test_samples() -> Vec<(Vec<Float>, u8)> {
     vec![
         (vec_with_first_n(vec![0.5; 784], 5), 0),
         (vec_with_first_n(vec![0.3; 784], 5), 1),
@@ -222,7 +257,7 @@ fn get_mnist_test_samples() -> Vec<(Vec<f64>, u8)> {
     ]
 }
 
-fn vec_with_first_n(mut v: Vec<f64>, n: usize) -> Vec<f64> {
+fn vec_with_first_n(mut v: Vec<Float>, n: usize) -> Vec<Float> {
     for i in 0..n.min(v.len()) {
         v[i] = v[i] * 2.0;
     }
