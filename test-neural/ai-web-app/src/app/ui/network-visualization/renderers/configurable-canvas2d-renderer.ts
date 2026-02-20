@@ -13,6 +13,7 @@ import {
 import {
   BarData,
   ConfigurableRenderData,
+  FeatureMapsData,
   GridData,
   LayerElement,
   StatsData,
@@ -174,6 +175,12 @@ export class ConfigurableCanvas2DRenderer implements INetworkRenderer {
           }
           break;
 
+        case 'feature-maps':
+          if (element.featureMapsData) {
+            this.renderFeatureMaps(element, element.featureMapsData);
+          }
+          break;
+
         case 'bar':
           if (element.barData) {
             this.renderBar(element, element.barData);
@@ -232,6 +239,70 @@ export class ConfigurableCanvas2DRenderer implements INetworkRenderer {
         this.ctx.stroke();
       }
     }
+  }
+
+  private renderFeatureMaps(element: LayerElement, fmData: FeatureMapsData): void {
+    const { mapRows, mapCols, cellSize, gridCols, gap, maps } = fmData;
+    const mapWidth = mapCols * cellSize;
+    const mapHeight = mapRows * cellSize;
+
+    const totalWidth = element.width;
+    const totalHeight = element.height;
+    const originX = element.position.x - totalWidth / 2;
+    const originY = element.position.y - totalHeight / 2;
+
+    // Create offscreen canvas once for all maps (reuse at map size)
+    const offscreen = document.createElement('canvas');
+    offscreen.width = mapCols;
+    offscreen.height = mapRows;
+    const offCtx = offscreen.getContext('2d')!;
+    const imgData = offCtx.createImageData(mapCols, mapRows);
+    const pixels = imgData.data;
+
+    // Disable smoothing for crisp pixel scaling
+    const prevSmoothing = this.ctx.imageSmoothingEnabled;
+    this.ctx.imageSmoothingEnabled = false;
+
+    for (let i = 0; i < maps.length; i++) {
+      const col = i % gridCols;
+      const row = Math.floor(i / gridCols);
+      const mapX = originX + col * (mapWidth + gap);
+      const mapY = originY + row * (mapHeight + gap);
+
+      // Fill ImageData at 1:1 pixel resolution
+      const gridData = maps[i];
+      for (let r = 0; r < mapRows; r++) {
+        for (let c = 0; c < mapCols; c++) {
+          const idx = r * mapCols + c;
+          const rgb = this.parseRgb(gridData.colors[idx] ?? 'rgb(50,50,50)');
+          const offset = idx * 4;
+          pixels[offset] = rgb[0];
+          pixels[offset + 1] = rgb[1];
+          pixels[offset + 2] = rgb[2];
+          pixels[offset + 3] = 255;
+        }
+      }
+
+      // Put pixels → offscreen, then drawImage scaled (respects transform)
+      offCtx.putImageData(imgData, 0, 0);
+      this.ctx.drawImage(offscreen, mapX, mapY, mapWidth, mapHeight);
+
+      // Border
+      this.ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(mapX, mapY, mapWidth, mapHeight);
+    }
+
+    this.ctx.imageSmoothingEnabled = prevSmoothing;
+  }
+
+  /** Parse 'rgb(r,g,b)' string to [r, g, b] tuple */
+  private parseRgb(color: string): [number, number, number] {
+    const match = color.match(/rgb\((\d+),(\d+),(\d+)\)/);
+    if (match) {
+      return [parseInt(match[1], 10), parseInt(match[2], 10), parseInt(match[3], 10)];
+    }
+    return [50, 50, 50];
   }
 
   private renderBar(element: LayerElement, barData: BarData): void {
@@ -337,6 +408,24 @@ export class ConfigurableCanvas2DRenderer implements INetworkRenderer {
     }
   }
 
+  /**
+   * Render labels in screen space with fixed font size.
+   * Converts natural positions to screen coordinates but keeps text readable.
+   */
+  private renderLabelsScreenSpace(labels: readonly Label[], viewport: Viewport): void {
+    this.ctx.textBaseline = 'middle';
+
+    for (const label of labels) {
+      const screenX = label.position.x * viewport.scale + viewport.offsetX;
+      const screenY = label.position.y * viewport.scale + viewport.offsetY;
+
+      this.ctx.fillStyle = this.resolveColor(label.color);
+      this.ctx.font = `normal ${label.fontSize}px 'Segoe UI', system-ui, sans-serif`;
+      this.ctx.textAlign = label.align;
+      this.ctx.fillText(label.text, screenX, screenY);
+    }
+  }
+
   // ============================================================================
   // Debug Rendering
   // ============================================================================
@@ -388,8 +477,13 @@ export class ConfigurableCanvas2DRenderer implements INetworkRenderer {
 
     // Render neurons (from neuron-based elements)
     this.renderNeurons(data.neurons);
-    this.renderLabels(data.labels);
 
+    this.ctx.restore();
+
+    // Labels in screen space (fixed size, never shrink with viewport scale)
+    this.ctx.save();
+    this.ctx.scale(this.dpr, this.dpr);
+    this.renderLabelsScreenSpace(data.labels, viewport);
     this.ctx.restore();
 
     // Debug info in screen space

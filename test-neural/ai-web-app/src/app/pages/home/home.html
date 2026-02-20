@@ -3,75 +3,22 @@
 
 <!-- Demo cards grid -->
 <div class="demo-grid" aria-label="Available neural network demos">
-  <!-- XOR Demo -->
-  <a [routerLink]="['/xor-logic-gate']" class="demo-card">
-    @if (!xorIsLoading()) {
-      <div class="demo-icon" aria-hidden="true">⊕</div>
-      <h3>{{ xorModelInfo()?.name }}</h3>
-      <p>{{ xorModelInfo()?.description }}</p>
-      <div class="demo-meta">
-        <span class="badge badge-info">{{ xorArchitecture()?.[0] }} inputs</span>
-        <span class="badge badge-info">{{ xorArchitecture()?.slice(-1)?.[0] }} output</span>
-        <span class="badge badge-success" id="xor-accuracy"
-          >{{ xorModelInfo()?.accuracy | number: '1.1-1' }}%</span
-        >
-      </div>
-    } @else {
-      <app-loader id="loading" [message]="'Loading Neural Network...'" />
-    }
-  </a>
-
-  <!-- Iris Demo -->
-  <a [routerLink]="['/iris-classifier']" class="demo-card">
-    @if (!irisIsLoading()) {
-      <div class="demo-icon" aria-hidden="true">🌸</div>
-      <h3>{{ irisModelInfo()?.name }}</h3>
-      <p>{{ irisModelInfo()?.description }}</p>
-      <div class="demo-meta">
-        <span class="badge badge-info">{{ irisArchitecture()?.[0] }} inputs</span>
-        <span class="badge badge-info">{{ irisArchitecture()?.slice(-1)?.[0] }} classes</span>
-        <span class="badge badge-success" id="iris-accuracy">
-          {{ irisModelInfo()?.accuracy | number: '1.1-1' }}%
-        </span>
-      </div>
-    } @else {
-      <app-loader id="loading" [message]="'Loading Neural Network...'" />
-    }
-  </a>
-
-  <!-- MNIST Demo (coming soon) -->
-  <a [routerLink]="['/mnist-digit']" class="demo-card">
-    @if (!mnistIsLoading()) {
-      <div class="demo-icon" aria-hidden="true">✍️</div>
-      <h3>{{ mnistModelInfo()?.name }}</h3>
-      <p>{{ mnistModelInfo()?.description }}</p>
-      <div class="demo-meta">
-        <span class="badge badge-info">{{ mnistArchitecture()?.[0] }} inputs</span>
-        <span class="badge badge-info">{{ mnistArchitecture()?.slice(-1)?.[0] }} classes</span>
-        <span class="badge badge-success" id="mnist-accuracy">
-          {{ mnistModelInfo()?.accuracy | number: '1.1-1' }}%
-        </span>
-      </div>
-    } @else {
-      <app-loader id="loading" [message]="'Loading Neural Network...'" />
-    }
-  </a>
-
-  <!-- coming soon -->
-  <a [routerLink]="['/coming-soon']" class="demo-card">
-    <div class="demo-icon" aria-hidden="true">⏰</div>
-    <h3>COMMING SOON</h3>
-    <div class="demo-meta">
-      <span class="badge badge-warning">Coming soon</span>
-    </div>
-  </a>
-
-  <!-- <a [routerLink]="['/coming-soon']" class="demo-card disabled" aria-disabled="true" tabindex="-1">
-    <div class="demo-icon" aria-hidden="true">⏰</div>
-    <h3>COMMING SOON</h3>
-    <p>(coming soon)</p>
-    <div class="demo-meta">
-      <span class="badge badge-warning">Coming soon</span>
-    </div>
-  </a> -->
+  @for (demo of demos(); track demo.route) {
+    <app-demo-card
+      [route]="demo.route"
+      [icon]="demo.icon"
+      [name]="demo.name"
+      [fallbackName]="demo.fallbackName"
+      [description]="demo.description"
+      [fallbackDescription]="demo.fallbackDescription"
+      [isLoading]="demo.isLoading"
+      [loadingMessage]="demo.loadingMessage"
+      [inputBadge]="demo.inputBadge"
+      [outputBadge]="demo.outputBadge"
+      [accuracy]="demo.accuracy"
+      [showNotTrained]="demo.showNotTrained"
+      [customBadge]="demo.customBadge"
+      [customBadgeType]="demo.customBadgeType ?? 'warning'"
+    />
+  }
 </div>

@@ -1,8 +1,10 @@
 use cma_neural_network::network::Network;
+use cma_neural_network::Float;
 use ndarray::array;
 use neural_wasm_shared::{
     build_prediction_result, build_test_result, load_model_from_bytes, ActivationsResponse,
-    LayerActivation, LayerInfo, ModelInfo, NormalizationStats, TestResult, WeightsInfo,
+    ArchitectureSummary, LayerActivation, LayerInfo, LayerSummary, ModelInfo, NormalizationStats,
+    TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
 
@@ -13,7 +15,7 @@ const MODEL_BIN: &[u8] = include_bytes!("iris_model.bin");
 pub struct IrisClassifier {
     network: Network,
     classes: Vec<String>,
-    accuracy: f64,
+    accuracy: Float,
     test_samples: usize,
     trained_at: String,
     normalization: Option<NormalizationStats>,
@@ -48,11 +50,11 @@ impl IrisClassifier {
     /// Normalize input features using stored statistics
     fn normalize_input(
         &self,
-        sepal_length: f64,
-        sepal_width: f64,
-        petal_length: f64,
-        petal_width: f64,
-    ) -> [f64; 4] {
+        sepal_length: Float,
+        sepal_width: Float,
+        petal_length: Float,
+        petal_width: Float,
+    ) -> [Float; 4] {
         if let Some(ref norm) = self.normalization {
             let raw = [sepal_length, sepal_width, petal_length, petal_width];
             let normalized = norm.normalize(&raw);
@@ -68,10 +70,10 @@ impl IrisClassifier {
     #[wasm_bindgen]
     pub fn predict(
         &self,
-        sepal_length: f64,
-        sepal_width: f64,
-        petal_length: f64,
-        petal_width: f64,
+        sepal_length: Float,
+        sepal_width: Float,
+        petal_length: Float,
+        petal_width: Float,
     ) -> String {
         let normalized = self.normalize_input(sepal_length, sepal_width, petal_length, petal_width);
         let input = array![normalized[0], normalized[1], normalized[2], normalized[3]];
@@ -88,10 +90,10 @@ impl IrisClassifier {
     #[wasm_bindgen]
     pub fn get_probabilities(
         &self,
-        sepal_length: f64,
-        sepal_width: f64,
-        petal_length: f64,
-        petal_width: f64,
+        sepal_length: Float,
+        sepal_width: Float,
+        petal_length: Float,
+        petal_width: Float,
     ) -> String {
         let normalized = self.normalize_input(sepal_length, sepal_width, petal_length, petal_width);
         let input = array![normalized[0], normalized[1], normalized[2], normalized[3]];
@@ -138,7 +140,7 @@ impl IrisClassifier {
         let layers: Vec<LayerInfo> = layers_info
             .iter()
             .map(|(weights, biases, activation_name)| {
-                let weights_2d: Vec<Vec<f64>> =
+                let weights_2d: Vec<Vec<Float>> =
                     weights.rows().into_iter().map(|row| row.to_vec()).collect();
 
                 LayerInfo {
@@ -164,10 +166,10 @@ impl IrisClassifier {
     #[wasm_bindgen]
     pub fn get_activations(
         &self,
-        sepal_length: f64,
-        sepal_width: f64,
-        petal_length: f64,
-        petal_width: f64,
+        sepal_length: Float,
+        sepal_width: Float,
+        petal_length: Float,
+        petal_width: Float,
     ) -> String {
         let input = array![sepal_length, sepal_width, petal_length, petal_width];
         let activations = self.network.get_all_activations(&input);
@@ -191,10 +193,49 @@ impl IrisClassifier {
         serde_json::to_string(&response)
             .unwrap_or_else(|_| r#"{"inputs":[],"layers":[],"output":[]}"#.to_string())
     }
+
+    /// Get CNN intermediate activations (not available for FC-only models)
+    #[wasm_bindgen]
+    pub fn get_cnn_activations(
+        &self,
+        _sepal_length: Float,
+        _sepal_width: Float,
+        _petal_length: Float,
+        _petal_width: Float,
+    ) -> String {
+        serde_json::json!({"error": "This model has no CNN layers"}).to_string()
+    }
+
+    /// Get architecture summary
+    #[wasm_bindgen]
+    pub fn get_architecture(&self) -> String {
+        let layers_info = self.network.get_layers_info();
+        let layers: Vec<LayerSummary> = layers_info
+            .iter()
+            .enumerate()
+            .map(|(i, (weights, _, activation))| LayerSummary {
+                name: format!("FC{}", i + 1),
+                config: format!("{}→{} ({})", weights.ncols(), weights.nrows(), activation),
+            })
+            .collect();
+
+        let num_params: usize = layers_info.iter().map(|(w, b, _)| w.len() + b.len()).sum();
+
+        let summary = ArchitectureSummary {
+            name: "Iris Classifier".to_string(),
+            model_type: "fc".to_string(),
+            input_shape: vec![4],
+            output_features: 3,
+            num_parameters: num_params,
+            layers,
+        };
+
+        serde_json::to_string(&summary).unwrap_or_else(|_| "{}".to_string())
+    }
 }
 
 /// Sample iris data for testing
-fn get_iris_test_samples() -> Vec<([f64; 4], usize)> {
+fn get_iris_test_samples() -> Vec<([Float; 4], usize)> {
     vec![
         // Setosa samples (class 0)
         ([5.1, 3.5, 1.4, 0.2], 0),

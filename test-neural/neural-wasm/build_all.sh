@@ -17,8 +17,15 @@ cd ..
 echo ""
 echo "✅ Shared library built"
 
-# Build each model
-MODELS=("xor" "iris" "mnist")
+# Build each model - ordered by training time (fastest first)
+# XOR: ~1 second
+# Iris: ~5 seconds
+# MNIST (MLP): ~30 seconds
+# MNIST-LeNet: ~2 minutes
+# MNIST-ResNet: ~5-10 minutes (with residual blocks)
+# MNIST-VGG: ~10-15 minutes
+# MNIST-AlexNet: ~15-20 minutes
+MODELS=("xor" "iris" "mnist" "mnist-lenet" "mnist-resnet" "mnist-vgg" "mnist-alexnet")
 SUCCESS_COUNT=0
 FAIL_COUNT=0
 
@@ -34,10 +41,13 @@ for model in "${MODELS[@]}"; do
             echo ""
             echo "✅ $model built successfully"
             
-            # Copy to Angular app pkg (preserve historical www untouched)
-            echo "📋 Copying $model to ai-web-app/pkg/${model}_wasm/..."
-            mkdir -p "../../ai-web-app/pkg/${model}_wasm"
-            cp -r pkg/* "../../ai-web-app/pkg/${model}_wasm/"
+            # Determine package name (convert - to _)
+            PKG_NAME="${model//-/_}_wasm"
+            
+            # Copy to Angular app pkg
+            echo "📋 Copying $model to ai-web-app/pkg/${PKG_NAME}/..."
+            mkdir -p "../../ai-web-app/pkg/${PKG_NAME}"
+            cp -r pkg/* "../../ai-web-app/pkg/${PKG_NAME}/"
             
             SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
         else
@@ -56,19 +66,19 @@ echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║                    Build Summary                             ║"
 echo "╠══════════════════════════════════════════════════════════════╣"
-echo "║  ✅ Successful: $SUCCESS_COUNT                                           ║"
-echo "║  ❌ Failed:     $FAIL_COUNT                                           ║"
+echo "║  ✅ Successful: $SUCCESS_COUNT                                         ║"
+echo "║  ❌ Failed:     $FAIL_COUNT                                            ║"
 echo "╠══════════════════════════════════════════════════════════════╣"
 
 if [ $FAIL_COUNT -eq 0 ]; then
-    echo "║  🎉 All modules built successfully!                         ║"
+    echo "║  🎉 All modules built successfully!                          ║"
     echo "║                                                              ║"
-    echo "║  🌐 Start a web server:                                     ║"
-    echo "║     cd ../www && npx http-server -p 8080 -c-1               ║"
+    echo "║  🌐 Start Angular app:                                       ║"
+    echo "║     cd ../ai-web-app && npm start                            ║"
     echo "║                                                              ║"
-    echo "║  📱 Then open: http://localhost:8080                        ║"
+    echo "║  📱 Then open: http://localhost:4200                         ║"
 else
-    echo "║  ⚠️  Some modules failed to build                           ║"
+    echo "║  ⚠️  Some modules failed to build                            ║"
 fi
 
 echo "╚══════════════════════════════════════════════════════════════╝"

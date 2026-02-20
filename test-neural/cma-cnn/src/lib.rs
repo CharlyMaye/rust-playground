@@ -1,0 +1,64 @@
+//! # CMA-CNN: Convolutional Neural Network Layers
+//!
+//! Extension of `cma-neural-network` with convolutional layers for image processing.
+//!
+//! ## Ecosystem Architecture
+//!
+//! ```text
+//! cma-models (Ready-made architectures: LeNet-5, ResNet, etc.)
+//!     │
+//!     └── cma-cnn (This crate: Conv2D, MaxPool2D, BatchNorm2D) ← YOU ARE HERE
+//!             │
+//!             └── cma-neural-network (Base: Dense, Activations, Optimizers)
+//! ```
+//!
+//! ## Features
+//!
+//! - **Conv2D**: 2D convolution with padding/stride support
+//! - **MaxPool2D / AvgPool2D**: Spatial pooling
+//! - **BatchNorm2D**: Batch normalization
+//! - **Flatten**: 4D tensor to 1D vector conversion
+//! - **Sequential**: Container for stacking layers
+//!
+//! ## Quick Example
+//!
+//! ```rust,ignore
+//! use cma_cnn::{Conv2D, MaxPool2D, Flatten, Sequential};
+//! use cma_cnn::Activation;
+//!
+//! let model = Sequential::new()
+//!     .add(Conv2D::new(1, 32, 3, 1, 1))  // 1 channel → 32 filters, 3x3 kernel
+//!     .add(Activation::ReLU)
+//!     .add(MaxPool2D::new(2, 2))
+//!     .add(Flatten::new())
+//!     .add(Dense::new(128, 10));
+//! ```
+//!
+//! ## References
+//!
+//! - LeCun et al. (1998): "Gradient-Based Learning Applied to Document Recognition"
+//! - Krizhevsky et al. (2012): "ImageNet Classification with Deep CNNs" (AlexNet)
+//! - He et al. (2015): "Deep Residual Learning for Image Recognition" (ResNet)
+
+pub mod layers;
+pub mod ops;
+pub mod sequential;
+pub mod tensor;
+
+// Re-export Float type from cma-neural-network for consistency
+pub use cma_neural_network::Float;
+
+// Re-exports
+pub use layers::{
+    ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Dropout2D, Flatten, GlobalAvgPool2D, Layer,
+    LayerType, MaxPool2D,
+};
+pub use ops::{
+    Padding, col2im, conv2d_im2col, im2col, im2col_single,
+    maxpool2d, avgpool2d, global_avgpool2d,
+};
+pub use sequential::Sequential;
+pub use tensor::{Tensor4D, TensorShape};
+
+// Re-export from cma-neural-network for convenience
+pub use cma_neural_network::{Activation, LossFunction, Network, NetworkBuilder, OptimizerType};

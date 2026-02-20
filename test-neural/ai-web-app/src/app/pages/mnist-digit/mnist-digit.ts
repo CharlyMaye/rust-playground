@@ -48,8 +48,8 @@ export class MnistDigit {
       return null;
     }
 
-    // Flatten the 28x28 grid into a 784-element Float64Array for MNIST
-    const flattenedInput = new Float64Array(digitData.flat());
+    // Flatten the 28x28 grid into a 784-element Float32Array for MNIST
+    const flattenedInput = new Float32Array(digitData.flat());
 
     // Call the WASM predict function with flattened input
     const prediction = network.predict(flattenedInput);
@@ -68,8 +68,8 @@ export class MnistDigit {
     // Use zeros if no digit is drawn, to show the network structure
     const flattenedInput =
       digitData.length === 0
-        ? new Float64Array(28 * 28).fill(0)
-        : new Float64Array(digitData.flat());
+        ? new Float32Array(28 * 28).fill(0)
+        : new Float32Array(digitData.flat());
 
     const acts = JSON.parse(network.get_activations(flattenedInput));
     return acts;
@@ -88,6 +88,19 @@ export class MnistDigit {
     if (!wts) return null;
     return neuralNetworkLayersToWeights(wts);
   });
+
+  /** Activation functions used in the network for display */
+  public readonly activationFunctions = computed(() => {
+    const wts = this.weights();
+    if (!wts?.layers) return undefined;
+    const activations = wts.layers.map((l) => this.capitalizeFirst(l.activation));
+    const unique = [...new Set(activations)];
+    return unique.join(' → ');
+  });
+
+  private capitalizeFirst(str: string): string {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
 
   /** Formatted prediction value for display */
   public readonly predictionDisplay = computed(() => {

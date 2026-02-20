@@ -11,6 +11,7 @@ import {
 import {
   BarData,
   ConfigurableRenderData,
+  FeatureMapsData,
   GridData,
   LayerElement,
 } from './configurable-layout-calculator';
@@ -459,6 +460,12 @@ export class ConfigurableWebGLRenderer implements INetworkRenderer {
           }
           break;
 
+        case 'feature-maps':
+          if (element.featureMapsData) {
+            this.renderFeatureMapsWebGL(element, element.featureMapsData, viewport);
+          }
+          break;
+
         case 'bar':
           if (element.barData) {
             this.renderBarWebGL(element, element.barData, viewport);
@@ -501,6 +508,76 @@ export class ConfigurableWebGLRenderer implements INetworkRenderer {
         vertices.push(x + cellSize, y, color.r, color.g, color.b, 1.0);
         vertices.push(x + cellSize, y + cellSize, color.r, color.g, color.b, 1.0);
         vertices.push(x, y + cellSize, color.r, color.g, color.b, 1.0);
+      }
+    }
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.heatmapBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.DYNAMIC_DRAW);
+
+    const resLoc = gl.getUniformLocation(this.quadProgram, 'u_resolution');
+    const offsetLoc = gl.getUniformLocation(this.quadProgram, 'u_offset');
+    const scaleLoc = gl.getUniformLocation(this.quadProgram, 'u_scale');
+
+    gl.uniform2f(resLoc, this.displayWidth, this.displayHeight);
+    gl.uniform2f(offsetLoc, viewport.offsetX, viewport.offsetY);
+    gl.uniform1f(scaleLoc, viewport.scale);
+
+    const posLoc = gl.getAttribLocation(this.quadProgram, 'a_position');
+    const colorLoc = gl.getAttribLocation(this.quadProgram, 'a_color');
+    const stride = 6 * 4;
+
+    gl.enableVertexAttribArray(posLoc);
+    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(colorLoc);
+    gl.vertexAttribPointer(colorLoc, 4, gl.FLOAT, false, stride, 2 * 4);
+
+    gl.drawArrays(gl.TRIANGLES, 0, vertices.length / 6);
+  }
+
+  private renderFeatureMapsWebGL(
+    element: LayerElement,
+    fmData: FeatureMapsData,
+    viewport: Viewport,
+  ): void {
+    if (!this.quadProgram || !this.heatmapBuffer) return;
+
+    const gl = this.gl;
+    gl.useProgram(this.quadProgram);
+
+    const { mapRows, mapCols, cellSize, gridCols, gap, maps } = fmData;
+    const mapWidth = mapCols * cellSize;
+    const mapHeight = mapRows * cellSize;
+
+    const totalWidth = element.width;
+    const totalHeight = element.height;
+    const originX = element.position.x - totalWidth / 2;
+    const originY = element.position.y - totalHeight / 2;
+
+    const vertices: number[] = [];
+
+    for (let i = 0; i < maps.length; i++) {
+      const col = i % gridCols;
+      const row = Math.floor(i / gridCols);
+      const mapX = originX + col * (mapWidth + gap);
+      const mapY = originY + row * (mapHeight + gap);
+
+      const gridData = maps[i];
+      for (let r = 0; r < mapRows; r++) {
+        for (let c = 0; c < mapCols; c++) {
+          const idx = r * mapCols + c;
+          const colorStr = gridData.colors[idx] ?? 'rgb(50,50,50)';
+          const color = this.parseColor(colorStr);
+
+          const x = mapX + c * cellSize;
+          const y = mapY + r * cellSize;
+
+          vertices.push(x, y, color.r, color.g, color.b, 1.0);
+          vertices.push(x + cellSize, y, color.r, color.g, color.b, 1.0);
+          vertices.push(x, y + cellSize, color.r, color.g, color.b, 1.0);
+          vertices.push(x + cellSize, y, color.r, color.g, color.b, 1.0);
+          vertices.push(x + cellSize, y + cellSize, color.r, color.g, color.b, 1.0);
+          vertices.push(x, y + cellSize, color.r, color.g, color.b, 1.0);
+        }
       }
     }
 
@@ -599,10 +676,9 @@ export class ConfigurableWebGLRenderer implements INetworkRenderer {
     for (const label of data.labels) {
       const screenX = label.position.x * viewport.scale + viewport.offsetX;
       const screenY = label.position.y * viewport.scale + viewport.offsetY;
-      const fontSize = label.fontSize * viewport.scale;
 
       ctx.fillStyle = this.resolveColor(label.color);
-      ctx.font = `normal ${fontSize}px 'Segoe UI', system-ui, sans-serif`;
+      ctx.font = `normal ${label.fontSize}px 'Segoe UI', system-ui, sans-serif`;
       ctx.textAlign = label.align;
       ctx.textBaseline = 'middle';
       ctx.fillText(label.text, screenX, screenY);
