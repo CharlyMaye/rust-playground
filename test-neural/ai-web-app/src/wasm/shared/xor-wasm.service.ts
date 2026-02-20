@@ -1,6 +1,7 @@
 import { DOCUMENT, isPlatformBrowser } from '@angular/common';
 import {
   computed,
+  DestroyRef,
   inject,
   Injectable,
   PLATFORM_ID,
@@ -27,12 +28,36 @@ import { ArchitectureSummary, ModelInfo, NeuralNetworkLayers, TestResult } from 
 export class XorWasmService {
   private readonly _document = inject(DOCUMENT);
   private readonly _platformId = inject(PLATFORM_ID);
+  private readonly _destroyRef = inject(DestroyRef);
 
   protected readonly _wasPath: WritableSignal<string> = signal('');
+
+  /** Cached network instance to avoid recreating on each computed access */
+  private _networkInstance: XorNetwork | null = null;
 
   constructor() {
     const base = this.computeWasmBase();
     this._wasPath.set(`${base}wasm/xor_wasm/neural_wasm_xor_bg.wasm`);
+
+    // Cleanup WASM memory when service is destroyed
+    this._destroyRef.onDestroy(() => {
+      this.dispose();
+    });
+  }
+
+  /**
+   * Dispose of WASM resources and free memory.
+   * Called automatically on service destroy.
+   */
+  public dispose(): void {
+    if (this._networkInstance) {
+      try {
+        this._networkInstance.free();
+      } catch {
+        // Ignore errors if already freed
+      }
+      this._networkInstance = null;
+    }
   }
 
   private computeWasmBase(): string {
@@ -57,7 +82,11 @@ export class XorWasmService {
     if (!initOutput) {
       return undefined;
     }
-    return new XorNetwork();
+    // Reuse existing instance or create new one
+    if (!this._networkInstance) {
+      this._networkInstance = new XorNetwork();
+    }
+    return this._networkInstance;
   });
 
   /** Model metadata including name, accuracy, and description */
