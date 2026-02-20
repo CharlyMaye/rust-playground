@@ -7,6 +7,10 @@
 export class MnistLeNetNetwork {
     free(): void;
     [Symbol.dispose](): void;
+    /**
+     * Get FC classifier activations for visualization (same API as MNIST FC-only)
+     */
+    get_activations(pixels: Float32Array): string;
     get_architecture(): string;
     get_class_names(): string;
     /**
@@ -31,6 +35,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
     readonly __wbg_mnistlenetnetwork_free: (a: number, b: number) => void;
+    readonly mnistlenetnetwork_get_activations: (a: number, b: number, c: number) => [number, number];
     readonly mnistlenetnetwork_get_architecture: (a: number) => [number, number];
     readonly mnistlenetnetwork_get_class_names: (a: number) => [number, number];
     readonly mnistlenetnetwork_get_cnn_activations: (a: number, b: number, c: number) => [number, number];

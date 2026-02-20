@@ -10,8 +10,8 @@ use cma_neural_network::network::Network;
 use ndarray::Array1;
 use neural_wasm_shared::{
     build_cnn_activations, build_prediction_result, build_test_result, load_cnn_model_from_bytes,
-    ArchitectureSummary, LayerInfo, LayerSummary, ModelInfo, NormalizationStats, TestResult,
-    WeightsInfo,
+    ActivationsResponse, ArchitectureSummary, LayerActivation, LayerInfo, LayerSummary, ModelInfo,
+    NormalizationStats, TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
 
@@ -187,6 +187,47 @@ impl MnistResNetNetwork {
         );
         let response = build_cnn_activations(&self.cnn, &tensor);
         serde_json::to_string(&response).unwrap_or_else(|_| "{}".to_string())
+    }
+
+    /// Get FC classifier activations for visualization (same API as MNIST FC-only)
+    #[wasm_bindgen]
+    pub fn get_activations(&self, pixels: &[Float]) -> String {
+        if pixels.len() != 784 {
+            return r#"{"inputs":[],"layers":[],"output":[]}"#.to_string();
+        }
+
+        let normalized = self.normalize_input(pixels);
+        let tensor = Tensor4D::from_array(
+            ndarray::Array4::from_shape_vec((1, 1, 28, 28), normalized).expect("reshape failed"),
+        );
+        // CNN feature extraction
+        let features = self.cnn.forward(&tensor);
+        let flat = features.flatten();
+        let fc_input = Array1::from_vec(flat.row(0).to_vec());
+
+        // Get all FC layer activations
+        let activations = self.classifier.get_all_activations(&fc_input);
+
+        let output_probs = activations
+            .last()
+            .map(|(_, post, _)| post.to_vec())
+            .unwrap_or_else(|| vec![0.0; 10]);
+
+        let response = ActivationsResponse {
+            inputs: flat.row(0).to_vec(), // CNN features as input to FC
+            layers: activations
+                .iter()
+                .map(|(pre, post, activation_name)| LayerActivation {
+                    pre_activation: pre.to_vec(),
+                    activation: post.to_vec(),
+                    function: activation_name.to_string(),
+                })
+                .collect(),
+            output: output_probs,
+        };
+
+        serde_json::to_string(&response)
+            .unwrap_or_else(|_| r#"{"inputs":[],"layers":[],"output":[]}"#.to_string())
     }
 }
 

@@ -2,6 +2,7 @@
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
 export const __wbg_mnistalexnetnetwork_free: (a: number, b: number) => void;
+export const mnistalexnetnetwork_get_activations: (a: number, b: number, c: number) => [number, number];
 export const mnistalexnetnetwork_get_architecture: (a: number) => [number, number];
 export const mnistalexnetnetwork_get_class_names: (a: number) => [number, number];
 export const mnistalexnetnetwork_get_cnn_activations: (a: number, b: number, c: number) => [number, number];
