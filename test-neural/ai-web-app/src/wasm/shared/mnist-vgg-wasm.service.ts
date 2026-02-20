@@ -71,7 +71,7 @@ export class MNISTVggWasmService {
   /** Resource managing WASM module loading state */
   public readonly wasmResource: ResourceRef<InitMNISTVggOutput | undefined> = resource({
     params: this._wasmPath,
-    loader: (param: ResourceLoaderParams<string>) => init(param.params),
+    loader: (param: ResourceLoaderParams<string>) => init({ module_or_path: param.params }),
     defaultValue: undefined,
   });
 

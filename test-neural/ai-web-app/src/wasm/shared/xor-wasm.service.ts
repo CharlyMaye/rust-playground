@@ -72,7 +72,7 @@ export class XorWasmService {
   /** Resource managing WASM module loading state */
   public readonly wasmResource: ResourceRef<InitXorOutput | undefined> = resource({
     params: this._wasPath,
-    loader: (param: ResourceLoaderParams<string>) => init(param.params),
+    loader: (param: ResourceLoaderParams<string>) => init({ module_or_path: param.params }),
     defaultValue: undefined,
   });
 
