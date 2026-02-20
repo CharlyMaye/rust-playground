@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, signal, untracked } from '@angular/core';
 import {
+  Activation,
   ArchitectureSummary,
   CnnActivationsResponse,
   PredictionResult,
@@ -9,9 +10,11 @@ import { CanvasDraw } from 'src/app/ui/canvas-draw/canvas-draw';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
 import {
+  activationToArchitecture,
   cnnActivationsToLayerVizArray,
   CnnLayerViz,
   ConfigurableNetworkVisualization,
+  neuralNetworkLayersToWeights,
 } from '../../ui/network-visualization';
 
 /**
@@ -115,6 +118,46 @@ export class MnistAlexNet {
         this.cnnActivations.set(undefined);
       }
     });
+  });
+
+  /** FC classifier activations for network visualization */
+  public readonly fcActivations = signal<Activation | undefined>(undefined);
+
+  /** Effect to fetch FC activations when drawing is committed */
+  private readonly fcEffect = effect(() => {
+    const network = this.network();
+    const digitData = this.committedDigit();
+
+    if (!network || digitData.length === 0) {
+      untracked(() => this.fcActivations.set(undefined));
+      return;
+    }
+
+    untracked(() => {
+      try {
+        const input = new Float32Array(digitData.flat());
+        const json: string = network.get_activations(input);
+        const parsed = JSON.parse(json);
+        this.fcActivations.set('error' in parsed ? undefined : parsed);
+      } catch (e) {
+        console.warn('[AlexNet] FC activations failed:', e);
+        this.fcActivations.set(undefined);
+      }
+    });
+  });
+
+  /** FC network architecture for visualization */
+  public readonly fcNetworkArchitecture = computed(() => {
+    const acts = this.fcActivations();
+    if (!acts) return null;
+    return activationToArchitecture(acts);
+  });
+
+  /** FC network weights for visualization */
+  public readonly fcNetworkWeights = computed(() => {
+    const wts = this.weights();
+    if (!wts) return null;
+    return neuralNetworkLayersToWeights(wts);
   });
 
   /** Formatted architecture summary for display */

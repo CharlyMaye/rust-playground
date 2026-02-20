@@ -57,6 +57,22 @@
     </div>
   }
 
+  <!-- FC Classifier Network Visualization -->
+  @if (fcNetworkArchitecture()) {
+    <div class="card visualization-card">
+      <div class="card-header">
+        <h2 class="card-title">FC Classifier Network</h2>
+        <p class="card-subtitle">Fully connected classifier after CNN feature extraction</p>
+      </div>
+      <app-configurable-network
+        [architecture]="fcNetworkArchitecture()"
+        [weights]="fcNetworkWeights()"
+        preset="mnist"
+        [debug]="false"
+      />
+    </div>
+  }
+
   <!-- Model Info -->
   <app-model-info [modelInfo]="modelInfo()" [activations]="activationFunctions()" />
 }
