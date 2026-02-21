@@ -7,7 +7,7 @@
 use crate::Float;
 use crate::ops;
 use crate::tensor::Tensor;
-use ndarray::{ArrayD, IxDyn};
+use ndarray::{s, ArrayD, IxDyn};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ReLU
@@ -373,54 +373,31 @@ impl BatchNorm2D {
         let mut output = ArrayD::zeros(IxDyn(&shape));
 
         if self.training {
-            let m = (batch * h * w) as Float;
             let mut x_hat = ArrayD::zeros(IxDyn(&shape));
             let mut std_inv_vec = vec![0.0; channels];
 
             for c in 0..channels {
-                // Compute batch mean and variance for this channel
-                let mut sum: Float = 0.0;
-                for b in 0..batch {
-                    for i in 0..h {
-                        for j in 0..w {
-                            sum += data[[b, c, i, j]];
-                        }
-                    }
-                }
-                let mean = sum / m;
-
-                let mut var_sum: Float = 0.0;
-                for b in 0..batch {
-                    for i in 0..h {
-                        for j in 0..w {
-                            let diff = data[[b, c, i, j]] - mean;
-                            var_sum += diff * diff;
-                        }
-                    }
-                }
-                let var = var_sum / m;
+                let ch = data.slice(s![.., c, .., ..]);
+                let mean = ch.mean().expect("empty channel in BatchNorm2D");
+                let var = ch.mapv(|x| (x - mean).powi(2)).mean().expect("empty channel");
                 let std_inv = 1.0 / (var + self.epsilon).sqrt();
                 std_inv_vec[c] = std_inv;
 
-                // Normalize and apply gamma/beta
                 let gamma_c = self.gamma.tensor().data_ref(|d| d[[c]]);
                 let beta_c = self.beta.tensor().data_ref(|d| d[[c]]);
 
-                for b in 0..batch {
-                    for i in 0..h {
-                        for j in 0..w {
-                            let xh = (data[[b, c, i, j]] - mean) * std_inv;
-                            x_hat[[b, c, i, j]] = xh;
-                            output[[b, c, i, j]] = gamma_c * xh + beta_c;
-                        }
-                    }
-                }
+                let x_hat_c = ch.mapv(|x| (x - mean) * std_inv);
+                x_hat.slice_mut(s![.., c, .., ..]).assign(&x_hat_c);
+                output
+                    .slice_mut(s![.., c, .., ..])
+                    .assign(&x_hat_c.mapv(|v| v * gamma_c + beta_c));
 
-                // Update running stats
                 let mut rm = self.running_mean.borrow_mut();
                 let mut rv = self.running_var.borrow_mut();
                 rm[c] = (1.0 - self.momentum) * rm[c] + self.momentum * mean;
                 rv[c] = (1.0 - self.momentum) * rv[c] + self.momentum * var;
+                drop(rm);
+                drop(rv);
             }
 
             // Attach backward
@@ -454,14 +431,10 @@ impl BatchNorm2D {
                 let gamma_c = self.gamma.tensor().data_ref(|d| d[[c]]);
                 let beta_c = self.beta.tensor().data_ref(|d| d[[c]]);
 
-                for b in 0..batch {
-                    for i in 0..h {
-                        for j in 0..w {
-                            let xh = (data[[b, c, i, j]] - mean) * std_inv;
-                            output[[b, c, i, j]] = gamma_c * xh + beta_c;
-                        }
-                    }
-                }
+                let out_c = data
+                    .slice(s![.., c, .., ..])
+                    .mapv(|x| gamma_c * (x - mean) * std_inv + beta_c);
+                output.slice_mut(s![.., c, .., ..]).assign(&out_c);
             }
 
             Tensor::new(output, false)

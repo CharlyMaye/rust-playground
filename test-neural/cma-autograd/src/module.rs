@@ -60,6 +60,7 @@ use std::fmt;
 
 impl Parameter {
     /// Create a parameter from a Tensor (forces requires_grad=true).
+    #[allow(clippy::arc_with_non_send_sync)]
     pub fn new(tensor: Tensor) -> Self {
         let t = if !tensor.requires_grad() {
             Tensor::new(tensor.data(), true)
@@ -428,7 +429,7 @@ impl Module for Conv2D {
                 bias: self.bias.as_ref().map(|b| b.tensor().clone()),
                 col_data: col,
                 weight_2d_data: weight_2d.into_dyn(),
-                input_shape: input_shape,
+                input_shape,
                 kernel_size: self.kernel_size,
                 stride: self.stride,
                 padding: self.padding,

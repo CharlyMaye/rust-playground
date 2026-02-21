@@ -286,6 +286,7 @@ impl Sequential {
     }
 
     /// Add a layer (builder pattern — consumes self).
+    #[allow(clippy::should_implement_trait)]
     pub fn add<L: Layer + 'static>(mut self, layer: L) -> Self {
         self.layers.push(Box::new(layer));
         self
@@ -574,6 +575,7 @@ impl Default for TrainerConfig {
 }
 
 /// Internal training loop used by `CnnTrainer::fit()`.
+#[allow(clippy::type_complexity)]
 fn train<O: crate::optim::Optimizer>(
     model: &Sequential,
     optimizer: &mut O,
@@ -727,23 +729,23 @@ fn train<O: crate::optim::Optimizer>(
         history.push(metrics);
 
         // Early stopping
-        if config.early_stopping_patience > 0 {
-            if let Some(vl) = val_loss {
-                if vl < best_val_loss - 1e-4 {
-                    best_val_loss = vl;
-                    patience_counter = 0;
-                } else {
-                    patience_counter += 1;
-                    if patience_counter >= config.early_stopping_patience {
-                        if config.verbose {
-                            println!(
-                                "Early stopping at epoch {} (patience={})",
-                                epoch + 1,
-                                config.early_stopping_patience
-                            );
-                        }
-                        break;
+        if config.early_stopping_patience > 0
+            && let Some(vl) = val_loss
+        {
+            if vl < best_val_loss - 1e-4 {
+                best_val_loss = vl;
+                patience_counter = 0;
+            } else {
+                patience_counter += 1;
+                if patience_counter >= config.early_stopping_patience {
+                    if config.verbose {
+                        println!(
+                            "Early stopping at epoch {} (patience={})",
+                            epoch + 1,
+                            config.early_stopping_patience
+                        );
                     }
+                    break;
                 }
             }
         }

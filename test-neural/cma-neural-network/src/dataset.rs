@@ -75,13 +75,13 @@ impl Dataset {
         self.inputs.is_empty()
     }
 
-    /// Returns a reference to the input vectors.
-    pub fn inputs(&self) -> &Vec<Array1<Float>> {
+    /// Returns a slice of the input vectors.
+    pub fn inputs(&self) -> &[Array1<Float>] {
         &self.inputs
     }
 
-    /// Returns a reference to the target vectors.
-    pub fn targets(&self) -> &Vec<Array1<Float>> {
+    /// Returns a slice of the target vectors.
+    pub fn targets(&self) -> &[Array1<Float>] {
         &self.targets
     }
 

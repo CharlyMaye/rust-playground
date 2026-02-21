@@ -700,6 +700,7 @@ impl GradFn for Conv2DBackward {
 /// col2im: inverse of im2col — scatters columns back to image format.
 ///
 /// Converts grad_col [N*OH*OW, C_in*kH*kW] back to [N, C_in, H, W].
+#[allow(clippy::too_many_arguments)]
 fn col2im(
     grad_col: &ArrayD<Float>,
     batch: usize,

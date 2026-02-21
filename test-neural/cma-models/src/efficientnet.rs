@@ -33,7 +33,7 @@
 //!
 //! With α × β² × γ² ≈ 2 (to double FLOPs)
 //!
-//! ## Famille EfficientNet
+//! ## EfficientNet Family
 //!
 //! | Model | Resolution | Params | Top-1 Acc |
 //! |--------|------------|--------|-----------|

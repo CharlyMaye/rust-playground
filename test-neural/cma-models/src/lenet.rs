@@ -57,13 +57,14 @@
 //!     num_classes: 10,
 //!     input_size: 28,
 //!     use_batch_norm: true,  // Modernization
-//!     activation: "relu",     // ReLU instead of tanh
+//!     activation: Activation::ReLU,  // ReLU instead of tanh
 //! });
 //! ```
 
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Sequential, Tensor4D, TensorShape};
+use cma_neural_network::Activation;
 
 /// LeNet-5 configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -74,8 +75,8 @@ pub struct LeNet5Config {
     pub input_size: usize,
     /// Use BatchNorm (modernization, not in original paper)
     pub use_batch_norm: bool,
-    /// Activation: "tanh" (original) or "relu" (modern)
-    pub activation: String,
+    /// Activation function (default: `Tanh` for original, `ReLU` for modern)
+    pub activation: Activation,
     /// Number of input channels (1 for grayscale)
     pub in_channels: usize,
 }
@@ -86,7 +87,7 @@ impl Default for LeNet5Config {
             num_classes: 10,
             input_size: 28,
             use_batch_norm: false,
-            activation: "tanh".to_string(), // Faithful to the paper
+            activation: Activation::Tanh, // Faithful to the paper
             in_channels: 1,
         }
     }
@@ -104,7 +105,7 @@ impl LeNet5Config {
             num_classes: 10,
             input_size: 32,
             use_batch_norm: false,
-            activation: "tanh".to_string(),
+            activation: Activation::Tanh,
             in_channels: 1,
         }
     }
@@ -115,7 +116,7 @@ impl LeNet5Config {
             num_classes: 10,
             input_size: 28,
             use_batch_norm: true,
-            activation: "relu".to_string(),
+            activation: Activation::ReLU,
             in_channels: 1,
         }
     }
@@ -164,10 +165,10 @@ impl LeNet5 {
 
     /// Creates LeNet-5 with custom configuration
     pub fn with_config(config: LeNet5Config) -> Self {
-        let activation = match config.activation.as_str() {
-            "relu" => ActivationLayer::relu(),
-            "sigmoid" => ActivationLayer::sigmoid(),
-            _ => ActivationLayer::tanh(), // Default: tanh (original)
+        let activation = match config.activation {
+            Activation::ReLU => ActivationLayer::relu(),
+            Activation::Sigmoid => ActivationLayer::sigmoid(),
+            _ => ActivationLayer::tanh(), // Default: tanh (original paper)
         };
 
         // Calculate C5 kernel size to get output 1x1

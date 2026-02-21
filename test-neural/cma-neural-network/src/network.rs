@@ -1,7 +1,7 @@
 use crate::Float;
 use crate::callbacks::Callback;
 use crate::optimizer::{OptimizerState1D, OptimizerState2D, OptimizerType};
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, Zip};
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rng;
@@ -197,36 +197,35 @@ impl LossFunction {
                 (predictions - targets).mapv(|x| x.abs()).sum() / predictions.len() as Float
             }
             LossFunction::BinaryCrossEntropy => {
-                let epsilon = 1e-15;
-                let mut sum = 0.0;
-                for (p, t) in predictions.iter().zip(targets.iter()) {
-                    let p_clamped = p.max(epsilon).min(1.0 - epsilon);
-                    sum += -(t * p_clamped.ln() + (1.0 - t) * (1.0 - p_clamped).ln());
-                }
-                sum / predictions.len() as Float
+                let epsilon: Float = 1e-15;
+                let n = predictions.len() as Float;
+                Zip::from(predictions)
+                    .and(targets)
+                    .fold(0.0, |acc, &p, &t| {
+                        let pc = p.max(epsilon).min(1.0 - epsilon);
+                        acc - (t * pc.ln() + (1.0 - t) * (1.0 - pc).ln())
+                    })
+                    / n
             }
             LossFunction::CategoricalCrossEntropy => {
-                let epsilon = 1e-15;
-                let mut sum = 0.0;
-                for (p, t) in predictions.iter().zip(targets.iter()) {
-                    let p_clamped = p.max(epsilon);
-                    sum += -t * p_clamped.ln();
-                }
-                sum
+                let epsilon: Float = 1e-15;
+                Zip::from(predictions)
+                    .and(targets)
+                    .fold(0.0, |acc, &p, &t| acc - t * p.max(epsilon).ln())
             }
             LossFunction::Huber => {
-                let delta = 1.0;
-                let diff = predictions - targets;
-                let mut sum = 0.0;
-                for &d in diff.iter() {
-                    let abs_d = d.abs();
-                    if abs_d <= delta {
-                        sum += 0.5 * d * d;
-                    } else {
-                        sum += delta * (abs_d - 0.5 * delta);
-                    }
-                }
-                sum / predictions.len() as Float
+                let delta: Float = 1.0;
+                let n = predictions.len() as Float;
+                (predictions - targets)
+                    .mapv(|d| {
+                        if d.abs() <= delta {
+                            0.5 * d * d
+                        } else {
+                            delta * (d.abs() - 0.5 * delta)
+                        }
+                    })
+                    .sum()
+                    / n
             }
         }
     }
@@ -257,26 +256,19 @@ impl LossFunction {
                 })
             }
             LossFunction::BinaryCrossEntropy => {
-                // d/dx[-y*ln(x) - (1-y)*ln(1-x)] = -y/x + (1-y)/(1-x) = (x - y) / (x(1-x))
-                // Simplified when used with sigmoid: (x - y)
-                let epsilon = 1e-15;
-                let mut result = Array1::zeros(predictions.len());
-                for (i, (p, t)) in predictions.iter().zip(targets.iter()).enumerate() {
-                    let p_clamped = p.max(epsilon).min(1.0 - epsilon);
-                    result[i] = (p_clamped - t) / (p_clamped * (1.0 - p_clamped));
-                }
-                result
+                // d/dx[-y*ln(x) - (1-y)*ln(1-x)] = (x - y) / (x(1-x))
+                let epsilon: Float = 1e-15;
+                let p_clamped = predictions.mapv(|p| p.max(epsilon).min(1.0 - epsilon));
+                Zip::from(&p_clamped)
+                    .and(targets)
+                    .map_collect(|&p, &t| (p - t) / (p * (1.0 - p)))
             }
             LossFunction::CategoricalCrossEntropy => {
                 // d/dx[-y*ln(x)] = -y/x
-                // Simplified when used with softmax: (x - y)
-                let epsilon = 1e-15;
-                let mut result = Array1::zeros(predictions.len());
-                for (i, (p, t)) in predictions.iter().zip(targets.iter()).enumerate() {
-                    let p_clamped = p.max(epsilon);
-                    result[i] = -t / p_clamped;
-                }
-                result
+                let epsilon: Float = 1e-15;
+                Zip::from(predictions)
+                    .and(targets)
+                    .map_collect(|&p, &t| -t / p.max(epsilon))
             }
             LossFunction::Huber => {
                 let delta = 1.0;
@@ -588,6 +580,7 @@ impl Network {
     /// - `loss_function`: Loss function for training
     ///
     /// **Internal method**: Use `NetworkBuilder` for construction.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_deep_with_init(
         input_size: usize,
         hidden_sizes: Vec<usize>,
@@ -849,7 +842,7 @@ impl Network {
     ///
     /// # Returns
     /// Average loss value
-    pub fn evaluate(&self, inputs: &Vec<Array1<Float>>, targets: &Vec<Array1<Float>>) -> Float {
+    pub fn evaluate(&self, inputs: &[Array1<Float>], targets: &[Array1<Float>]) -> Float {
         let mut total_loss = 0.0;
 
         for (input, target) in inputs.iter().zip(targets.iter()) {
@@ -890,6 +883,7 @@ impl Network {
     /// Trains the network with support for callbacks and optional learning rate scheduler.
     ///
     /// **Internal method**: Use `network.trainer().fit()` instead.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn fit(
         &mut self,
         train_dataset: &mut crate::dataset::Dataset,
