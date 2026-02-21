@@ -64,7 +64,7 @@ pub use cma_neural_network::Float;
 
 /// Prelude — import everything you need with `use cma_autograd::prelude::*`
 pub mod prelude {
-    pub use crate::builder::CnnBuilder;
+    pub use crate::builder::{CnnBuilder, ConvPoolBlock};
     pub use crate::engine::{no_grad, NoGradGuard};
     pub use crate::layers::{
         AvgPool2D, BatchNorm2D, Dropout, Flatten, GlobalAvgPool2D,

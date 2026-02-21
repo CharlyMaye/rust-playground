@@ -463,6 +463,51 @@ impl GradFn for TanhBackward {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// SoftmaxBackward: c = softmax(a)
+// ∂L/∂x_i = y_i * (∂L/∂y_i - Σ_k(∂L/∂y_k * y_k))
+//         = y ⊙ (grad_out - dot(grad_out, y))  [1D case]
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug)]
+pub struct SoftmaxBackward {
+    pub a: Tensor,
+    /// The softmax output y = softmax(x) — needed for the Jacobian.
+    pub output_data: ArrayD<Float>,
+}
+
+impl GradFn for SoftmaxBackward {
+    fn backward(&self, grad_output: &ArrayD<Float>) -> Vec<ArrayD<Float>> {
+        let y = &self.output_data;
+        let grad = if y.ndim() == 1 {
+            // grad = y ⊙ (grad_out - dot(grad_out, y))
+            let dot: Float = (grad_output * y).sum();
+            y * &(grad_output.mapv(|x| x - dot))
+        } else {
+            // 2D: compute row-wise dot products then subtract and scale
+            let rows = y.shape()[0];
+            let mut grad = ArrayD::zeros(y.raw_dim());
+            for b in 0..rows {
+                let yo = y.slice(ndarray::s![b, ..]);
+                let go = grad_output.slice(ndarray::s![b, ..]);
+                let dot: Float = (&yo * &go).sum();
+                let g = &yo * &go.mapv(|x| x - dot);
+                grad.slice_mut(ndarray::s![b, ..]).assign(&g);
+            }
+            grad
+        };
+        vec![grad]
+    }
+
+    fn inputs(&self) -> Vec<Tensor> {
+        vec![self.a.clone()]
+    }
+
+    fn name(&self) -> &'static str {
+        "SoftmaxBackward"
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ClampBackward: c = clamp(a, min, max)
 // ∂L/∂a = ∂L/∂c * (min < a < max) — gradient passes only where not clamped
 // ═══════════════════════════════════════════════════════════════════════════

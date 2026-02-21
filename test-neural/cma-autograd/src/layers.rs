@@ -264,6 +264,10 @@ impl Softmax {
     }
 
     pub fn forward(&self, input: &Tensor) -> Tensor {
+        use crate::grad_fn::SoftmaxBackward;
+        use crate::tensor::is_grad_enabled;
+        use std::sync::Arc;
+
         // Numerically stable softmax: subtract max before exp
         let data = input.data();
         let shape = data.shape().to_vec();
@@ -274,9 +278,15 @@ impl Softmax {
             let shifted = data.mapv(|x| (x - max_val).exp());
             let sum: Float = shifted.iter().sum();
             let result = shifted.mapv(|x| x / sum);
-            // For autograd tracking of softmax, we'd need a dedicated SoftmaxBackward.
-            // For now, return as a non-tracked tensor.
-            Tensor::new(result, false)
+            if is_grad_enabled() && input.requires_grad() {
+                let grad_fn = Arc::new(SoftmaxBackward {
+                    a: input.clone(),
+                    output_data: result.clone(),
+                });
+                Tensor::from_op(result, grad_fn)
+            } else {
+                Tensor::new(result, false)
+            }
         } else if ndim == 2 {
             // Softmax along axis 1 (last axis for 2D)
             let rows = shape[0];
@@ -298,7 +308,15 @@ impl Softmax {
                     result[[i, j]] /= sum;
                 }
             }
-            Tensor::new(result, false)
+            if is_grad_enabled() && input.requires_grad() {
+                let grad_fn = Arc::new(SoftmaxBackward {
+                    a: input.clone(),
+                    output_data: result.clone(),
+                });
+                Tensor::from_op(result, grad_fn)
+            } else {
+                Tensor::new(result, false)
+            }
         } else {
             panic!("Softmax only supports 1D and 2D tensors for now");
         }

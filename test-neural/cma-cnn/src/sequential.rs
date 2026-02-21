@@ -17,8 +17,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::layers::{
-    ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Dropout2D, Flatten, GlobalAvgPool2D, Layer,
-    MaxPool2D,
+    ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, DepthwiseConv2D, Dropout2D, Flatten,
+    GlobalAvgPool2D, Layer, MaxPool2D,
 };
 use crate::tensor::{Tensor4D, TensorShape};
 
@@ -26,6 +26,7 @@ use crate::tensor::{Tensor4D, TensorShape};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum BoxedLayer {
     Conv2D(Conv2D),
+    DepthwiseConv2D(DepthwiseConv2D),
     MaxPool2D(MaxPool2D),
     AvgPool2D(AvgPool2D),
     GlobalAvgPool2D(GlobalAvgPool2D),
@@ -39,6 +40,7 @@ impl BoxedLayer {
     fn as_layer(&self) -> &dyn Layer {
         match self {
             BoxedLayer::Conv2D(l) => l,
+            BoxedLayer::DepthwiseConv2D(l) => l,
             BoxedLayer::MaxPool2D(l) => l,
             BoxedLayer::AvgPool2D(l) => l,
             BoxedLayer::GlobalAvgPool2D(l) => l,
@@ -53,6 +55,7 @@ impl BoxedLayer {
     pub fn type_name(&self) -> &str {
         match self {
             BoxedLayer::Conv2D(_) => "Conv2D",
+            BoxedLayer::DepthwiseConv2D(_) => "DepthwiseConv2D",
             BoxedLayer::MaxPool2D(_) => "MaxPool2D",
             BoxedLayer::AvgPool2D(_) => "AvgPool2D",
             BoxedLayer::GlobalAvgPool2D(_) => "GlobalAvgPool2D",
@@ -69,6 +72,10 @@ impl BoxedLayer {
             BoxedLayer::Conv2D(c) => format!(
                 "{}→{}, {}×{}, s={}, p={}",
                 c.in_channels, c.out_channels, c.kernel_size, c.kernel_size, c.stride, c.padding
+            ),
+            BoxedLayer::DepthwiseConv2D(d) => format!(
+                "{} ch, {}×{}, s={}, p={}",
+                d.channels, d.kernel_size, d.kernel_size, d.stride, d.padding
             ),
             BoxedLayer::MaxPool2D(p) => format!("{}×{}, s={}", p.pool_size, p.pool_size, p.stride),
             BoxedLayer::AvgPool2D(p) => format!("{}×{}, s={}", p.pool_size, p.pool_size, p.stride),
@@ -132,6 +139,12 @@ impl Sequential {
     /// Adds a Conv2D layer
     pub fn add_conv2d(mut self, layer: Conv2D) -> Self {
         self.layers.push(BoxedLayer::Conv2D(layer));
+        self
+    }
+
+    /// Adds a DepthwiseConv2D layer
+    pub fn add_depthwise_conv2d(mut self, layer: DepthwiseConv2D) -> Self {
+        self.layers.push(BoxedLayer::DepthwiseConv2D(layer));
         self
     }
 

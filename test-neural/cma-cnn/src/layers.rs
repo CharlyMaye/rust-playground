@@ -28,6 +28,7 @@ use crate::tensor::{Tensor4D, TensorShape};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LayerType {
     Conv2D,
+    DepthwiseConv2D,
     MaxPool2D,
     AvgPool2D,
     GlobalAvgPool2D,
@@ -194,6 +195,141 @@ impl Layer for Conv2D {
             self.kernel_size,
             self.stride,
             self.padding
+        )
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DepthwiseConv2D - Depthwise (channel-wise) Convolution
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Depthwise 2D Convolution Layer
+///
+/// Applies one spatial filter per input channel (groups = channels).
+/// Used in MobileNet, EfficientNet, and other efficient architectures.
+///
+/// # Weight layout
+/// `[channels, 1, kernel_h, kernel_w]` — one filter per channel.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// // 32-channel depthwise conv with 3x3 kernel, stride 1, padding 1
+/// let dw = DepthwiseConv2D::new(32, 3, 1, 1);
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DepthwiseConv2D {
+    /// Number of input/output channels
+    pub channels: usize,
+    /// Kernel size (square)
+    pub kernel_size: usize,
+    /// Stride
+    pub stride: usize,
+    /// Padding
+    pub padding: usize,
+    /// Weights [channels, 1, kernel_h, kernel_w]
+    pub weights: Array4<Float>,
+    /// Bias [channels]
+    pub bias: Array1<Float>,
+    /// Whether to use bias
+    pub use_bias: bool,
+}
+
+impl DepthwiseConv2D {
+    /// Creates a new DepthwiseConv2D with He initialization.
+    ///
+    /// # Arguments
+    /// * `channels` - Number of input (= output) channels
+    /// * `kernel_size` - Kernel size (e.g. 3 for 3x3)
+    /// * `stride` - Step size
+    /// * `padding` - Zero-padding
+    pub fn new(channels: usize, kernel_size: usize, stride: usize, padding: usize) -> Self {
+        let mut rng = rand::rng();
+        let fan_in = kernel_size * kernel_size; // single channel filter
+        let std = (2.0 / fan_in as Float).sqrt();
+        let weights_vec =
+            cma_neural_network::init::randn_vec(channels * kernel_size * kernel_size, std, &mut rng);
+        let weights =
+            Array4::from_shape_vec((channels, 1, kernel_size, kernel_size), weights_vec).unwrap();
+        let bias = Array1::zeros(channels);
+        Self {
+            channels,
+            kernel_size,
+            stride,
+            padding,
+            weights,
+            bias,
+            use_bias: true,
+        }
+    }
+
+    /// Disables bias (recommended before BatchNorm)
+    pub fn without_bias(mut self) -> Self {
+        self.use_bias = false;
+        self
+    }
+}
+
+impl Layer for DepthwiseConv2D {
+    fn forward(&self, input: &Tensor4D) -> Tensor4D {
+        let shape = input.shape();
+        let data = input.data();
+        let k = self.kernel_size;
+        let s = self.stride;
+        let p = self.padding;
+
+        let out_h = (shape.height + 2 * p - k) / s + 1;
+        let out_w = (shape.width + 2 * p - k) / s + 1;
+
+        let mut output = Array4::zeros((shape.batch, self.channels, out_h, out_w));
+
+        for b in 0..shape.batch {
+            for c in 0..self.channels {
+                let bias_val = if self.use_bias { self.bias[c] } else { 0.0 };
+                for oh in 0..out_h {
+                    for ow in 0..out_w {
+                        let mut acc: Float = bias_val;
+                        for kh in 0..k {
+                            for kw in 0..k {
+                                let ih = (oh * s + kh).wrapping_sub(p);
+                                let iw = (ow * s + kw).wrapping_sub(p);
+                                // Bounds check (handles padding)
+                                if oh * s + kh >= p
+                                    && ow * s + kw >= p
+                                    && ih < shape.height
+                                    && iw < shape.width
+                                {
+                                    acc += data[[b, c, ih, iw]] * self.weights[[c, 0, kh, kw]];
+                                }
+                            }
+                        }
+                        output[[b, c, oh, ow]] = acc;
+                    }
+                }
+            }
+        }
+
+        Tensor4D::from_array(output)
+    }
+
+    fn layer_type(&self) -> LayerType {
+        LayerType::DepthwiseConv2D
+    }
+
+    fn num_parameters(&self) -> usize {
+        let weights = self.channels * self.kernel_size * self.kernel_size;
+        let bias = if self.use_bias { self.channels } else { 0 };
+        weights + bias
+    }
+
+    fn output_shape(&self, input_shape: TensorShape) -> TensorShape {
+        input_shape.after_conv(self.channels, self.kernel_size, self.stride, self.padding)
+    }
+
+    fn summary(&self) -> String {
+        format!(
+            "DepthwiseConv2D({} ch, {}x{}, stride={}, pad={})",
+            self.channels, self.kernel_size, self.kernel_size, self.stride, self.padding
         )
     }
 }

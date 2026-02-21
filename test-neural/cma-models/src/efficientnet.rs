@@ -83,7 +83,7 @@
 use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
-use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, GlobalAvgPool2D, Layer, Sequential, Tensor4D};
+use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, DepthwiseConv2D, GlobalAvgPool2D, Layer, Sequential, Tensor4D};
 
 /// EfficientNet configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -192,28 +192,74 @@ pub struct MBConvBlock {
     pub stride: usize,
 }
 
-impl MBConvBlock {
-    /// Creates an MBConv block
-    ///
-    /// # Arguments
-    /// * `in_channels` - Input channels
-    /// * `out_channels` - Output channels
-    /// * `kernel_size` - Depthwise kernel size (3 or 5)
-    /// * `stride` - Stride (1 or 2)
-    /// * `expand_ratio` - Expansion ratio (1 or 6)
-    /// * `use_se` - Use Squeeze-and-Excitation
-    pub fn new(
-        in_channels: usize,
-        out_channels: usize,
-        kernel_size: usize,
-        stride: usize,
-        expand_ratio: usize,
-        use_se: bool,
-    ) -> Self {
+/// Builder for [`MBConvBlock`].
+///
+/// # Example
+///
+/// ```rust,ignore
+/// let block = MBConvBlock::builder(32, 16)
+///     .kernel_size(3)
+///     .expand_ratio(1)
+///     .with_squeeze_excitation()
+///     .build();
+/// ```
+pub struct MBConvBlockBuilder {
+    in_channels: usize,
+    out_channels: usize,
+    kernel_size: usize,
+    stride: usize,
+    expand_ratio: usize,
+    use_se: bool,
+}
+
+impl MBConvBlockBuilder {
+    fn new(in_channels: usize, out_channels: usize) -> Self {
+        Self {
+            in_channels,
+            out_channels,
+            kernel_size: 3,
+            stride: 1,
+            expand_ratio: 1,
+            use_se: false,
+        }
+    }
+
+    /// Sets the depthwise kernel size (default: 3).
+    pub fn kernel_size(mut self, k: usize) -> Self {
+        self.kernel_size = k;
+        self
+    }
+
+    /// Sets the depthwise stride (default: 1).
+    pub fn stride(mut self, s: usize) -> Self {
+        self.stride = s;
+        self
+    }
+
+    /// Sets the expansion ratio (default: 1).
+    pub fn expand_ratio(mut self, r: usize) -> Self {
+        self.expand_ratio = r;
+        self
+    }
+
+    /// Enables Squeeze-and-Excitation (default: disabled).
+    pub fn with_squeeze_excitation(mut self) -> Self {
+        self.use_se = true;
+        self
+    }
+
+    /// Builds the [`MBConvBlock`].
+    pub fn build(self) -> MBConvBlock {
+        let in_channels = self.in_channels;
+        let out_channels = self.out_channels;
+        let kernel_size = self.kernel_size;
+        let stride = self.stride;
+        let expand_ratio = self.expand_ratio;
+        let use_se = self.use_se;
+
         let expanded_channels = in_channels * expand_ratio;
         let padding = kernel_size / 2;
 
-        // Expansion phase
         let expand_conv = if expand_ratio > 1 {
             Some(
                 Sequential::new()
@@ -225,24 +271,14 @@ impl MBConvBlock {
             None
         };
 
-        // Depthwise phase
-        // Note: We simulate depthwise with groups=expanded_channels
-        // For simplicity, we use a standard conv here
         let depthwise_conv = Sequential::new()
-            .add_conv2d(
-                Conv2D::new(
-                    expanded_channels,
-                    expanded_channels,
-                    kernel_size,
-                    stride,
-                    padding,
-                )
-                .without_bias(),
+            .add_depthwise_conv2d(
+                DepthwiseConv2D::new(expanded_channels, kernel_size, stride, padding)
+                    .without_bias(),
             )
             .add_batchnorm(BatchNorm2D::new(expanded_channels))
             .add_activation(ActivationLayer::swish());
 
-        // Squeeze-and-Excitation
         let se = if use_se {
             Some(SqueezeExcitation::new(
                 expanded_channels,
@@ -252,15 +288,13 @@ impl MBConvBlock {
             None
         };
 
-        // Projection phase (no activation)
         let project_conv = Sequential::new()
             .add_conv2d(Conv2D::new(expanded_channels, out_channels, 1, 1, 0).without_bias())
             .add_batchnorm(BatchNorm2D::new(out_channels));
 
-        // Skip connection if stride=1 and same channels
         let use_skip = stride == 1 && in_channels == out_channels;
 
-        Self {
+        MBConvBlock {
             expand_conv,
             depthwise_conv,
             se,
@@ -271,6 +305,17 @@ impl MBConvBlock {
             expand_ratio,
             stride,
         }
+    }
+}
+
+impl MBConvBlock {
+    /// Creates a builder for an MBConv block.
+    ///
+    /// # Arguments
+    /// * `in_channels` - Input channel count
+    /// * `out_channels` - Output channel count
+    pub fn builder(in_channels: usize, out_channels: usize) -> MBConvBlockBuilder {
+        MBConvBlockBuilder::new(in_channels, out_channels)
     }
 
     /// Forward pass
@@ -441,14 +486,12 @@ impl EfficientNetB0 {
 
             for i in 0..scaled_layers {
                 let s = if i == 0 { stride } else { 1 };
-                let block = MBConvBlock::new(
-                    in_channels,
-                    scaled_out,
-                    kernel,
-                    s,
-                    expand_ratio,
-                    true, // use_se
-                );
+                let block = MBConvBlock::builder(in_channels, scaled_out)
+                    .kernel_size(kernel)
+                    .stride(s)
+                    .expand_ratio(expand_ratio)
+                    .with_squeeze_excitation()
+                    .build();
                 stage.push(block);
                 in_channels = scaled_out;
             }
@@ -543,7 +586,12 @@ mod tests {
 
     #[test]
     fn test_mbconv_block() {
-        let block = MBConvBlock::new(32, 16, 3, 1, 1, true);
+        let block = MBConvBlock::builder(32, 16)
+            .kernel_size(3)
+            .stride(1)
+            .expand_ratio(1)
+            .with_squeeze_excitation()
+            .build();
         let input = Tensor4D::random(TensorShape::new(1, 32, 112, 112));
         let output = block.forward(&input);
 
@@ -553,7 +601,12 @@ mod tests {
 
     #[test]
     fn test_mbconv_block_stride2() {
-        let block = MBConvBlock::new(24, 40, 5, 2, 6, true);
+        let block = MBConvBlock::builder(24, 40)
+            .kernel_size(5)
+            .stride(2)
+            .expand_ratio(6)
+            .with_squeeze_excitation()
+            .build();
         let input = Tensor4D::random(TensorShape::new(1, 24, 56, 56));
         let output = block.forward(&input);
 

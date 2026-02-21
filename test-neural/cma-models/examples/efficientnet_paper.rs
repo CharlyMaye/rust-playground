@@ -117,7 +117,7 @@ fn main() {
     println!();
 
     // MBConv demonstration
-    let mbconv = MBConvBlock::new(32, 16, 3, 1, 6, true); // use_se = true
+    let mbconv = MBConvBlock::builder(32, 16).kernel_size(3).stride(1).expand_ratio(6).with_squeeze_excitation().build(); // use_se = true
     let input = Tensor4D::random(TensorShape::new(1, 32, 56, 56));
     let output = mbconv.forward(&input);
 
@@ -402,7 +402,7 @@ mod tests {
 
     #[test]
     fn test_mbconv_block() {
-        let block = MBConvBlock::new(32, 16, 3, 1, 6);
+        let block = MBConvBlock::builder(32, 16).kernel_size(3).stride(1).expand_ratio(6).build();
         let input = Tensor4D::random(TensorShape::new(1, 32, 28, 28));
         let output = block.forward(&input);
         assert_eq!(output.shape().channels, 16);
