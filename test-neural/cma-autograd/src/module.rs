@@ -14,7 +14,6 @@
 use crate::Float;
 use crate::tensor::Tensor;
 use ndarray::{ArrayD, IxDyn};
-use rand::Rng;
 use std::cell::UnsafeCell;
 use std::sync::Arc;
 
@@ -82,14 +81,7 @@ impl Parameter {
         let std_dev = (2.0 / fan_in as Float).sqrt();
         let mut rng = rand::rng();
         let size: usize = shape.iter().product();
-        let data: Vec<Float> = (0..size)
-            .map(|_| {
-                let u1: Float = rng.random();
-                let u2: Float = rng.random();
-                let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-                z * std_dev
-            })
-            .collect();
+        let data = cma_neural_network::init::randn_vec(size, std_dev, &mut rng);
         Self::new(Tensor::from_vec(data, shape, true))
     }
 
@@ -98,14 +90,7 @@ impl Parameter {
         let std_dev = (2.0 / (fan_in + fan_out) as Float).sqrt();
         let mut rng = rand::rng();
         let size: usize = shape.iter().product();
-        let data: Vec<Float> = (0..size)
-            .map(|_| {
-                let u1: Float = rng.random();
-                let u2: Float = rng.random();
-                let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-                z * std_dev
-            })
-            .collect();
+        let data = cma_neural_network::init::randn_vec(size, std_dev, &mut rng);
         Self::new(Tensor::from_vec(data, shape, true))
     }
 

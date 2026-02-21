@@ -335,28 +335,6 @@ impl AlexNet {
     }
 }
 
-/// Creates the FC classifier for AlexNet
-pub fn create_alexnet_classifier(input_size: usize, num_classes: usize, dropout: Float) -> String {
-    format!(
-        r#"// FC Classifier for AlexNet
-// Input: {} features
-// Output: {} classes
-
-use cma_neural_network::{{NetworkBuilder, Activation, LossFunction, OptimizerType, DropoutConfig}};
-
-let classifier = NetworkBuilder::new({}, {})
-    .hidden_layer(4096, Activation::ReLU)
-    .dropout({})
-    .hidden_layer(4096, Activation::ReLU)
-    .dropout({})
-    .output_activation(Activation::Softmax)
-    .loss(LossFunction::CategoricalCrossEntropy)
-    .optimizer(OptimizerType::adam(0.001))
-    .build();"#,
-        input_size, num_classes, input_size, num_classes, dropout, dropout
-    )
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

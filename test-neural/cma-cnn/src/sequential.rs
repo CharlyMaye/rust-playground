@@ -2,7 +2,7 @@
 //!
 //! Container for stacking layers sequentially.
 //!
-//! ## Exemple
+//! ## Example
 //!
 //! ```rust,ignore
 //! use cma_cnn::{Sequential, Conv2D, MaxPool2D, Flatten, ActivationLayer};
@@ -90,7 +90,7 @@ impl BoxedLayer {
 /// Input → Layer1 → Layer2 → ... → LayerN → Output
 /// ```
 ///
-/// # Exemple (LeNet-5 style)
+/// # Example (LeNet-5 style)
 ///
 /// ```rust,ignore
 /// let model = Sequential::new()
@@ -248,7 +248,7 @@ impl Sequential {
     /// * `inputs` - Iterator over input tensors
     /// * `callback` - Function called with each result (avoids storing all results)
     ///
-    /// # Exemple
+    /// # Example
     /// ```rust,ignore
     /// model.forward_batches(test_data.iter(), |batch_idx, output| {
     ///     // Process each output without storing all in memory
@@ -427,7 +427,7 @@ mod tests {
 
         assert_eq!(model.num_layers(), 3); // Conv + BN + ReLU
 
-        // Conv sans bias + BN (gamma + beta)
+        // Conv without bias + BN (gamma + beta)
         // 32*1*3*3 = 288 + 64 = 352
         assert_eq!(model.num_parameters(), 288 + 64);
     }

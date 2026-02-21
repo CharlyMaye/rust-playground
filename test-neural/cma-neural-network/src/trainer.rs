@@ -21,17 +21,6 @@ use crate::Float;
 use crate::compute::{ComputeDevice, ComputeDeviceError};
 use crate::network::{Activation, ForwardResult, LossFunction, Network};
 
-/// Accumulated gradients for a training batch.
-///
-/// Contains the gradients for all layers, ready to be applied via the optimizer.
-#[allow(dead_code)]
-pub(crate) struct BatchGradients {
-    /// Weight gradients for each layer (averaged over batch)
-    pub weights: Vec<Array2<Float>>,
-    /// Bias gradients for each layer (averaged over batch)
-    pub biases: Vec<Array1<Float>>,
-}
-
 /// Internal trainer that executes the training logic.
 ///
 /// This struct is created temporarily during training and released after.
@@ -59,7 +48,6 @@ impl<'a> Trainer<'a> {
     }
 
     /// Creates a new trainer for the given network.
-    #[allow(dead_code)]
     pub fn new(
         network: &'a mut Network,
         device: ComputeDevice,

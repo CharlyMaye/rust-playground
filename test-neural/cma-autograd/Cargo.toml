@@ -11,8 +11,6 @@ path = "src/lib.rs"
 
 [features]
 default = []
-# Enable parallel operations with Rayon (not compatible with WASM)
-parallel = ["rayon"]
 # Enable weight export to cma-cnn format
 export = []
 
@@ -21,4 +19,3 @@ cma-neural-network = { path = "../cma-neural-network" }
 cma-cnn = { path = "../cma-cnn" }
 ndarray = { version = "0.17.1", features = ["serde"] }
 rand = "0.9.2"
-rayon = { version = "1.10", optional = true }

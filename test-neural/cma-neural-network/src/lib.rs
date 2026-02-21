@@ -63,6 +63,7 @@ pub mod builder;
 pub mod callbacks;
 pub mod compute;
 pub mod dataset;
+pub mod init;
 pub mod io;
 pub mod metrics;
 pub mod network;

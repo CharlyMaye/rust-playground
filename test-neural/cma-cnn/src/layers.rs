@@ -66,7 +66,7 @@ pub trait Layer: Send + Sync {
 /// Applies `out_channels` filters of size `kernel_size × kernel_size`
 /// on the input with `in_channels` channels.
 ///
-/// # Exemple
+/// # Example
 ///
 /// ```rust,ignore
 /// // 1 channel input → 32 filters, kernel 3x3
@@ -111,21 +111,15 @@ impl Conv2D {
         let mut rng = rand::rng();
 
         // He initialization (for ReLU)
-        // Variance = 2 / (fan_in)
         // fan_in = in_channels * kernel_size * kernel_size
         let fan_in = in_channels * kernel_size * kernel_size;
         let std = (2.0 / fan_in as Float).sqrt();
 
-        // Generate weights with normal distribution
-        let weights_vec: Vec<Float> = (0..out_channels * in_channels * kernel_size * kernel_size)
-            .map(|_| {
-                // Box-Muller transform
-                let u1: Float = rng.random();
-                let u2: Float = rng.random();
-                let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-                z * std
-            })
-            .collect();
+        let weights_vec = cma_neural_network::init::randn_vec(
+            out_channels * in_channels * kernel_size * kernel_size,
+            std,
+            &mut rng,
+        );
 
         let weights = Array4::from_shape_vec(
             (out_channels, in_channels, kernel_size, kernel_size),
@@ -740,20 +734,17 @@ impl Layer for Dropout2D {
 ///
 /// Used to connect CNN layers to fully-connected layers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Flatten {
-    /// Input shape (for unflatten during backward pass)
-    input_shape: Option<TensorShape>,
-}
+pub struct Flatten;
 
 impl Flatten {
     pub fn new() -> Self {
-        Self { input_shape: None }
+        Self
     }
 }
 
 impl Default for Flatten {
     fn default() -> Self {
-        Self::new()
+        Self
     }
 }
 
@@ -889,46 +880,10 @@ impl Layer for ActivationLayer {
     }
 }
 
-/// Applies an activation on a scalar
-/// Replicates cma_neural_network::Activation::apply logic for a single element
+/// Applies an activation on a scalar.
+/// Delegates to `cma_neural_network::Activation::apply_scalar` to avoid duplication.
 fn apply_activation_scalar(activation: cma_neural_network::Activation, x: Float) -> Float {
-    use cma_neural_network::Activation;
-    match activation {
-        Activation::Sigmoid => 1.0 / (1.0 + (-x).exp()),
-        Activation::Tanh => x.tanh(),
-        Activation::ReLU => x.max(0.0),
-        Activation::LeakyReLU => {
-            if x > 0.0 {
-                x
-            } else {
-                0.01 * x
-            }
-        }
-        Activation::ELU => {
-            if x > 0.0 {
-                x
-            } else {
-                x.exp() - 1.0
-            }
-        }
-        Activation::SELU => {
-            let lambda = 1.0507;
-            let alpha = 1.6733;
-            lambda * if x > 0.0 { x } else { alpha * (x.exp() - 1.0) }
-        }
-        Activation::Swish => x / (1.0 + (-x).exp()),
-        Activation::GELU => {
-            0.5 * x
-                * (1.0 + ((2.0 / std::f32::consts::PI).sqrt() * (x + 0.044715 * x.powi(3))).tanh())
-        }
-        Activation::Mish => x * ((1.0 + x.exp()).ln()).tanh(),
-        Activation::Softplus => (1.0 + x.exp()).ln(),
-        Activation::Softsign => x / (1.0 + x.abs()),
-        Activation::HardSigmoid => (0.2 * x + 0.5).clamp(0.0, 1.0),
-        Activation::HardTanh => x.clamp(-1.0, 1.0),
-        Activation::Softmax => x, // Softmax requires full context, identity here
-        Activation::Linear => x,
-    }
+    activation.apply_scalar(x)
 }
 
 #[cfg(test)]

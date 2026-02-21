@@ -1,6 +1,6 @@
 //! # Loss Functions
 //!
-//! MSE et Cross-Entropy avec support autograd.
+//! MSE and Cross-Entropy with autograd support.
 
 use crate::Float;
 use crate::ops;
@@ -131,10 +131,8 @@ impl crate::grad_fn::GradFn for CrossEntropyBackward {
 pub fn binary_cross_entropy_loss(prediction: &Tensor, target: &Tensor) -> Tensor {
     let eps = 1e-7;
 
-    // Clamp prediction to avoid log(0)
-    let pred_data = prediction.data();
-    let clamped = pred_data.mapv(|x| x.clamp(eps, 1.0 - eps));
-    let pred_clamped = Tensor::new(clamped, prediction.requires_grad());
+    // Clamp prediction to avoid log(0) — using in-graph op to preserve gradients
+    let pred_clamped = ops::clamp(prediction, eps, 1.0 - eps);
 
     // -target * log(pred) - (1 - target) * log(1 - pred)
     let log_pred = pred_clamped.log();

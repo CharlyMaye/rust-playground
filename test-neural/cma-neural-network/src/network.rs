@@ -113,44 +113,19 @@ impl WeightInit {
     /// # Returns
     /// Initialized weight matrix
     fn initialize_weights(&self, rows: usize, cols: usize, rng: &mut impl Rng) -> Array2<Float> {
-        match self {
+        let std = match self {
             WeightInit::Uniform => {
-                Array2::from_shape_fn((rows, cols), |_| rng.random_range(-1.0..1.0))
+                return Array2::from_shape_fn((rows, cols), |_| rng.random_range(-1.0..1.0));
             }
-            WeightInit::Xavier => {
-                // Xavier: std = sqrt(2 / (input_size + output_size))
-                let std = (2.0 / (rows + cols) as Float).sqrt();
-                Array2::from_shape_fn((rows, cols), |_| {
-                    // Box-Muller transform for Gaussian distribution
-                    let u1: Float = rng.random();
-                    let u2: Float = rng.random();
-                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-                    z * std
-                })
-            }
-            WeightInit::He => {
-                // He: std = sqrt(2 / input_size)
-                let std = (2.0 / cols as Float).sqrt();
-                Array2::from_shape_fn((rows, cols), |_| {
-                    // Box-Muller transform for Gaussian distribution
-                    let u1: Float = rng.random();
-                    let u2: Float = rng.random();
-                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-                    z * std
-                })
-            }
-            WeightInit::LeCun => {
-                // LeCun: std = sqrt(1 / input_size)
-                let std = (1.0 / cols as Float).sqrt();
-                Array2::from_shape_fn((rows, cols), |_| {
-                    // Box-Muller transform for Gaussian distribution
-                    let u1: Float = rng.random();
-                    let u2: Float = rng.random();
-                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-                    z * std
-                })
-            }
-        }
+            // Xavier: std = sqrt(2 / (fan_in + fan_out))
+            WeightInit::Xavier => (2.0 / (rows + cols) as Float).sqrt(),
+            // He: std = sqrt(2 / fan_in)
+            WeightInit::He => (2.0 / cols as Float).sqrt(),
+            // LeCun: std = sqrt(1 / fan_in)
+            WeightInit::LeCun => (1.0 / cols as Float).sqrt(),
+        };
+        let data = crate::init::randn_vec(rows * cols, std, rng);
+        Array2::from_shape_vec((rows, cols), data).unwrap()
     }
 
     /// Get recommended initialization method for an activation function.
@@ -340,38 +315,47 @@ impl Activation {
         }
     }
 
-    /// Apply the activation function to an array.
-    pub fn apply(&self, x: &Array1<Float>) -> Array1<Float> {
+    /// Apply the activation function to a single scalar value.
+    pub fn apply_scalar(&self, x: Float) -> Float {
         match self {
-            Activation::Sigmoid => x.mapv(|x| 1.0 / (1.0 + (-x).exp())),
-            Activation::Tanh => x.mapv(|x| x.tanh()),
-            Activation::ReLU => x.mapv(|x| x.max(0.0)),
-            Activation::LeakyReLU => x.mapv(|x| if x > 0.0 { x } else { 0.01 * x }),
-            Activation::ELU => x.mapv(|x| if x > 0.0 { x } else { 1.0 * (x.exp() - 1.0) }),
+            Activation::Sigmoid => 1.0 / (1.0 + (-x).exp()),
+            Activation::Tanh => x.tanh(),
+            Activation::ReLU => x.max(0.0),
+            Activation::LeakyReLU => if x > 0.0 { x } else { 0.01 * x },
+            Activation::ELU => if x > 0.0 { x } else { x.exp() - 1.0 },
             Activation::SELU => {
                 let lambda = 1.0507;
                 let alpha = 1.6733;
-                x.mapv(|x| lambda * if x > 0.0 { x } else { alpha * (x.exp() - 1.0) })
+                lambda * if x > 0.0 { x } else { alpha * (x.exp() - 1.0) }
             }
-            Activation::Swish => x.mapv(|x| x / (1.0 + (-x).exp())),
-            Activation::GELU => x.mapv(|x| {
+            Activation::Swish => x / (1.0 + (-x).exp()),
+            Activation::GELU => {
                 0.5 * x
                     * (1.0
                         + ((2.0 / std::f32::consts::PI).sqrt() * (x + 0.044715 * x.powi(3))).tanh())
-            }),
-            Activation::Mish => x.mapv(|x| x * ((1.0 + x.exp()).ln()).tanh()),
-            Activation::Softplus => x.mapv(|x| (1.0 + x.exp()).ln()),
-            Activation::Softsign => x.mapv(|x| x / (1.0 + x.abs())),
-            Activation::HardSigmoid => x.mapv(|x| (0.2 * x + 0.5).clamp(0.0, 1.0)),
-            Activation::HardTanh => x.mapv(|x| x.clamp(-1.0, 1.0)),
+            }
+            Activation::Mish => x * ((1.0 + x.exp()).ln()).tanh(),
+            Activation::Softplus => (1.0 + x.exp()).ln(),
+            Activation::Softsign => x / (1.0 + x.abs()),
+            Activation::HardSigmoid => (0.2 * x + 0.5).clamp(0.0, 1.0),
+            Activation::HardTanh => x.clamp(-1.0, 1.0),
+            Activation::Softmax => x, // Softmax requires full context; identity for scalar
+            Activation::Linear => x,
+        }
+    }
+
+    /// Apply the activation function to an array.
+    pub fn apply(&self, x: &Array1<Float>) -> Array1<Float> {
+        match self {
             Activation::Softmax => {
-                // Numerical stability: subtract max before exp
+                // Softmax requires vectorized computation for numerical stability
                 let max = x.fold(Float::NEG_INFINITY, |a, &b| a.max(b));
                 let exp_x = x.mapv(|v| (v - max).exp());
                 let sum = exp_x.sum();
                 exp_x / sum
             }
             Activation::Linear => x.clone(),
+            _ => x.mapv(|v| self.apply_scalar(v)),
         }
     }
 
@@ -731,23 +715,6 @@ impl Network {
 }
 
 impl Network {
-    /// Performs a forward pass through the network.
-    ///
-    /// # Arguments
-    /// - `input`: Input vector
-    ///
-    /// # Returns
-    /// Vector of all layer activations (including input and final output).
-    /// Index 0 is the input, last index is the final output.
-    #[allow(dead_code)]
-    fn forward(&self, input: &Array1<Float>) -> Vec<Array1<Float>> {
-        if self.training_mode {
-            self.forward_full(input, &mut rng()).activations
-        } else {
-            self.forward_eval(input)
-        }
-    }
-
     /// Forward pass for evaluation (no dropout, no RNG needed).
     /// Always runs in "eval mode" regardless of training_mode flag.
     fn forward_eval(&self, input: &Array1<Float>) -> Vec<Array1<Float>> {
@@ -761,25 +728,6 @@ impl Network {
         }
 
         activations
-    }
-
-    /// Forward pass using the stored RNG (for reproducibility) or system entropy.
-    #[allow(dead_code)]
-    fn forward_with_stored_rng(&mut self, input: &Array1<Float>) -> ForwardResult {
-        // Take ownership of stored RNG temporarily to avoid borrow issues
-        if let Some(mut stored_rng) = self.rng.take() {
-            let result = self.forward_full_internal(input, &mut stored_rng);
-            self.rng = Some(stored_rng); // Put it back
-            result
-        } else {
-            self.forward_full_internal(input, &mut rng())
-        }
-    }
-
-    /// Forward pass returning full result with pre-activations and dropout masks.
-    #[allow(dead_code)]
-    fn forward_full(&self, input: &Array1<Float>, rng: &mut impl Rng) -> ForwardResult {
-        self.forward_full_internal(input, rng)
     }
 
     /// Internal forward pass implementation.

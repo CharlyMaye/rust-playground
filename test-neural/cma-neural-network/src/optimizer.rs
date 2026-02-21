@@ -102,143 +102,6 @@ pub struct OptimizerState2D {
     pub t: usize,
 }
 
-impl OptimizerState2D {
-    /// Creates a new state for a matrix of the given shape.
-    pub fn new(shape: (usize, usize), optimizer: &OptimizerType) -> Self {
-        let needs_m = matches!(optimizer, 
-            OptimizerType::Momentum { .. } | 
-            OptimizerType::Adam { .. } | 
-            OptimizerType::AdamW { .. }
-        );
-        
-        let needs_v = matches!(optimizer,
-            OptimizerType::RMSprop { .. } |
-            OptimizerType::Adam { .. } | 
-            OptimizerType::AdamW { .. }
-        );
-        
-        OptimizerState2D {
-            m: if needs_m { Some(Array2::zeros(shape)) } else { None },
-            v: if needs_v { Some(Array2::zeros(shape)) } else { None },
-            t: 0,
-        }
-    }
-    
-    /// Updates weights with the computed gradient.
-    pub fn step(
-        &mut self,
-        weights: &mut Array2<Float>,
-        gradient: &Array2<Float>,
-        optimizer: &OptimizerType,
-    ) {
-        self.t += 1;
-        
-        match optimizer {
-            OptimizerType::SGD { learning_rate } => {
-                // Simple gradient descent: w = w - lr * grad
-                *weights -= &(gradient * *learning_rate);
-            }
-            
-            OptimizerType::Momentum { learning_rate, beta } => {
-                // Momentum: m = beta * m + grad
-                //           w = w - lr * m
-                let m = self.m.as_mut().expect("Momentum state not initialized");
-                // In-place: m *= beta, puis m += gradient
-                m.mapv_inplace(|x| x * *beta);
-                *m += gradient;
-                // w -= lr * m
-                weights.scaled_add(-*learning_rate, m);
-            }
-            
-            OptimizerType::RMSprop { learning_rate, beta, epsilon } => {
-                // RMSprop: v = beta * v + (1 - beta) * grad^2
-                //          w = w - lr * grad / (sqrt(v) + epsilon)
-                let v = self.v.as_mut().expect("RMSprop state not initialized");
-                let one_minus_beta = 1.0 - beta;
-                // In-place update of v
-                ndarray::Zip::from(v.view_mut())
-                    .and(gradient.view())
-                    .for_each(|v_i, &g| {
-                        *v_i = *v_i * *beta + g * g * one_minus_beta;
-                    });
-                // Update weights in-place
-                ndarray::Zip::from(weights.view_mut())
-                    .and(gradient.view())
-                    .and(v.view())
-                    .for_each(|w, &g, &v_i| {
-                        *w -= *learning_rate * g / (v_i.sqrt() + *epsilon);
-                    });
-            }
-            
-            OptimizerType::Adam { learning_rate, beta1, beta2, epsilon } => {
-                // Adam: m = beta1 * m + (1 - beta1) * grad
-                //       v = beta2 * v + (1 - beta2) * grad^2
-                //       m_hat = m / (1 - beta1^t)
-                //       v_hat = v / (1 - beta2^t)
-                //       w = w - lr * m_hat / (sqrt(v_hat) + epsilon)
-                
-                let m = self.m.as_mut().expect("Adam m state not initialized");
-                let v = self.v.as_mut().expect("Adam v state not initialized");
-                
-                let one_minus_beta1 = 1.0 - beta1;
-                let one_minus_beta2 = 1.0 - beta2;
-                
-                // Bias correction factors
-                let bias_correction1 = 1.0 - beta1.powi(self.t as i32);
-                let bias_correction2 = 1.0 - beta2.powi(self.t as i32);
-                
-                // All updates in a single pass
-                ndarray::Zip::from(weights.view_mut())
-                    .and(m.view_mut())
-                    .and(v.view_mut())
-                    .and(gradient.view())
-                    .for_each(|w, m_i, v_i, &g| {
-                        // Update moments
-                        *m_i = *m_i * *beta1 + g * one_minus_beta1;
-                        *v_i = *v_i * *beta2 + g * g * one_minus_beta2;
-                        // Bias-corrected moments
-                        let m_hat = *m_i / bias_correction1;
-                        let v_hat = *v_i / bias_correction2;
-                        // Update weight
-                        *w -= *learning_rate * m_hat / (v_hat.sqrt() + *epsilon);
-                    });
-            }
-            
-            OptimizerType::AdamW { learning_rate, beta1, beta2, epsilon, weight_decay } => {
-                // AdamW: Same as Adam but with decoupled weight decay
-                //        w = w * (1 - lr * weight_decay) - lr * m_hat / (sqrt(v_hat) + eps)
-                
-                let m = self.m.as_mut().expect("AdamW m state not initialized");
-                let v = self.v.as_mut().expect("AdamW v state not initialized");
-                
-                let one_minus_beta1 = 1.0 - beta1;
-                let one_minus_beta2 = 1.0 - beta2;
-                let weight_decay_factor = 1.0 - learning_rate * weight_decay;
-                
-                // Bias correction factors
-                let bias_correction1 = 1.0 - beta1.powi(self.t as i32);
-                let bias_correction2 = 1.0 - beta2.powi(self.t as i32);
-                
-                // All updates in a single pass
-                ndarray::Zip::from(weights.view_mut())
-                    .and(m.view_mut())
-                    .and(v.view_mut())
-                    .and(gradient.view())
-                    .for_each(|w, m_i, v_i, &g| {
-                        // Update moments
-                        *m_i = *m_i * *beta1 + g * one_minus_beta1;
-                        *v_i = *v_i * *beta2 + g * g * one_minus_beta2;
-                        // Bias-corrected moments
-                        let m_hat = *m_i / bias_correction1;
-                        let v_hat = *v_i / bias_correction2;
-                        // Weight decay + Adam update
-                        *w = *w * weight_decay_factor - *learning_rate * m_hat / (v_hat.sqrt() + *epsilon);
-                    });
-            }
-        }
-    }
-}
-
 /// Optimizer state for a bias vector.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OptimizerState1D {
@@ -252,28 +115,157 @@ pub struct OptimizerState1D {
     pub t: usize,
 }
 
-impl OptimizerState1D {
-    /// Creates a new state for a vector of the given size.
-    pub fn new(size: usize, optimizer: &OptimizerType) -> Self {
-        let needs_m = matches!(optimizer, 
-            OptimizerType::Momentum { .. } | 
-            OptimizerType::Adam { .. } | 
-            OptimizerType::AdamW { .. }
-        );
-        
-        let needs_v = matches!(optimizer,
-            OptimizerType::RMSprop { .. } |
-            OptimizerType::Adam { .. } | 
-            OptimizerType::AdamW { .. }
-        );
-        
-        OptimizerState1D {
-            m: if needs_m { Some(Array1::zeros(size)) } else { None },
-            v: if needs_v { Some(Array1::zeros(size)) } else { None },
+/// Element-wise optimizer step on raw slices.
+///
+/// All optimizer logic is implemented once here, operating on flat slices.
+/// `OptimizerState1D` and `OptimizerState2D` delegate to this function.
+///
+/// `params`, `m`, and `v` are always contiguous (owned arrays), while
+/// `gradient` is passed as a separate slice (caller ensures contiguity).
+fn step_slices(
+    params: &mut [Float],
+    gradient: &[Float],
+    m: Option<&mut [Float]>,
+    v: Option<&mut [Float]>,
+    t: usize,
+    optimizer: &OptimizerType,
+) {
+    match optimizer {
+        OptimizerType::SGD { learning_rate } => {
+            let lr = *learning_rate;
+            for (p, &g) in params.iter_mut().zip(gradient.iter()) {
+                *p -= lr * g;
+            }
+        }
+
+        OptimizerType::Momentum { learning_rate, beta } => {
+            let m = m.expect("Momentum state not initialized");
+            let b = *beta;
+            let lr = *learning_rate;
+            for ((p, m_i), &g) in params.iter_mut().zip(m.iter_mut()).zip(gradient.iter()) {
+                *m_i = *m_i * b + g;
+                *p -= lr * *m_i;
+            }
+        }
+
+        OptimizerType::RMSprop { learning_rate, beta, epsilon } => {
+            let v = v.expect("RMSprop state not initialized");
+            let b = *beta;
+            let one_minus_b = 1.0 - b;
+            let lr = *learning_rate;
+            let eps = *epsilon;
+            for ((p, v_i), &g) in params.iter_mut().zip(v.iter_mut()).zip(gradient.iter()) {
+                *v_i = *v_i * b + g * g * one_minus_b;
+                *p -= lr * g / (v_i.sqrt() + eps);
+            }
+        }
+
+        OptimizerType::Adam { learning_rate, beta1, beta2, epsilon } => {
+            let m = m.expect("Adam m state not initialized");
+            let v = v.expect("Adam v state not initialized");
+            let one_minus_b1 = 1.0 - beta1;
+            let one_minus_b2 = 1.0 - beta2;
+            let bc1 = 1.0 - beta1.powi(t as i32);
+            let bc2 = 1.0 - beta2.powi(t as i32);
+            let lr = *learning_rate;
+            let eps = *epsilon;
+            for (((p, m_i), v_i), &g) in params
+                .iter_mut()
+                .zip(m.iter_mut())
+                .zip(v.iter_mut())
+                .zip(gradient.iter())
+            {
+                *m_i = *m_i * *beta1 + g * one_minus_b1;
+                *v_i = *v_i * *beta2 + g * g * one_minus_b2;
+                let m_hat = *m_i / bc1;
+                let v_hat = *v_i / bc2;
+                *p -= lr * m_hat / (v_hat.sqrt() + eps);
+            }
+        }
+
+        OptimizerType::AdamW { learning_rate, beta1, beta2, epsilon, weight_decay } => {
+            let m = m.expect("AdamW m state not initialized");
+            let v = v.expect("AdamW v state not initialized");
+            let one_minus_b1 = 1.0 - beta1;
+            let one_minus_b2 = 1.0 - beta2;
+            let decay = 1.0 - learning_rate * weight_decay;
+            let bc1 = 1.0 - beta1.powi(t as i32);
+            let bc2 = 1.0 - beta2.powi(t as i32);
+            let lr = *learning_rate;
+            let eps = *epsilon;
+            for (((p, m_i), v_i), &g) in params
+                .iter_mut()
+                .zip(m.iter_mut())
+                .zip(v.iter_mut())
+                .zip(gradient.iter())
+            {
+                *m_i = *m_i * *beta1 + g * one_minus_b1;
+                *v_i = *v_i * *beta2 + g * g * one_minus_b2;
+                let m_hat = *m_i / bc1;
+                let v_hat = *v_i / bc2;
+                *p = *p * decay - lr * m_hat / (v_hat.sqrt() + eps);
+            }
+        }
+    }
+}
+
+/// Determines whether an optimizer needs first-moment (m) state.
+fn needs_first_moment(optimizer: &OptimizerType) -> bool {
+    matches!(
+        optimizer,
+        OptimizerType::Momentum { .. } | OptimizerType::Adam { .. } | OptimizerType::AdamW { .. }
+    )
+}
+
+/// Determines whether an optimizer needs second-moment (v) state.
+fn needs_second_moment(optimizer: &OptimizerType) -> bool {
+    matches!(
+        optimizer,
+        OptimizerType::RMSprop { .. } | OptimizerType::Adam { .. } | OptimizerType::AdamW { .. }
+    )
+}
+
+impl OptimizerState2D {
+    /// Creates a new state for a matrix of the given shape.
+    pub fn new(shape: (usize, usize), optimizer: &OptimizerType) -> Self {
+        OptimizerState2D {
+            m: if needs_first_moment(optimizer) { Some(Array2::zeros(shape)) } else { None },
+            v: if needs_second_moment(optimizer) { Some(Array2::zeros(shape)) } else { None },
             t: 0,
         }
     }
-    
+
+    /// Updates weights with the computed gradient.
+    pub fn step(
+        &mut self,
+        weights: &mut Array2<Float>,
+        gradient: &Array2<Float>,
+        optimizer: &OptimizerType,
+    ) {
+        self.t += 1;
+        // Gradient may come from a view (non-contiguous); ensure contiguity.
+        let grad_cow = gradient.as_standard_layout();
+        step_slices(
+            weights.as_slice_mut().expect("weights not contiguous"),
+            grad_cow.as_slice().expect("gradient not contiguous after layout fix"),
+            self.m.as_mut().map(|a| a.as_slice_mut().expect("m not contiguous")),
+            self.v.as_mut().map(|a| a.as_slice_mut().expect("v not contiguous")),
+            self.t,
+            optimizer,
+        );
+    }
+}
+
+impl OptimizerState1D {
+    /// Creates a new state for a vector of the given size.
+    pub fn new(size: usize, optimizer: &OptimizerType) -> Self {
+        OptimizerState1D {
+            m: if needs_first_moment(optimizer) { Some(Array1::zeros(size)) } else { None },
+            v: if needs_second_moment(optimizer) { Some(Array1::zeros(size)) } else { None },
+            t: 0,
+        }
+    }
+
     /// Updates biases with the computed gradient.
     pub fn step(
         &mut self,
@@ -282,74 +274,15 @@ impl OptimizerState1D {
         optimizer: &OptimizerType,
     ) {
         self.t += 1;
-        
-        match optimizer {
-            OptimizerType::SGD { learning_rate } => {
-                biases.scaled_add(-*learning_rate, gradient);
-            }
-            
-            OptimizerType::Momentum { learning_rate, beta } => {
-                let m = self.m.as_mut().expect("Momentum state not initialized");
-                m.mapv_inplace(|x| x * *beta);
-                *m += gradient;
-                biases.scaled_add(-*learning_rate, m);
-            }
-            
-            OptimizerType::RMSprop { learning_rate, beta, epsilon } => {
-                let v = self.v.as_mut().expect("RMSprop state not initialized");
-                let one_minus_beta = 1.0 - beta;
-                ndarray::Zip::from(biases.view_mut())
-                    .and(v.view_mut())
-                    .and(gradient.view())
-                    .for_each(|b, v_i, &g| {
-                        *v_i = *v_i * *beta + g * g * one_minus_beta;
-                        *b -= *learning_rate * g / (v_i.sqrt() + *epsilon);
-                    });
-            }
-            
-            OptimizerType::Adam { learning_rate, beta1, beta2, epsilon } => {
-                let m = self.m.as_mut().expect("Adam m state not initialized");
-                let v = self.v.as_mut().expect("Adam v state not initialized");
-                let one_minus_beta1 = 1.0 - beta1;
-                let one_minus_beta2 = 1.0 - beta2;
-                let bias_correction1 = 1.0 - beta1.powi(self.t as i32);
-                let bias_correction2 = 1.0 - beta2.powi(self.t as i32);
-                
-                ndarray::Zip::from(biases.view_mut())
-                    .and(m.view_mut())
-                    .and(v.view_mut())
-                    .and(gradient.view())
-                    .for_each(|b, m_i, v_i, &g| {
-                        *m_i = *m_i * *beta1 + g * one_minus_beta1;
-                        *v_i = *v_i * *beta2 + g * g * one_minus_beta2;
-                        let m_hat = *m_i / bias_correction1;
-                        let v_hat = *v_i / bias_correction2;
-                        *b -= *learning_rate * m_hat / (v_hat.sqrt() + *epsilon);
-                    });
-            }
-            
-            OptimizerType::AdamW { learning_rate, beta1, beta2, epsilon, weight_decay } => {
-                let m = self.m.as_mut().expect("AdamW m state not initialized");
-                let v = self.v.as_mut().expect("AdamW v state not initialized");
-                let one_minus_beta1 = 1.0 - beta1;
-                let one_minus_beta2 = 1.0 - beta2;
-                let weight_decay_factor = 1.0 - learning_rate * weight_decay;
-                let bias_correction1 = 1.0 - beta1.powi(self.t as i32);
-                let bias_correction2 = 1.0 - beta2.powi(self.t as i32);
-                
-                ndarray::Zip::from(biases.view_mut())
-                    .and(m.view_mut())
-                    .and(v.view_mut())
-                    .and(gradient.view())
-                    .for_each(|b, m_i, v_i, &g| {
-                        *m_i = *m_i * *beta1 + g * one_minus_beta1;
-                        *v_i = *v_i * *beta2 + g * g * one_minus_beta2;
-                        let m_hat = *m_i / bias_correction1;
-                        let v_hat = *v_i / bias_correction2;
-                        *b = *b * weight_decay_factor - *learning_rate * m_hat / (v_hat.sqrt() + *epsilon);
-                    });
-            }
-        }
+        let grad_cow = gradient.as_standard_layout();
+        step_slices(
+            biases.as_slice_mut().expect("biases not contiguous"),
+            grad_cow.as_slice().expect("gradient not contiguous after layout fix"),
+            self.m.as_mut().map(|a| a.as_slice_mut().expect("m not contiguous")),
+            self.v.as_mut().map(|a| a.as_slice_mut().expect("v not contiguous")),
+            self.t,
+            optimizer,
+        );
     }
 }
 

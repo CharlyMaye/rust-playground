@@ -463,6 +463,40 @@ impl GradFn for TanhBackward {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ClampBackward: c = clamp(a, min, max)
+// ∂L/∂a = ∂L/∂c * (min < a < max) — gradient passes only where not clamped
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[derive(Debug)]
+pub struct ClampBackward {
+    pub a: Tensor,
+    pub a_data: ArrayD<Float>,
+    pub min_val: Float,
+    pub max_val: Float,
+}
+
+impl GradFn for ClampBackward {
+    fn backward(&self, grad_output: &ArrayD<Float>) -> Vec<ArrayD<Float>> {
+        let mask = self.a_data.mapv(|x| {
+            if x > self.min_val && x < self.max_val {
+                1.0
+            } else {
+                0.0
+            }
+        });
+        vec![grad_output * &mask]
+    }
+
+    fn inputs(&self) -> Vec<Tensor> {
+        vec![self.a.clone()]
+    }
+
+    fn name(&self) -> &'static str {
+        "ClampBackward"
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ReshapeBackward: restore original shape
 // ∂L/∂a = reshape(∂L/∂c, original_shape)
 // ═══════════════════════════════════════════════════════════════════════════

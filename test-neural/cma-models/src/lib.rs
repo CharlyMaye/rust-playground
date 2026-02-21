@@ -54,9 +54,7 @@ pub mod vgg;
 pub use alexnet::{AlexNet, AlexNetConfig};
 pub use efficientnet::{EfficientNetB0, EfficientNetConfig, MBConvBlock};
 pub use lenet::{LeNet5, LeNet5Config};
-pub use resnet::{
-    ResNet, ResNet18, ResNet34, ResNet50, ResNetBuilder, ResNetConfig, ResidualBlock,
-};
+pub use resnet::{ResNet, ResNetBuilder, ResidualBlock};
 pub use vgg::{VGG16, VGG19, VGGConfig};
 
 // Re-exports from cma-cnn

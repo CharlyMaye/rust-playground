@@ -54,7 +54,7 @@ pub use layers::{
     LayerType, MaxPool2D,
 };
 pub use ops::{
-    Padding, col2im, conv2d_im2col, im2col, im2col_single,
+    Padding, col2im, conv2d_im2col, im2col_single,
     maxpool2d, avgpool2d, global_avgpool2d,
 };
 pub use sequential::Sequential;

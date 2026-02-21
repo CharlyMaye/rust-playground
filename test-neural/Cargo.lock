@@ -69,7 +69,6 @@ dependencies = [
  "cma-neural-network",
  "ndarray",
  "rand",
- "rayon",
 ]
 
 [[package]]

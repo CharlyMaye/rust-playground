@@ -321,8 +321,8 @@ fn main() {
     println!("The baseline architecture (B0) was found by NAS:");
     println!();
     println!("1. SEARCH SPACE:");
-    println!("   • Type de bloc: MBConv3 ou MBConv6");
-    println!("   • Kernel size: 3×3 ou 5×5");
+    println!("   • Block type: MBConv3 or MBConv6");
+    println!("   • Kernel size: 3×3 or 5×5");
     println!("   • Channels: 16, 24, 40, 80, 112, 192, 320");
     println!("   • Layers per stage: 1-7");
     println!();
@@ -342,7 +342,7 @@ fn main() {
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Classifieur FC (cma-neural-network)                             │");
+    println!("│ FC Classifier (cma-neural-network)                               │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("```rust");

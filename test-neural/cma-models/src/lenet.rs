@@ -44,7 +44,7 @@
 //! 3. **Deep architecture**: 7 layers (revolutionary for the time)
 //! 4. **End-to-end backpropagation**: differentiable training
 //!
-//! ## Exemple
+//! ## Example
 //!
 //! ```rust,ignore
 //! use cma_models::lenet::{LeNet5, LeNet5Config};
@@ -151,7 +151,7 @@ impl LeNet5 {
     /// # Arguments
     /// * `num_classes` - Number of classes (10 for MNIST)
     ///
-    /// # Exemple
+    /// # Example
     /// ```rust,ignore
     /// let model = LeNet5::new(10);
     /// assert_eq!(model.num_parameters(), 33_456);
@@ -255,37 +255,6 @@ impl LeNet5 {
 }
 
 /// Creates the FC classifier for LeNet-5
-///
-/// # FC Architecture (original paper)
-/// - F6: 120 → 84 (tanh)
-/// - Output: 84 → num_classes
-///
-/// # Exemple
-/// ```rust,ignore
-/// use cma_neural_network::NetworkBuilder;
-/// use cma_models::lenet::{LeNet5, create_lenet5_classifier};
-///
-/// let cnn = LeNet5::new(10);
-/// let classifier = create_lenet5_classifier(cnn.output_size(), 10);
-/// ```
-pub fn create_lenet5_classifier(input_size: usize, num_classes: usize) -> String {
-    // Returns the recommended configuration for the NetworkBuilder
-    format!(
-        r#"// FC Classifier for LeNet-5
-// Input: {} features (CNN output)
-// Output: {} classes
-
-use cma_neural_network::{{NetworkBuilder, Activation, LossFunction, OptimizerType}};
-
-let classifier = NetworkBuilder::new({}, {})
-    .hidden_layer(84, Activation::Tanh)  // F6 from the paper
-    .output_activation(Activation::Softmax)
-    .loss(LossFunction::CategoricalCrossEntropy)
-    .optimizer(OptimizerType::adam(0.001))
-    .build();"#,
-        input_size, num_classes, input_size, num_classes
-    )
-}
 
 #[cfg(test)]
 mod tests {
@@ -314,7 +283,7 @@ mod tests {
         let input = Tensor4D::zeros(TensorShape::new(1, 1, 32, 32));
         let output = model.forward(&input);
 
-        // Pour 32x32: C1 → 28, S2 → 14, C3 → 10, S4 → 5, C5(5x5) → 1
+        // For 32x32: C1 → 28, S2 → 14, C3 → 10, S4 → 5, C5(5x5) → 1
         assert_eq!(output.shape().width, 120);
     }
 

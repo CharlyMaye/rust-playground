@@ -12,7 +12,7 @@
 //!
 //! ## Key Innovation: Compound Scaling
 //!
-//! Scaling traditionnel vs EfficientNet:
+//! Traditional scaling vs EfficientNet:
 //!
 //! ```text
 //! Traditional:           EfficientNet:
@@ -26,12 +26,12 @@
 //! └─────────┘            └─────────────────────┘
 //! ```
 //!
-//! Formules de scaling:
+//! Scaling formulas:
 //! - depth: d = α^φ
 //! - width: w = β^φ  
 //! - resolution: r = γ^φ
 //!
-//! Avec α × β² × γ² ≈ 2 (pour doubler les FLOPs)
+//! With α × β² × γ² ≈ 2 (to double FLOPs)
 //!
 //! ## Famille EfficientNet
 //!
