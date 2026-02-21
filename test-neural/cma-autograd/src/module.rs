@@ -375,10 +375,11 @@ impl Module for Conv2D {
         );
 
         // weight reshaped to 2D: [out_channels, C_in * kH * kW]
+        // Use view instead of clone — no heap copy, weight tensor kept alive via self.weight
         let weight_data = self.weight.tensor().data();
         let col_size = self.in_channels * self.kernel_size * self.kernel_size;
         let weight_2d = weight_data
-            .clone()
+            .view()
             .into_shape_with_order(IxDyn(&[self.out_channels, col_size]))
             .unwrap();
 
@@ -387,30 +388,24 @@ impl Module for Conv2D {
         let w_2d = weight_2d.view().into_dimensionality::<ndarray::Ix2>().unwrap();
         let output_2d = col_2d.dot(&w_2d.t()).into_dyn();
 
-        // Reshape to BHWC → BCHW
-        let mut bchw = ArrayD::zeros(IxDyn(&[batch, self.out_channels, out_h, out_w]));
-        for b in 0..batch {
-            for i in 0..out_h {
-                for j in 0..out_w {
-                    let row = b * out_h * out_w + i * out_w + j;
-                    for c in 0..self.out_channels {
-                        bchw[[b, c, i, j]] = output_2d[[row, c]];
-                    }
-                }
-            }
-        }
+        // Reshape to BHWC then permute to BCHW — replaces 4-level scalar scatter loop
+        // permuted_axes dispatches to cache-optimized axis reorder (BLAS-level), not scalar indexing
+        let bchw_raw = output_2d
+            .into_shape_with_order(IxDyn(&[batch, out_h, out_w, self.out_channels]))
+            .unwrap();
+        let mut bchw = bchw_raw
+            .permuted_axes(IxDyn(&[0usize, 3, 1, 2]))
+            .as_standard_layout()
+            .into_owned();
 
-        // Add bias (fused into the same GradFn)
+        // Add bias: slice += scalar uses ndarray broadcast — eliminates 2 inner loops per (b,c)
         if let Some(ref bias) = self.bias {
             let bias_data = bias.data();
             for b in 0..batch {
                 for c in 0..self.out_channels {
                     let bv = bias_data[[c]];
-                    for i in 0..out_h {
-                        for j in 0..out_w {
-                            bchw[[b, c, i, j]] += bv;
-                        }
-                    }
+                    let mut slice = bchw.slice_mut(ndarray::s![b, c, .., ..]);
+                    slice += bv;
                 }
             }
         }
@@ -428,7 +423,7 @@ impl Module for Conv2D {
                 weight: self.weight.tensor().clone(),
                 bias: self.bias.as_ref().map(|b| b.tensor().clone()),
                 col_data: col,
-                weight_2d_data: weight_2d.into_dyn(),
+                weight_2d_data: weight_2d.to_owned().into_dyn(),
                 input_shape,
                 kernel_size: self.kernel_size,
                 stride: self.stride,

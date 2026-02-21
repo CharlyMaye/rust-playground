@@ -7,7 +7,7 @@
 use crate::Float;
 use crate::ops;
 use crate::tensor::Tensor;
-use ndarray::{s, ArrayD, IxDyn};
+use ndarray::{s, ArrayD, IxDyn, Zip};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ReLU
@@ -291,7 +291,8 @@ impl Softmax {
             // Softmax along axis 1 (last axis for 2D)
             let rows = shape[0];
             let cols = shape[1];
-            let mut result = data.clone();
+            // zeros instead of clone: every element is overwritten so clone is wasted work
+            let mut result = ArrayD::zeros(data.raw_dim());
             for i in 0..rows {
                 let row_slice = data.slice(ndarray::s![i, ..]);
                 let max_val: Float = row_slice
@@ -396,19 +397,26 @@ impl BatchNorm2D {
 
             for c in 0..channels {
                 let ch = data.slice(s![.., c, .., ..]);
-                let mean = ch.mean().expect("empty channel in BatchNorm2D");
-                let var = ch.mapv(|x| (x - mean).powi(2)).mean().expect("empty channel");
+                let n_f = (batch * h * w) as Float;
+                let n_inv = 1.0 / n_f;
+                let mean = ch.iter().copied().sum::<Float>() * n_inv;
+                // Single-pass variance: avoids allocating channel-sized array of squared deviations
+                let var = ch.iter().map(|&x| { let d = x - mean; d * d }).sum::<Float>() * n_inv;
                 let std_inv = 1.0 / (var + self.epsilon).sqrt();
                 std_inv_vec[c] = std_inv;
 
                 let gamma_c = self.gamma.tensor().data_ref(|d| d[[c]]);
                 let beta_c = self.beta.tensor().data_ref(|d| d[[c]]);
 
-                let x_hat_c = ch.mapv(|x| (x - mean) * std_inv);
-                x_hat.slice_mut(s![.., c, .., ..]).assign(&x_hat_c);
-                output
-                    .slice_mut(s![.., c, .., ..])
-                    .assign(&x_hat_c.mapv(|v| v * gamma_c + beta_c));
+                // Single Zip pass writes x_hat and output simultaneously — was 2 mapv allocs
+                Zip::from(output.slice_mut(s![.., c, .., ..]))
+                    .and(x_hat.slice_mut(s![.., c, .., ..]))
+                    .and(&ch)
+                    .for_each(|o, xh, &x| {
+                        let xh_val = (x - mean) * std_inv;
+                        *xh = xh_val;
+                        *o = xh_val * gamma_c + beta_c;
+                    });
 
                 let mut rm = self.running_mean.borrow_mut();
                 let mut rv = self.running_var.borrow_mut();
@@ -444,15 +452,14 @@ impl BatchNorm2D {
 
             for c in 0..channels {
                 let mean = rm[c];
-                let var = rv[c];
-                let std_inv = 1.0 / (var + self.epsilon).sqrt();
+                let std_inv = 1.0 / (rv[c] + self.epsilon).sqrt();
                 let gamma_c = self.gamma.tensor().data_ref(|d| d[[c]]);
                 let beta_c = self.beta.tensor().data_ref(|d| d[[c]]);
 
-                let out_c = data
-                    .slice(s![.., c, .., ..])
-                    .mapv(|x| gamma_c * (x - mean) * std_inv + beta_c);
-                output.slice_mut(s![.., c, .., ..]).assign(&out_c);
+                // Direct write via Zip: avoids per-channel temp array from mapv+assign
+                Zip::from(output.slice_mut(s![.., c, .., ..]))
+                    .and(data.slice(s![.., c, .., ..]))
+                    .for_each(|o, &x| *o = gamma_c * (x - mean) * std_inv + beta_c);
             }
 
             Tensor::new(output, false)

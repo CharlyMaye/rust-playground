@@ -7,7 +7,7 @@
 
 use crate::Float;
 use crate::tensor::Tensor;
-use ndarray::{ArrayD, Axis, IxDyn};
+use ndarray::{ArrayD, Axis, IxDyn, Zip};
 use std::fmt;
 
 /// Trait for backward functions attached to tensor operations.
@@ -319,7 +319,9 @@ pub struct PowfBackward {
 
 impl GradFn for PowfBackward {
     fn backward(&self, grad_output: &ArrayD<Float>) -> Vec<ArrayD<Float>> {
-        let grad = grad_output * self.exponent * &self.a_data.mapv(|x| x.powf(self.exponent - 1.0));
+        let exp = self.exponent;
+        // Fused Zip: avoids allocating a_data.mapv(|x| x.powf(exp-1)) + separate multiply
+        let grad = Zip::from(grad_output).and(&self.a_data).map_collect(|&g, &a| g * exp * a.powf(exp - 1.0));
         vec![grad]
     }
 
@@ -395,8 +397,9 @@ pub struct ReLUBackward {
 
 impl GradFn for ReLUBackward {
     fn backward(&self, grad_output: &ArrayD<Float>) -> Vec<ArrayD<Float>> {
-        let mask = self.a_data.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 });
-        vec![grad_output * &mask]
+        // Fused Zip: avoids float mask array + separate multiply (2 allocs → 1)
+        let grad = Zip::from(grad_output).and(&self.a_data).map_collect(|&g, &x| if x > 0.0 { g } else { 0.0 });
+        vec![grad]
     }
 
     fn inputs(&self) -> Vec<Tensor> {
@@ -490,8 +493,11 @@ impl GradFn for SoftmaxBackward {
                 let yo = y.slice(ndarray::s![b, ..]);
                 let go = grad_output.slice(ndarray::s![b, ..]);
                 let dot: Float = (&yo * &go).sum();
-                let g = &yo * &go.mapv(|x| x - dot);
-                grad.slice_mut(ndarray::s![b, ..]).assign(&g);
+                // Fused Zip: avoids go.mapv(|x| x - dot) + assign per row (2 allocs → 1 direct write)
+                Zip::from(grad.slice_mut(ndarray::s![b, ..]))
+                    .and(&yo)
+                    .and(&go)
+                    .for_each(|g, &y_val, &go_val| *g = y_val * (go_val - dot));
             }
             grad
         };
@@ -522,14 +528,12 @@ pub struct ClampBackward {
 
 impl GradFn for ClampBackward {
     fn backward(&self, grad_output: &ArrayD<Float>) -> Vec<ArrayD<Float>> {
-        let mask = self.a_data.mapv(|x| {
-            if x > self.min_val && x < self.max_val {
-                1.0
-            } else {
-                0.0
-            }
+        let (min, max) = (self.min_val, self.max_val);
+        // Fused Zip: avoids float mask array + separate multiply (2 allocs → 1)
+        let grad = Zip::from(grad_output).and(&self.a_data).map_collect(|&g, &x| {
+            if x > min && x < max { g } else { 0.0 }
         });
-        vec![grad_output * &mask]
+        vec![grad]
     }
 
     fn inputs(&self) -> Vec<Tensor> {
@@ -672,19 +676,16 @@ impl GradFn for Conv2DBackward {
         let out_w = go_shape[3];
 
         // Reshape grad_output: BCHW → [N*OH*OW, C_out]
-        // First BCHW → BHWC
-        let mut go_bhwc = ArrayD::zeros(IxDyn(&[batch, out_h, out_w, out_channels]));
-        for b in 0..batch {
-            for c in 0..out_channels {
-                for i in 0..out_h {
-                    for j in 0..out_w {
-                        go_bhwc[[b, i, j, c]] = grad_output[[b, c, i, j]];
-                    }
-                }
-            }
-        }
-        // BHWC → [N*OH*OW, C_out]
+        // BCHW→BHWC via permuted_axes: replaces 4-level scalar scatter loop
         let rows = batch * out_h * out_w;
+        let go_bhwc = grad_output
+            .view()
+            .into_dimensionality::<ndarray::Ix4>()
+            .unwrap()
+            .permuted_axes([0usize, 2, 3, 1])
+            .as_standard_layout()
+            .into_owned()
+            .into_dyn();
         let go_2d = go_bhwc
             .into_shape_with_order(IxDyn(&[rows, out_channels]))
             .unwrap();
@@ -695,13 +696,15 @@ impl GradFn for Conv2DBackward {
         let col_2d = self.col_data.view().into_dimensionality::<ndarray::Ix2>().unwrap();
         let grad_w_2d = col_2d.t().dot(&go_2d_2); // [C_in*kH*kW, C_out]
         // Transpose to [C_out, C_in*kH*kW] then reshape to 4D weight shape
+        // as_standard_layout().into_owned() avoids the Vec<Float> roundtrip (collect + from_shape_vec)
         let c_in = self.input_shape[1];
-        let grad_w_vec: Vec<Float> = grad_w_2d.t().iter().copied().collect();
-        let grad_w_4d = ArrayD::from_shape_vec(
-            IxDyn(&[out_channels, c_in, self.kernel_size, self.kernel_size]),
-            grad_w_vec,
-        )
-        .unwrap();
+        let grad_w_4d = grad_w_2d
+            .t()
+            .as_standard_layout()
+            .into_owned()
+            .into_dyn()
+            .into_shape_with_order(IxDyn(&[out_channels, c_in, self.kernel_size, self.kernel_size]))
+            .unwrap();
 
         // ∂L/∂col = go_2d @ W_2d → [N*OH*OW, C_in*kH*kW]
         let w_2d = self.weight_2d_data.view().into_dimensionality::<ndarray::Ix2>().unwrap();
@@ -783,19 +786,12 @@ fn col2im(
         }
     }
 
-    // Remove padding
+    // Remove padding via slice: avoids 4-level scalar copy loop
     if padding > 0 {
-        let mut result = ArrayD::zeros(IxDyn(&[batch, channels, h, w]));
-        for b in 0..batch {
-            for c in 0..channels {
-                for hi in 0..h {
-                    for wi in 0..w {
-                        result[[b, c, hi, wi]] = padded[[b, c, hi + padding, wi + padding]];
-                    }
-                }
-            }
-        }
-        result
+        padded
+            .slice(ndarray::s![.., .., padding..h + padding, padding..w + padding])
+            .to_owned()
+            .into_dyn()
     } else {
         padded
     }
@@ -886,31 +882,15 @@ impl GradFn for BatchNorm2DBackward {
         // ∂L/∂beta = sum over (N,H,W) of ∂L/∂Y
         let mut grad_beta = ArrayD::zeros(IxDyn(&[channels]));
 
-        for c in 0..channels {
-            let mut sum_dy = 0.0;
-            let mut sum_dy_xhat = 0.0;
-            for b in 0..batch {
-                for i in 0..h {
-                    for j in 0..w {
-                        let dy = grad_output[[b, c, i, j]];
-                        sum_dy += dy;
-                        sum_dy_xhat += dy * self.x_hat[[b, c, i, j]];
-                    }
-                }
-            }
-            grad_gamma[[c]] = sum_dy_xhat;
-            grad_beta[[c]] = sum_dy;
-        }
-
-        // ∂L/∂X = (gamma / std) * (∂L/∂Y - mean(∂L/∂Y) - x_hat * mean(∂L/∂Y * x_hat)) / 1
-        // Full formula:
-        // ∂L/∂x = (gamma * std_inv / m) * (m * ∂L/∂y - sum(∂L/∂y) - x_hat * sum(∂L/∂y * x_hat))
+        // Single channel loop: compute sums + grad_gamma/beta in pass 1, grad_input in pass 2.
+        // Previously the sums were computed twice in two separate outer channel loops.
         let mut grad_input = ArrayD::zeros(IxDyn(&[batch, channels, h, w]));
 
         for c in 0..channels {
             let g = gamma_data[[c]];
             let si = self.std_inv[c];
 
+            // Pass 1: accumulate sum_dy and sum_dy_xhat; set grad_gamma and grad_beta
             let mut sum_dy: Float = 0.0;
             let mut sum_dy_xhat: Float = 0.0;
             for b in 0..batch {
@@ -922,7 +902,10 @@ impl GradFn for BatchNorm2DBackward {
                     }
                 }
             }
+            grad_gamma[[c]] = sum_dy_xhat;
+            grad_beta[[c]] = sum_dy;
 
+            // Pass 2: compute grad_input using the sums from pass 1
             for b in 0..batch {
                 for i in 0..h {
                     for j in 0..w {

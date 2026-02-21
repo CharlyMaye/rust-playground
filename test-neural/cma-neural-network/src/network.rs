@@ -41,11 +41,17 @@ impl RegularizationType {
     pub fn penalty(&self, weights: &Array2<Float>) -> Float {
         match self {
             RegularizationType::None => 0.0,
-            RegularizationType::L1 { lambda } => lambda * weights.mapv(|w| w.abs()).sum(),
-            RegularizationType::L2 { lambda } => 0.5 * lambda * weights.mapv(|w| w * w).sum(),
+            // iter().map().sum(): single pass, no intermediate array (avoids mapv alloc)
+            RegularizationType::L1 { lambda } => {
+                lambda * weights.iter().map(|&w| w.abs()).sum::<Float>()
+            }
+            RegularizationType::L2 { lambda } => {
+                0.5 * lambda * weights.iter().map(|&w| w * w).sum::<Float>()
+            }
             RegularizationType::ElasticNet { l1_ratio, lambda } => {
-                let l1_part = l1_ratio * weights.mapv(|w| w.abs()).sum();
-                let l2_part = 0.5 * (1.0 - l1_ratio) * weights.mapv(|w| w * w).sum();
+                let l1_part = l1_ratio * weights.iter().map(|&w| w.abs()).sum::<Float>();
+                let l2_part =
+                    0.5 * (1.0 - l1_ratio) * weights.iter().map(|&w| w * w).sum::<Float>();
                 lambda * (l1_part + l2_part)
             }
         }
@@ -194,7 +200,11 @@ impl LossFunction {
                 (&diff * &diff).sum() / predictions.len() as Float
             }
             LossFunction::MAE => {
-                (predictions - targets).mapv(|x| x.abs()).sum() / predictions.len() as Float
+                // Zip fold: avoids allocating (predictions - targets) + second mapv for abs
+                Zip::from(predictions)
+                    .and(targets)
+                    .fold(0.0, |acc, &p, &t| acc + (p - t).abs())
+                    / predictions.len() as Float
             }
             LossFunction::BinaryCrossEntropy => {
                 let epsilon: Float = 1e-15;
@@ -216,15 +226,17 @@ impl LossFunction {
             LossFunction::Huber => {
                 let delta: Float = 1.0;
                 let n = predictions.len() as Float;
-                (predictions - targets)
-                    .mapv(|d| {
-                        if d.abs() <= delta {
+                // Zip fold: avoids allocating `diff` then mapv then sum (3 passes → 1)
+                Zip::from(predictions)
+                    .and(targets)
+                    .fold(0.0, |acc, &p, &t| {
+                        let d = p - t;
+                        acc + if d.abs() <= delta {
                             0.5 * d * d
                         } else {
                             delta * (d.abs() - 0.5 * delta)
                         }
                     })
-                    .sum()
                     / n
             }
         }
@@ -258,10 +270,13 @@ impl LossFunction {
             LossFunction::BinaryCrossEntropy => {
                 // d/dx[-y*ln(x) - (1-y)*ln(1-x)] = (x - y) / (x(1-x))
                 let epsilon: Float = 1e-15;
-                let p_clamped = predictions.mapv(|p| p.max(epsilon).min(1.0 - epsilon));
-                Zip::from(&p_clamped)
+                // Fused Zip: clamp and derivative in one pass — avoids intermediate p_clamped array
+                Zip::from(predictions)
                     .and(targets)
-                    .map_collect(|&p, &t| (p - t) / (p * (1.0 - p)))
+                    .map_collect(|&p, &t| {
+                        let pc = p.max(epsilon).min(1.0 - epsilon);
+                        (pc - t) / (pc * (1.0 - pc))
+                    })
             }
             LossFunction::CategoricalCrossEntropy => {
                 // d/dx[-y*ln(x)] = -y/x
@@ -272,14 +287,13 @@ impl LossFunction {
             }
             LossFunction::Huber => {
                 let delta = 1.0;
-                let diff = predictions - targets;
-                diff.mapv(|d| {
-                    if d.abs() <= delta {
-                        d
-                    } else {
-                        delta * d.signum()
-                    }
-                })
+                // Fused Zip: avoids allocating `diff` then `mapv(...)` (2 allocs → 1)
+                Zip::from(predictions)
+                    .and(targets)
+                    .map_collect(|&p, &t| {
+                        let d = p - t;
+                        if d.abs() <= delta { d } else { delta * d.signum() }
+                    })
             }
         }
     }
@@ -340,11 +354,12 @@ impl Activation {
     pub fn apply(&self, x: &Array1<Float>) -> Array1<Float> {
         match self {
             Activation::Softmax => {
-                // Softmax requires vectorized computation for numerical stability
+                // Softmax with numerical stability
                 let max = x.fold(Float::NEG_INFINITY, |a, &b| a.max(b));
-                let exp_x = x.mapv(|v| (v - max).exp());
-                let sum = exp_x.sum();
-                exp_x / sum
+                // mapv once + in-place /= — avoids the second allocation from `exp_x / sum`
+                let mut exp_x = x.mapv(|v| (v - max).exp());
+                exp_x /= exp_x.sum();
+                exp_x
             }
             Activation::Linear => x.clone(),
             _ => x.mapv(|v| self.apply_scalar(v)),
@@ -385,8 +400,8 @@ impl Activation {
     pub fn derivative_from_preactivation(&self, z: &Array1<Float>) -> Array1<Float> {
         match self {
             Activation::Sigmoid => {
-                let sig = z.mapv(|x| 1.0 / (1.0 + (-x).exp()));
-                &sig * &(1.0 - &sig)
+                // Single mapv: fuses σ(x) and σ(x)*(1-σ(x)) — was 3 allocs (sig, 1-sig, multiply)
+                z.mapv(|x| { let s = 1.0 / (1.0 + (-x).exp()); s * (1.0 - s) })
             }
             Activation::Tanh => z.mapv(|x| 1.0 - x.tanh().powi(2)),
             Activation::ReLU => z.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }),

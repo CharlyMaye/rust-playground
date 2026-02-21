@@ -413,16 +413,15 @@ impl SqueezeExcitation {
 
         // Broadcast and multiply
         let scale = x.data();
-        let mut output = input.data().clone();
-
+        // zeros + Zip: avoids cloning input data (entire [B,C,H,W] tensor) + 4-level scalar loop
+        let mut output = ndarray::Array4::zeros(input.data().dim());
         for b in 0..shape.batch {
             for c in 0..shape.channels {
                 let s = scale[[b, c, 0, 0]];
-                for h in 0..shape.height {
-                    for w in 0..shape.width {
-                        output[[b, c, h, w]] *= s;
-                    }
-                }
+                // Zip write: ndarray dispatches to SIMD/vectorized multiply
+                ndarray::Zip::from(output.slice_mut(ndarray::s![b, c, .., ..]))
+                    .and(input.data().slice(ndarray::s![b, c, .., ..]))
+                    .for_each(|o, &inp| *o = inp * s);
             }
         }
 

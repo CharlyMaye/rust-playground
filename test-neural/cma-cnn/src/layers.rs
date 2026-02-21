@@ -713,8 +713,8 @@ impl BatchNorm2D {
             None
         };
 
-        // Compute (scale, shift, channel_data, batch_mean, batch_var) per channel in parallel
-        let channel_params: Vec<(usize, Float, Float, Vec<Float>, Option<(Float, Float)>)> =
+        // Compute (scale, shift, batch_stats) per channel in parallel — no Vec<Float> per channel
+        let channel_params: Vec<(usize, Float, Float, Option<(Float, Float)>)> =
             (0..shape.channels)
                 .into_par_iter()
                 .map(|c| {
@@ -742,23 +742,20 @@ impl BatchNorm2D {
                     let scale = self.gamma[c] * std_inv;
                     let shift = self.beta[c] - mean * scale;
 
-                    let transformed: Vec<Float> =
-                        channel_data.iter().map(|&x| x * scale + shift).collect();
-
-                    (c, scale, shift, transformed, batch_stats)
+                    (c, scale, shift, batch_stats)
                 })
                 .collect();
 
         // Rebuild output and update running stats sequentially
+        // Direct Zip write: avoids per-channel Vec<Float> alloc from the par_iter phase
         let mut output =
             ndarray::Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
 
         let m = self.momentum;
-        for (c, _scale, _shift, transformed, batch_stats) in channel_params {
-            let mut out_channel = output.slice_mut(ndarray::s![.., c, .., ..]);
-            for (out_val, &in_val) in out_channel.iter_mut().zip(transformed.iter()) {
-                *out_val = in_val;
-            }
+        for (c, scale, shift, batch_stats) in channel_params {
+            ndarray::Zip::from(output.slice_mut(ndarray::s![.., c, .., ..]))
+                .and(data.slice(ndarray::s![.., c, .., ..]))
+                .for_each(|o, &x| *o = x * scale + shift);
 
             // EMA update (sequential after par_iter)
             if let Some((batch_mean, batch_var)) = batch_stats {
