@@ -119,16 +119,9 @@ impl Tensor {
 
     /// Creates a Tensor with random values from normal distribution N(0, 1).
     pub fn randn(shape: &[usize], requires_grad: bool) -> Self {
-        use rand::Rng;
         let mut rng = rand::rng();
         let size: usize = shape.iter().product();
-        let data: Vec<Float> = (0..size)
-            .map(|_| {
-                let u1: Float = rng.random();
-                let u2: Float = rng.random();
-                (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos()
-            })
-            .collect();
+        let data = cma_neural_network::init::randn_vec(size, 1.0, &mut rng);
         Self::from_vec(data, shape, requires_grad)
     }
 

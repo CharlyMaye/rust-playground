@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 /**
@@ -6,8 +6,9 @@ import { RouterLink } from '@angular/router';
  * Provides a link to return to the home page.
  */
 @Component({
-  selector: 'nav',
+  selector: 'app-navigation-back',
   imports: [RouterLink],
   templateUrl: './navigation-back.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NavigationBack {}

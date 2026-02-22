@@ -44,7 +44,7 @@
 //! 3. **Deep architecture**: 7 layers (revolutionary for the time)
 //! 4. **End-to-end backpropagation**: differentiable training
 //!
-//! ## Exemple
+//! ## Example
 //!
 //! ```rust,ignore
 //! use cma_models::lenet::{LeNet5, LeNet5Config};
@@ -57,27 +57,28 @@
 //!     num_classes: 10,
 //!     input_size: 28,
 //!     use_batch_norm: true,  // Modernization
-//!     activation: "relu",     // ReLU instead of tanh
+//!     activation: Activation::ReLU,  // ReLU instead of tanh
 //! });
 //! ```
 
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Sequential, Tensor4D, TensorShape};
+use cma_neural_network::{Activation, Dim};
 
 /// LeNet-5 configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeNet5Config {
     /// Number of output classes (10 for MNIST)
-    pub num_classes: usize,
+    pub num_classes: Dim,
     /// Input image size (28 for MNIST, 32 for original)
-    pub input_size: usize,
+    pub input_size: Dim,
     /// Use BatchNorm (modernization, not in original paper)
     pub use_batch_norm: bool,
-    /// Activation: "tanh" (original) or "relu" (modern)
-    pub activation: String,
+    /// Activation function (default: `Tanh` for original, `ReLU` for modern)
+    pub activation: Activation,
     /// Number of input channels (1 for grayscale)
-    pub in_channels: usize,
+    pub in_channels: Dim,
 }
 
 impl Default for LeNet5Config {
@@ -86,7 +87,7 @@ impl Default for LeNet5Config {
             num_classes: 10,
             input_size: 28,
             use_batch_norm: false,
-            activation: "tanh".to_string(), // Faithful to the paper
+            activation: Activation::Tanh, // Faithful to the paper
             in_channels: 1,
         }
     }
@@ -104,7 +105,7 @@ impl LeNet5Config {
             num_classes: 10,
             input_size: 32,
             use_batch_norm: false,
-            activation: "tanh".to_string(),
+            activation: Activation::Tanh,
             in_channels: 1,
         }
     }
@@ -115,7 +116,7 @@ impl LeNet5Config {
             num_classes: 10,
             input_size: 28,
             use_batch_norm: true,
-            activation: "relu".to_string(),
+            activation: Activation::ReLU,
             in_channels: 1,
         }
     }
@@ -151,23 +152,23 @@ impl LeNet5 {
     /// # Arguments
     /// * `num_classes` - Number of classes (10 for MNIST)
     ///
-    /// # Exemple
+    /// # Example
     /// ```rust,ignore
     /// let model = LeNet5::new(10);
     /// assert_eq!(model.num_parameters(), 33_456);
     /// ```
     pub fn new(num_classes: usize) -> Self {
         let mut config = LeNet5Config::mnist();
-        config.num_classes = num_classes;
+        config.num_classes = num_classes as Dim;
         Self::with_config(config)
     }
 
     /// Creates LeNet-5 with custom configuration
     pub fn with_config(config: LeNet5Config) -> Self {
-        let activation = match config.activation.as_str() {
-            "relu" => ActivationLayer::relu(),
-            "sigmoid" => ActivationLayer::sigmoid(),
-            _ => ActivationLayer::tanh(), // Default: tanh (original)
+        let activation = match config.activation {
+            Activation::ReLU => ActivationLayer::relu(),
+            Activation::Sigmoid => ActivationLayer::sigmoid(),
+            _ => ActivationLayer::tanh(), // Default: tanh (original paper)
         };
 
         // Calculate C5 kernel size to get output 1x1
@@ -180,7 +181,7 @@ impl LeNet5 {
         let mut conv_layers = Sequential::named("LeNet-5");
 
         // C1: Convolution Layer (6 feature maps, 5x5 kernel)
-        conv_layers = conv_layers.add_conv2d(Conv2D::new(config.in_channels, 6, 5, 1, 0));
+        conv_layers = conv_layers.add_conv2d(Conv2D::new(config.in_channels as usize, 6, 5, 1, 0));
         if config.use_batch_norm {
             conv_layers = conv_layers.add_batchnorm(BatchNorm2D::new(6));
         }
@@ -234,9 +235,9 @@ impl LeNet5 {
     pub fn summary(&self) {
         let input_shape = TensorShape::new(
             1,
-            self.config.in_channels,
-            self.config.input_size,
-            self.config.input_size,
+            self.config.in_channels as usize,
+            self.config.input_size as usize,
+            self.config.input_size as usize,
         );
         self.conv_layers.summary(input_shape);
     }
@@ -245,9 +246,9 @@ impl LeNet5 {
     pub fn output_size(&self) -> usize {
         let input_shape = TensorShape::new(
             1,
-            self.config.in_channels,
-            self.config.input_size,
-            self.config.input_size,
+            self.config.in_channels as usize,
+            self.config.input_size as usize,
+            self.config.input_size as usize,
         );
         let output = self.conv_layers.output_shape(input_shape);
         output.width // After flatten
@@ -255,37 +256,6 @@ impl LeNet5 {
 }
 
 /// Creates the FC classifier for LeNet-5
-///
-/// # FC Architecture (original paper)
-/// - F6: 120 → 84 (tanh)
-/// - Output: 84 → num_classes
-///
-/// # Exemple
-/// ```rust,ignore
-/// use cma_neural_network::NetworkBuilder;
-/// use cma_models::lenet::{LeNet5, create_lenet5_classifier};
-///
-/// let cnn = LeNet5::new(10);
-/// let classifier = create_lenet5_classifier(cnn.output_size(), 10);
-/// ```
-pub fn create_lenet5_classifier(input_size: usize, num_classes: usize) -> String {
-    // Returns the recommended configuration for the NetworkBuilder
-    format!(
-        r#"// FC Classifier for LeNet-5
-// Input: {} features (CNN output)
-// Output: {} classes
-
-use cma_neural_network::{{NetworkBuilder, Activation, LossFunction, OptimizerType}};
-
-let classifier = NetworkBuilder::new({}, {})
-    .hidden_layer(84, Activation::Tanh)  // F6 from the paper
-    .output_activation(Activation::Softmax)
-    .loss(LossFunction::CategoricalCrossEntropy)
-    .optimizer(OptimizerType::adam(0.001))
-    .build();"#,
-        input_size, num_classes, input_size, num_classes
-    )
-}
 
 #[cfg(test)]
 mod tests {
@@ -314,7 +284,7 @@ mod tests {
         let input = Tensor4D::zeros(TensorShape::new(1, 1, 32, 32));
         let output = model.forward(&input);
 
-        // Pour 32x32: C1 → 28, S2 → 14, C3 → 10, S4 → 5, C5(5x5) → 1
+        // For 32x32: C1 → 28, S2 → 14, C3 → 10, S4 → 5, C5(5x5) → 1
         assert_eq!(output.shape().width, 120);
     }
 

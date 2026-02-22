@@ -40,7 +40,7 @@ impl XorNetwork {
         Ok(XorNetwork {
             network: model.network,
             accuracy: model.metadata.accuracy,
-            test_samples: model.metadata.test_samples,
+            test_samples: model.metadata.test_samples as usize,
             trained_at: model.metadata.trained_at,
         })
     }

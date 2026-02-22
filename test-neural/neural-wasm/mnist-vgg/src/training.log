@@ -19,28 +19,23 @@ workspace: /workspace/test-neural/Cargo.toml
 warning: profiles for the non root package will be ignored, specify profiles at the workspace root:
 package:   /workspace/test-neural/neural-wasm/iris/Cargo.toml
 workspace: /workspace/test-neural/Cargo.toml
-   Compiling cma-neural-network v0.1.0 (/workspace/test-neural/cma-neural-network)
 warning: unused variable: `weight_dims`
-   --> cma-neural-network/src/trainer.rs:226:13
+   --> cma-neural-network/src/trainer.rs:214:13
     |
-226 |         let weight_dims: Vec<_> = self
+214 |         let weight_dims: Vec<_> = self
     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_weight_dims`
     |
     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
 
 warning: unused variable: `bias_dims`
-   --> cma-neural-network/src/trainer.rs:232:13
+   --> cma-neural-network/src/trainer.rs:220:13
     |
-232 |         let bias_dims: Vec<_> = self.network.layers.iter().map(|l|...
+220 |         let bias_dims: Vec<_> = self.network.la...
     |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bias_dims`
 
-   Compiling cma-cnn v0.1.0 (/workspace/test-neural/cma-cnn)
-   Compiling cma-models v0.1.0 (/workspace/test-neural/cma-models)
-   Compiling cma-autograd v0.1.0 (/workspace/test-neural/cma-autograd)
-   Compiling neural-wasm-shared v0.1.0 (/workspace/test-neural/neural-wasm/shared)
 warning: `cma-neural-network` (lib) generated 2 warnings (run `cargo fix --lib -p cma-neural-network` to apply 2 suggestions)
    Compiling neural-wasm-mnist-vgg v0.1.0 (/workspace/test-neural/neural-wasm/mnist-vgg)
-    Finished `release` profile [optimized] target(s) in 5.18s
+    Finished `release` profile [optimized] target(s) in 1.49s
      Running `/workspace/test-neural/target/release/train_vgg`
 ╔══════════════════════════════════════════════════════════════╗
 ║    VGG-Tiny: End-to-End CNN Training with Autograd           ║
@@ -74,17 +69,19 @@ Total parameters: 96362
 
 🏋️  Training end-to-end with autograd backprop...
 
-Epoch   1/10: train_loss=0.1670, train_acc=95.22%, val_loss=0.0545, val_acc=98.24%
-Epoch   2/10: train_loss=0.0419, train_acc=98.63%, val_loss=0.0419, val_acc=98.67%
-Epoch   3/10: train_loss=0.0294, train_acc=99.07%, val_loss=0.0369, val_acc=98.92%
-Epoch   4/10: train_loss=0.0251, train_acc=99.22%, val_loss=0.0369, val_acc=98.94%
-Epoch   5/10: train_loss=0.0207, train_acc=99.30%, val_loss=0.0441, val_acc=98.76%
-Epoch   6/10: train_loss=0.0161, train_acc=99.48%, val_loss=0.0382, val_acc=98.95%
-Early stopping at epoch 6 (patience=3)
+Epoch   1/10: train_loss=0.1592, train_acc=95.53%, val_loss=0.0631, val_acc=97.98%
+Epoch   2/10: train_loss=0.0445, train_acc=98.63%, val_loss=0.0362, val_acc=98.86%
+Epoch   3/10: train_loss=0.0305, train_acc=99.00%, val_loss=0.0448, val_acc=98.68%
+Epoch   4/10: train_loss=0.0263, train_acc=99.14%, val_loss=0.0441, val_acc=98.61%
+Epoch   5/10: train_loss=0.0195, train_acc=99.36%, val_loss=0.0341, val_acc=99.01%
+Epoch   6/10: train_loss=0.0172, train_acc=99.45%, val_loss=0.0397, val_acc=98.92%
+Epoch   7/10: train_loss=0.0142, train_acc=99.55%, val_loss=0.0362, val_acc=99.11%
+Epoch   8/10: train_loss=0.0124, train_acc=99.60%, val_loss=0.0509, val_acc=98.65%
+Early stopping at epoch 8 (patience=3)
 
-   ✅ Autograd training done — 6 epochs
-   Train loss: 0.0161 | Val loss: 0.0382
-   Val accuracy: 98.95%
+   ✅ Autograd training done — 8 epochs
+   Train loss: 0.0124 | Val loss: 0.0509
+   Val accuracy: 98.65%
 
 🔄 Exporting trained CNN to cma-cnn format...
 
@@ -97,24 +94,24 @@ Early stopping at epoch 6 (patience=3)
 🎯 Training FC classifier on trained CNN features...
 
 🚀 Training started (500 epochs)
-Epoch 1/500 [0.2%] - train_loss: 0.017213 - val_loss: 0.037676 - ETA: 64253s   Epoch 2/500 [0.4%] - train_loss: 0.010388 - val_loss: 0.036153 - ETA: 64208s   Epoch 3/500 [0.6%] - train_loss: 0.007772 - val_loss: 0.036692 - ETA: 63299s   Epoch 4/500 [0.8%] - train_loss: 0.006090 - val_loss: 0.037506 - ETA: 62551s   Epoch 5/500 [1.0%] - train_loss: 0.004626 - val_loss: 0.038921 - ETA: 62011s   Epoch 6/500 [1.2%] - train_loss: 0.005547 - val_loss: 0.047206 - ETA: 61518s   Epoch 7/500 [1.4%] - train_loss: 0.006595 - val_loss: 0.048137 - ETA: 61151s   Epoch 8/500 [1.6%] - train_loss: 0.001848 - val_loss: 0.040601 - ETA: 60949s   Epoch 9/500 [1.8%] - train_loss: 0.001993 - val_loss: 0.042431 - ETA: 60821s   Epoch 10/500 [2.0%] - train_loss: 0.002893 - val_loss: 0.039302 - ETA: 60773s   
-Epoch 11/500 [2.2%] - train_loss: 0.002606 - val_loss: 0.053729 - ETA: 60741s   Epoch 12/500 [2.4%] - train_loss: 0.002683 - val_loss: 0.065459 - ETA: 60651s   Epoch 13/500 [2.6%] - train_loss: 0.001364 - val_loss: 0.054954 - ETA: 60419s   Epoch 14/500 [2.8%] - train_loss: 0.001190 - val_loss: 0.061248 - ETA: 60230s   Epoch 15/500 [3.0%] - train_loss: 0.000585 - val_loss: 0.053535 - ETA: 60145s   Epoch 16/500 [3.2%] - train_loss: 0.000718 - val_loss: 0.061172 - ETA: 60039s   Epoch 17/500 [3.4%] - train_loss: 0.000570 - val_loss: 0.055505 - ETA: 59953s   Epoch 18/500 [3.6%] - train_loss: 0.000662 - val_loss: 0.059546 - ETA: 59829s   Epoch 19/500 [3.8%] - train_loss: 0.001090 - val_loss: 0.066804 - ETA: 59730s   Epoch 20/500 [4.0%] - train_loss: 0.000922 - val_loss: 0.063282 - ETA: 59571s   
-Epoch 21/500 [4.2%] - train_loss: 0.000546 - val_loss: 0.059570 - ETA: 59419s   Epoch 22/500 [4.4%] - train_loss: 0.000490 - val_loss: 0.071309 - ETA: 59283s   Epoch 23/500 [4.6%] - train_loss: 0.000707 - val_loss: 0.075658 - ETA: 59129s   Epoch 24/500 [4.8%] - train_loss: 0.000386 - val_loss: 0.071309 - ETA: 58989s   Epoch 25/500 [5.0%] - train_loss: 0.001127 - val_loss: 0.081408 - ETA: 58805s   Epoch 26/500 [5.2%] - train_loss: 0.001352 - val_loss: 0.084392 - ETA: 58670s   
+Epoch 1/500 [0.2%] - train_loss: 0.016979 - val_loss: 0.042802 - ETA: 64763s   Epoch 2/500 [0.4%] - train_loss: 0.007823 - val_loss: 0.037389 - ETA: 64672s   Epoch 3/500 [0.6%] - train_loss: 0.005509 - val_loss: 0.038477 - ETA: 64653s   Epoch 4/500 [0.8%] - train_loss: 0.006080 - val_loss: 0.046821 - ETA: 64561s   Epoch 5/500 [1.0%] - train_loss: 0.005260 - val_loss: 0.049104 - ETA: 64436s   Epoch 6/500 [1.2%] - train_loss: 0.007044 - val_loss: 0.046937 - ETA: 64324s   Epoch 7/500 [1.4%] - train_loss: 0.003049 - val_loss: 0.044045 - ETA: 64209s   Epoch 8/500 [1.6%] - train_loss: 0.002176 - val_loss: 0.043273 - ETA: 64076s   Epoch 9/500 [1.8%] - train_loss: 0.001731 - val_loss: 0.046882 - ETA: 63885s   Epoch 10/500 [2.0%] - train_loss: 0.000728 - val_loss: 0.044130 - ETA: 63846s   
+Epoch 11/500 [2.2%] - train_loss: 0.001395 - val_loss: 0.050027 - ETA: 63815s   Epoch 12/500 [2.4%] - train_loss: 0.000759 - val_loss: 0.057120 - ETA: 63775s   Epoch 13/500 [2.6%] - train_loss: 0.000790 - val_loss: 0.057012 - ETA: 63667s   Epoch 14/500 [2.8%] - train_loss: 0.000481 - val_loss: 0.058503 - ETA: 63578s   Epoch 15/500 [3.0%] - train_loss: 0.001151 - val_loss: 0.062561 - ETA: 63503s   Epoch 16/500 [3.2%] - train_loss: 0.000706 - val_loss: 0.065129 - ETA: 63403s   Epoch 17/500 [3.4%] - train_loss: 0.000789 - val_loss: 0.079583 - ETA: 63294s   Epoch 18/500 [3.6%] - train_loss: 0.000545 - val_loss: 0.070480 - ETA: 63193s   Epoch 19/500 [3.8%] - train_loss: 0.000512 - val_loss: 0.070386 - ETA: 63110s   Epoch 20/500 [4.0%] - train_loss: 0.000781 - val_loss: 0.057441 - ETA: 63041s   
+Epoch 21/500 [4.2%] - train_loss: 0.000244 - val_loss: 0.066009 - ETA: 62975s   Epoch 22/500 [4.4%] - train_loss: 0.000496 - val_loss: 0.073525 - ETA: 62931s   Epoch 23/500 [4.6%] - train_loss: 0.000097 - val_loss: 0.071611 - ETA: 62900s   Epoch 24/500 [4.8%] - train_loss: 0.000189 - val_loss: 0.075655 - ETA: 62876s   Epoch 25/500 [5.0%] - train_loss: 0.000473 - val_loss: 0.085919 - ETA: 62838s   Epoch 26/500 [5.2%] - train_loss: 0.000560 - val_loss: 0.077458 - ETA: 62815s   
 📉 LR Scheduler: Epoch 26 - Plateau detected, reducing LR 0.001000 → 0.000500
-Epoch 27/500 [5.4%] - train_loss: 0.000302 - val_loss: 0.087481 - ETA: 58611s   Epoch 28/500 [5.6%] - train_loss: 0.000059 - val_loss: 0.080471 - ETA: 58536s   Epoch 29/500 [5.8%] - train_loss: 0.000016 - val_loss: 0.082079 - ETA: 58409s   Epoch 30/500 [6.0%] - train_loss: 0.000016 - val_loss: 0.075838 - ETA: 58317s   
-Epoch 31/500 [6.2%] - train_loss: 0.000037 - val_loss: 0.079674 - ETA: 58216s   Epoch 32/500 [6.4%] - train_loss: 0.000011 - val_loss: 0.084502 - ETA: 58120s   Epoch 33/500 [6.6%] - train_loss: 0.000002 - val_loss: 0.086399 - ETA: 58011s   Epoch 34/500 [6.8%] - train_loss: 0.000003 - val_loss: 0.084851 - ETA: 57899s   Epoch 35/500 [7.0%] - train_loss: 0.000002 - val_loss: 0.083403 - ETA: 57768s   Epoch 36/500 [7.2%] - train_loss: 0.000004 - val_loss: 0.080675 - ETA: 57633s   Epoch 37/500 [7.4%] - train_loss: 0.000105 - val_loss: 0.080406 - ETA: 57524s   Epoch 38/500 [7.6%] - train_loss: 0.000002 - val_loss: 0.084343 - ETA: 57400s   Epoch 39/500 [7.8%] - train_loss: 0.000001 - val_loss: 0.088370 - ETA: 57290s   Epoch 40/500 [8.0%] - train_loss: 0.000019 - val_loss: 0.097107 - ETA: 57200s   
-Epoch 41/500 [8.2%] - train_loss: 0.000007 - val_loss: 0.108115 - ETA: 57109s   Epoch 42/500 [8.4%] - train_loss: 0.000001 - val_loss: 0.097886 - ETA: 57023s   Epoch 43/500 [8.6%] - train_loss: 0.000003 - val_loss: 0.096870 - ETA: 56938s   Epoch 44/500 [8.8%] - train_loss: 0.000007 - val_loss: 0.099496 - ETA: 56859s   Epoch 45/500 [9.0%] - train_loss: 0.000000 - val_loss: 0.096643 - ETA: 56774s   Epoch 46/500 [9.2%] - train_loss: 0.000002 - val_loss: 0.097059 - ETA: 56678s   Epoch 47/500 [9.4%] - train_loss: 0.000000 - val_loss: 0.103800 - ETA: 56526s   Epoch 48/500 [9.6%] - train_loss: 0.000002 - val_loss: 0.100327 - ETA: 56442s   Epoch 49/500 [9.8%] - train_loss: 0.000003 - val_loss: 0.114227 - ETA: 56415s   Epoch 50/500 [10.0%] - train_loss: 0.000008 - val_loss: 0.105945 - ETA: 56346s   
-Epoch 51/500 [10.2%] - train_loss: 0.000000 - val_loss: 0.112887 - ETA: 56302s   
+Epoch 27/500 [5.4%] - train_loss: 0.000895 - val_loss: 0.084293 - ETA: 62809s   Epoch 28/500 [5.6%] - train_loss: 0.000024 - val_loss: 0.080933 - ETA: 62626s   Epoch 29/500 [5.8%] - train_loss: 0.000040 - val_loss: 0.079273 - ETA: 62432s   Epoch 30/500 [6.0%] - train_loss: 0.000007 - val_loss: 0.081517 - ETA: 62242s   
+Epoch 31/500 [6.2%] - train_loss: 0.000015 - val_loss: 0.078234 - ETA: 62058s   Epoch 32/500 [6.4%] - train_loss: 0.000021 - val_loss: 0.088145 - ETA: 61876s   Epoch 33/500 [6.6%] - train_loss: 0.000003 - val_loss: 0.078637 - ETA: 61701s   Epoch 34/500 [6.8%] - train_loss: 0.000000 - val_loss: 0.085225 - ETA: 61510s   Epoch 35/500 [7.0%] - train_loss: 0.000004 - val_loss: 0.090645 - ETA: 61317s   Epoch 36/500 [7.2%] - train_loss: 0.000001 - val_loss: 0.089529 - ETA: 61142s   Epoch 37/500 [7.4%] - train_loss: 0.000001 - val_loss: 0.090127 - ETA: 60975s   Epoch 38/500 [7.6%] - train_loss: 0.000010 - val_loss: 0.093730 - ETA: 60805s   Epoch 39/500 [7.8%] - train_loss: 0.000001 - val_loss: 0.099748 - ETA: 60635s   Epoch 40/500 [8.0%] - train_loss: 0.000000 - val_loss: 0.091638 - ETA: 60468s   
+Epoch 41/500 [8.2%] - train_loss: 0.000000 - val_loss: 0.095976 - ETA: 60306s   Epoch 42/500 [8.4%] - train_loss: 0.000000 - val_loss: 0.101836 - ETA: 60142s   Epoch 43/500 [8.6%] - train_loss: 0.000088 - val_loss: 0.115166 - ETA: 59984s   Epoch 44/500 [8.8%] - train_loss: 0.000000 - val_loss: 0.100204 - ETA: 59812s   Epoch 45/500 [9.0%] - train_loss: 0.000000 - val_loss: 0.107973 - ETA: 59648s   Epoch 46/500 [9.2%] - train_loss: 0.000000 - val_loss: 0.111033 - ETA: 59479s   Epoch 47/500 [9.4%] - train_loss: 0.000000 - val_loss: 0.106811 - ETA: 59318s   Epoch 48/500 [9.6%] - train_loss: 0.000000 - val_loss: 0.107244 - ETA: 59151s   Epoch 49/500 [9.8%] - train_loss: 0.000000 - val_loss: 0.117403 - ETA: 58989s   Epoch 50/500 [10.0%] - train_loss: 0.000000 - val_loss: 0.117976 - ETA: 58829s   
+Epoch 51/500 [10.2%] - train_loss: 0.000000 - val_loss: 0.104343 - ETA: 58667s   
 📉 LR Scheduler: Epoch 51 - Plateau detected, reducing LR 0.000500 → 0.000250
 
-⚠️ EarlyStopping: Stopped at epoch 51 (best epoch: 1, loss: 0.036153)
-✅ Training completed in 6533.23s
+⚠️ EarlyStopping: Stopped at epoch 51 (best epoch: 1, loss: 0.037389)
+✅ Training completed in 6790.82s
 
    ✅ FC training completed in 52 epochs
 
-   VGG-Tiny: 13908/14000 correct (99.34%)
+   VGG-Tiny: 13909/14000 correct (99.35%)
 
 💾 Saving model...
 
-Saved CNN model to src/vgg_model.bin (10072.7 KB, accuracy=99.3%)
-   ✅ Model saved to src/vgg_model.bin — accuracy 99.34%
+Saved CNN model to src/vgg_model.bin (10072.6 KB, accuracy=99.3%)
+   ✅ Model saved to src/vgg_model.bin — accuracy 99.35%

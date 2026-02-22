@@ -77,7 +77,7 @@
 //! - **Over 100,000 citations** (one of the most cited papers)
 
 use cma_cnn::{Tensor4D, TensorShape};
-use cma_models::resnet::{ResNet18, ResNet34, ResNet50, ResNetConfig, ResidualBlock};
+use cma_models::resnet::{ResNet, ResNetBuilder, ResidualBlock};
 
 fn main() {
     println!("═══════════════════════════════════════════════════════════════════");
@@ -127,21 +127,20 @@ fn main() {
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
 
-    let mut config = ResNetConfig::resnet18();
-    config.input_size = 32;
-    config.num_classes = 10;
+    // ResNet-18 equivalent using the unified builder
+    let resnet18 = ResNetBuilder::new()
+        .input_channels(3)
+        .input_size(32)
+        .channels(&[64, 128, 256, 512])
+        .blocks(&[2, 2, 2, 2])
+        .stem_channels(64)
+        .stem_pooling(false)
+        .build();
 
-    let resnet18 = ResNet18::with_config(config);
+    println!("ResNet-18 (CIFAR-10 config):");
+    println!("  Parameters: {}", resnet18.num_parameters());
+    println!("  Output features: {}", resnet18.output_features());
 
-    resnet18.summary();
-
-    let batch = Tensor4D::random(TensorShape::new(32, 3, 32, 32));
-    let features = resnet18.forward(&batch);
-
-    println!();
-    println!("Forward pass:");
-    println!("  Input:  [32, 3, 32, 32]");
-    println!("  Output: {:?} (512 features after GAP)", features.shape());
 
     // ═══════════════════════════════════════════════════════════════════════
     // Variant Comparison
@@ -338,9 +337,14 @@ mod tests {
 
     #[test]
     fn test_resnet18() {
-        let mut config = ResNetConfig::resnet18();
-        config.input_size = 32;
-        let model = ResNet18::with_config(config);
+        let model = ResNetBuilder::new()
+            .input_channels(3)
+            .input_size(32)
+            .channels(&[64, 128, 256, 512])
+            .blocks(&[2, 2, 2, 2])
+            .stem_channels(64)
+            .stem_pooling(false)
+            .build();
         let input = Tensor4D::random(TensorShape::new(1, 3, 32, 32));
         let output = model.forward(&input);
         assert_eq!(output.shape().width, 512);

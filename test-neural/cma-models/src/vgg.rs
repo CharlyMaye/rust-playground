@@ -65,21 +65,21 @@
 
 use serde::{Deserialize, Serialize};
 
-use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, MaxPool2D, Sequential, Tensor4D, TensorShape};
+use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, Dim, MaxPool2D, Sequential, Tensor4D, TensorShape};
 
 /// VGG configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VGGConfig {
     /// Number of classes
-    pub num_classes: usize,
+    pub num_classes: Dim,
     /// Input size (224 for ImageNet)
-    pub input_size: usize,
+    pub input_size: Dim,
     /// Input channels (3 for RGB)
-    pub in_channels: usize,
+    pub in_channels: Dim,
     /// Use BatchNorm
     pub use_batch_norm: bool,
     /// Block configuration [num_convs, out_channels]
-    pub blocks: Vec<(usize, usize)>,
+    pub blocks: Vec<(Dim, Dim)>,
 }
 
 impl Default for VGGConfig {
@@ -169,7 +169,7 @@ impl VGG16 {
     /// Creates VGG-16 for ImageNet
     pub fn new(num_classes: usize) -> Self {
         let mut config = VGGConfig::vgg16();
-        config.num_classes = num_classes;
+        config.num_classes = num_classes as Dim;
         Self::with_config(config)
     }
 
@@ -181,19 +181,19 @@ impl VGG16 {
 
     fn build_features(config: &VGGConfig) -> Sequential {
         let mut features = Sequential::named("VGG-16");
-        let mut in_channels = config.in_channels;
+        let mut in_channels = config.in_channels as usize;
 
         for (num_convs, out_channels) in &config.blocks {
-            for _ in 0..*num_convs {
+            for _ in 0..(*num_convs as usize) {
                 // Conv 3×3, same padding
-                features = features.add_conv2d(Conv2D::new(in_channels, *out_channels, 3, 1, 1));
+                features = features.add_conv2d(Conv2D::new(in_channels, *out_channels as usize, 3, 1, 1));
 
                 if config.use_batch_norm {
-                    features = features.add_batchnorm(BatchNorm2D::new(*out_channels));
+                    features = features.add_batchnorm(BatchNorm2D::new(*out_channels as usize));
                 }
 
                 features = features.add_activation(ActivationLayer::relu());
-                in_channels = *out_channels;
+                in_channels = *out_channels as usize;
             }
 
             // MaxPool after each block
@@ -218,9 +218,9 @@ impl VGG16 {
     pub fn summary(&self) {
         let input_shape = TensorShape::new(
             1,
-            self.config.in_channels,
-            self.config.input_size,
-            self.config.input_size,
+            self.config.in_channels as usize,
+            self.config.input_size as usize,
+            self.config.input_size as usize,
         );
         self.features.summary(input_shape);
     }
@@ -229,9 +229,9 @@ impl VGG16 {
     pub fn output_size(&self) -> usize {
         let input_shape = TensorShape::new(
             1,
-            self.config.in_channels,
-            self.config.input_size,
-            self.config.input_size,
+            self.config.in_channels as usize,
+            self.config.input_size as usize,
+            self.config.input_size as usize,
         );
         let output = self.features.output_shape(input_shape);
         output.width
@@ -249,7 +249,7 @@ impl VGG19 {
     /// Creates VGG-19 for ImageNet
     pub fn new(num_classes: usize) -> Self {
         let mut config = VGGConfig::vgg19();
-        config.num_classes = num_classes;
+        config.num_classes = num_classes as Dim;
         Self::with_config(config)
     }
 
@@ -326,15 +326,15 @@ mod tests {
         let vgg19 = VGGConfig::vgg19();
 
         // VGG-11: 1+1+2+2+2 = 8 conv
-        let total_11: usize = vgg11.blocks.iter().map(|(n, _)| n).sum();
+        let total_11: usize = vgg11.blocks.iter().map(|(n, _)| *n as usize).sum();
         assert_eq!(total_11, 8);
 
         // VGG-16: 2+2+3+3+3 = 13 conv
-        let total_16: usize = vgg16.blocks.iter().map(|(n, _)| n).sum();
+        let total_16: usize = vgg16.blocks.iter().map(|(n, _)| *n as usize).sum();
         assert_eq!(total_16, 13);
 
         // VGG-19: 2+2+4+4+4 = 16 conv
-        let total_19: usize = vgg19.blocks.iter().map(|(n, _)| n).sum();
+        let total_19: usize = vgg19.blocks.iter().map(|(n, _)| *n as usize).sum();
         assert_eq!(total_19, 16);
     }
 }

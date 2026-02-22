@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { form, FormField, max, min } from '@angular/forms/signals';
 import { Activation, PredictionResult, WasmFacade } from '@cma/wasm/shared';
 import { Loader } from '../../ui/loader/loader';
@@ -30,6 +30,7 @@ interface IrisFormState {
   templateUrl: './iris-classifier.html',
   styleUrl: './iris-classifier.scss',
   host: { class: 'page container' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class IrisClassifier {
   private readonly wasmService = inject(WasmFacade);

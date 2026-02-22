@@ -1,9 +1,9 @@
 //! # Backward Engine
 //!
-//! Orchestration du backward pass :
-//! 1. Tri topologique du graphe de calcul
-//! 2. Propagation des gradients depuis la loss vers les feuilles
-//! 3. Accumulation des gradients dans les tenseurs feuilles
+//! Backward pass orchestration:
+//! 1. Topological sort of the computation graph
+//! 2. Gradient propagation from the loss to leaf tensors
+//! 3. Gradient accumulation in leaf tensors
 
 use crate::Float;
 use crate::grad_fn::GradFn;

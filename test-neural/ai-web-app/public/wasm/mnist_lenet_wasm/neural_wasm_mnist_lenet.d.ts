@@ -1,28 +1,22 @@
 /* tslint:disable */
 /* eslint-disable */
 
-/**
- * LeNet-5 MNIST Neural Network exposed to JavaScript
- */
 export class MnistLeNetNetwork {
     free(): void;
     [Symbol.dispose](): void;
     /**
-     * Get FC classifier activations for visualization (same API as MNIST FC-only)
+     * Get FC classifier activations for visualization.
      */
     get_activations(pixels: Float32Array): string;
     get_architecture(): string;
     get_class_names(): string;
     /**
-     * Get CNN intermediate activations for visualization
+     * Get CNN intermediate activations for visualization.
      */
     get_cnn_activations(pixels: Float32Array): string;
     get_probabilities(pixels: Float32Array): string;
     get_weights(): string;
     model_info(): string;
-    /**
-     * Create a new LeNet-5 MNIST network by loading the embedded model
-     */
     constructor();
     predict(pixels: Float32Array): string;
     test_all(): string;

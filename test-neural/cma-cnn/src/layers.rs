@@ -12,7 +12,7 @@
 //! - Ioffe & Szegedy (2015): Batch Normalization
 //! - He et al. (2015): Initialization for ReLU
 
-use crate::Float;
+use crate::{Dim, Float};
 use ndarray::{Array1, Array4};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -28,6 +28,7 @@ use crate::tensor::{Tensor4D, TensorShape};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum LayerType {
     Conv2D,
+    DepthwiseConv2D,
     MaxPool2D,
     AvgPool2D,
     GlobalAvgPool2D,
@@ -66,7 +67,7 @@ pub trait Layer: Send + Sync {
 /// Applies `out_channels` filters of size `kernel_size × kernel_size`
 /// on the input with `in_channels` channels.
 ///
-/// # Exemple
+/// # Example
 ///
 /// ```rust,ignore
 /// // 1 channel input → 32 filters, kernel 3x3
@@ -75,15 +76,15 @@ pub trait Layer: Send + Sync {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Conv2D {
     /// Number of input channels
-    pub in_channels: usize,
+    pub in_channels: Dim,
     /// Number of filters (output channels)
-    pub out_channels: usize,
+    pub out_channels: Dim,
     /// Kernel size (square)
-    pub kernel_size: usize,
+    pub kernel_size: Dim,
     /// Stride (step size)
-    pub stride: usize,
+    pub stride: Dim,
     /// Padding
-    pub padding: usize,
+    pub padding: Dim,
     /// Weights [out_channels, in_channels, kernel_h, kernel_w]
     pub weights: Array4<Float>,
     /// Bias [out_channels]
@@ -111,21 +112,15 @@ impl Conv2D {
         let mut rng = rand::rng();
 
         // He initialization (for ReLU)
-        // Variance = 2 / (fan_in)
         // fan_in = in_channels * kernel_size * kernel_size
         let fan_in = in_channels * kernel_size * kernel_size;
         let std = (2.0 / fan_in as Float).sqrt();
 
-        // Generate weights with normal distribution
-        let weights_vec: Vec<Float> = (0..out_channels * in_channels * kernel_size * kernel_size)
-            .map(|_| {
-                // Box-Muller transform
-                let u1: Float = rng.random();
-                let u2: Float = rng.random();
-                let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-                z * std
-            })
-            .collect();
+        let weights_vec = cma_neural_network::init::randn_vec(
+            out_channels * in_channels * kernel_size * kernel_size,
+            std,
+            &mut rng,
+        );
 
         let weights = Array4::from_shape_vec(
             (out_channels, in_channels, kernel_size, kernel_size),
@@ -137,11 +132,11 @@ impl Conv2D {
         let bias = Array1::zeros(out_channels);
 
         Self {
-            in_channels,
-            out_channels,
-            kernel_size,
-            stride,
-            padding,
+            in_channels: in_channels as Dim,
+            out_channels: out_channels as Dim,
+            kernel_size: kernel_size as Dim,
+            stride: stride as Dim,
+            padding: padding as Dim,
             weights,
             bias,
             use_bias: true,
@@ -169,7 +164,7 @@ impl Layer for Conv2D {
             None
         };
         // Uses im2col + GEMM for ~10-100x faster convolution
-        conv2d_im2col(input, &self.weights, bias, self.stride, self.padding)
+        conv2d_im2col(input, &self.weights, bias, self.stride as usize, self.padding as usize)
     }
 
     fn layer_type(&self) -> LayerType {
@@ -177,17 +172,17 @@ impl Layer for Conv2D {
     }
 
     fn num_parameters(&self) -> usize {
-        let weights = self.out_channels * self.in_channels * self.kernel_size * self.kernel_size;
-        let bias = if self.use_bias { self.out_channels } else { 0 };
+        let weights = self.out_channels as usize * self.in_channels as usize * self.kernel_size as usize * self.kernel_size as usize;
+        let bias = if self.use_bias { self.out_channels as usize } else { 0 };
         weights + bias
     }
 
     fn output_shape(&self, input_shape: TensorShape) -> TensorShape {
         input_shape.after_conv(
-            self.out_channels,
-            self.kernel_size,
-            self.stride,
-            self.padding,
+            self.out_channels as usize,
+            self.kernel_size as usize,
+            self.stride as usize,
+            self.padding as usize,
         )
     }
 
@@ -200,6 +195,142 @@ impl Layer for Conv2D {
             self.kernel_size,
             self.stride,
             self.padding
+        )
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DepthwiseConv2D - Depthwise (channel-wise) Convolution
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Depthwise 2D Convolution Layer
+///
+/// Applies one spatial filter per input channel (groups = channels).
+/// Used in MobileNet, EfficientNet, and other efficient architectures.
+///
+/// # Weight layout
+/// `[channels, 1, kernel_h, kernel_w]` — one filter per channel.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// // 32-channel depthwise conv with 3x3 kernel, stride 1, padding 1
+/// let dw = DepthwiseConv2D::new(32, 3, 1, 1);
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DepthwiseConv2D {
+    /// Number of input/output channels
+    pub channels: Dim,
+    /// Kernel size (square)
+    pub kernel_size: Dim,
+    /// Stride
+    pub stride: Dim,
+    /// Padding
+    pub padding: Dim,
+    /// Weights [channels, 1, kernel_h, kernel_w]
+    pub weights: Array4<Float>,
+    /// Bias [channels]
+    pub bias: Array1<Float>,
+    /// Whether to use bias
+    pub use_bias: bool,
+}
+
+impl DepthwiseConv2D {
+    /// Creates a new DepthwiseConv2D with He initialization.
+    ///
+    /// # Arguments
+    /// * `channels` - Number of input (= output) channels
+    /// * `kernel_size` - Kernel size (e.g. 3 for 3x3)
+    /// * `stride` - Step size
+    /// * `padding` - Zero-padding
+    pub fn new(channels: usize, kernel_size: usize, stride: usize, padding: usize) -> Self {
+        let mut rng = rand::rng();
+        let fan_in = kernel_size * kernel_size; // single channel filter
+        let std = (2.0 / fan_in as Float).sqrt();
+        let weights_vec =
+            cma_neural_network::init::randn_vec(channels * kernel_size * kernel_size, std, &mut rng);
+        let weights =
+            Array4::from_shape_vec((channels, 1, kernel_size, kernel_size), weights_vec).unwrap();
+        let bias = Array1::zeros(channels);
+        Self {
+            channels: channels as Dim,
+            kernel_size: kernel_size as Dim,
+            stride: stride as Dim,
+            padding: padding as Dim,
+            weights,
+            bias,
+            use_bias: true,
+        }
+    }
+
+    /// Disables bias (recommended before BatchNorm)
+    pub fn without_bias(mut self) -> Self {
+        self.use_bias = false;
+        self
+    }
+}
+
+impl Layer for DepthwiseConv2D {
+    fn forward(&self, input: &Tensor4D) -> Tensor4D {
+        let shape = input.shape();
+        let data = input.data();
+        let k = self.kernel_size as usize;
+        let s = self.stride as usize;
+        let p = self.padding as usize;
+        let channels = self.channels as usize;
+
+        let out_h = (shape.height + 2 * p - k) / s + 1;
+        let out_w = (shape.width + 2 * p - k) / s + 1;
+
+        let mut output = Array4::zeros((shape.batch, channels, out_h, out_w));
+
+        for b in 0..shape.batch {
+            for c in 0..channels {
+                let bias_val = if self.use_bias { self.bias[c] } else { 0.0 };
+                for oh in 0..out_h {
+                    for ow in 0..out_w {
+                        let mut acc: Float = bias_val;
+                        for kh in 0..k {
+                            for kw in 0..k {
+                                let ih = (oh * s + kh).wrapping_sub(p);
+                                let iw = (ow * s + kw).wrapping_sub(p);
+                                // Bounds check (handles padding)
+                                if oh * s + kh >= p
+                                    && ow * s + kw >= p
+                                    && ih < shape.height
+                                    && iw < shape.width
+                                {
+                                    acc += data[[b, c, ih, iw]] * self.weights[[c, 0, kh, kw]];
+                                }
+                            }
+                        }
+                        output[[b, c, oh, ow]] = acc;
+                    }
+                }
+            }
+        }
+
+        Tensor4D::from_array(output)
+    }
+
+    fn layer_type(&self) -> LayerType {
+        LayerType::DepthwiseConv2D
+    }
+
+    fn num_parameters(&self) -> usize {
+        let weights = self.channels as usize * self.kernel_size as usize * self.kernel_size as usize;
+        let bias = if self.use_bias { self.channels as usize } else { 0 };
+        weights + bias
+    }
+
+    fn output_shape(&self, input_shape: TensorShape) -> TensorShape {
+        input_shape.after_conv(self.channels as usize, self.kernel_size as usize, self.stride as usize, self.padding as usize)
+    }
+
+    fn summary(&self) -> String {
+        format!(
+            "DepthwiseConv2D({} ch, {}x{}, stride={}, pad={})",
+            self.channels, self.kernel_size, self.kernel_size, self.stride, self.padding
         )
     }
 }
@@ -221,13 +352,13 @@ impl Layer for Conv2D {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MaxPool2D {
-    pub pool_size: usize,
-    pub stride: usize,
+    pub pool_size: Dim,
+    pub stride: Dim,
 }
 
 impl MaxPool2D {
     pub fn new(pool_size: usize, stride: usize) -> Self {
-        Self { pool_size, stride }
+        Self { pool_size: pool_size as Dim, stride: stride as Dim }
     }
 
     /// Pool 2x2 stride 2 (most common)
@@ -238,7 +369,7 @@ impl MaxPool2D {
 
 impl Layer for MaxPool2D {
     fn forward(&self, input: &Tensor4D) -> Tensor4D {
-        let (output, _indices) = maxpool2d(input, self.pool_size, self.stride);
+        let (output, _indices) = maxpool2d(input, self.pool_size as usize, self.stride as usize);
         output
     }
 
@@ -251,7 +382,7 @@ impl Layer for MaxPool2D {
     }
 
     fn output_shape(&self, input_shape: TensorShape) -> TensorShape {
-        input_shape.after_pool(self.pool_size, self.stride)
+        input_shape.after_pool(self.pool_size as usize, self.stride as usize)
     }
 
     fn summary(&self) -> String {
@@ -269,19 +400,19 @@ impl Layer for MaxPool2D {
 /// 2D Average Pooling Layer
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AvgPool2D {
-    pub pool_size: usize,
-    pub stride: usize,
+    pub pool_size: Dim,
+    pub stride: Dim,
 }
 
 impl AvgPool2D {
     pub fn new(pool_size: usize, stride: usize) -> Self {
-        Self { pool_size, stride }
+        Self { pool_size: pool_size as Dim, stride: stride as Dim }
     }
 }
 
 impl Layer for AvgPool2D {
     fn forward(&self, input: &Tensor4D) -> Tensor4D {
-        avgpool2d(input, self.pool_size, self.stride)
+        avgpool2d(input, self.pool_size as usize, self.stride as usize)
     }
 
     fn layer_type(&self) -> LayerType {
@@ -293,7 +424,7 @@ impl Layer for AvgPool2D {
     }
 
     fn output_shape(&self, input_shape: TensorShape) -> TensorShape {
-        input_shape.after_pool(self.pool_size, self.stride)
+        input_shape.after_pool(self.pool_size as usize, self.stride as usize)
     }
 
     fn summary(&self) -> String {
@@ -374,7 +505,7 @@ impl Layer for GlobalAvgPool2D {
 /// - Implicit regularization
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BatchNorm2D {
-    pub num_features: usize,
+    pub num_features: Dim,
     /// Learned parameters: scale (γ)
     pub gamma: Array1<Float>,
     /// Learned parameters: shift (β)
@@ -430,7 +561,7 @@ where
 impl BatchNorm2D {
     pub fn new(num_features: usize) -> Self {
         Self {
-            num_features,
+            num_features: num_features as Dim,
             gamma: Array1::ones(num_features),
             beta: Array1::zeros(num_features),
             running_mean: RwLock::new(Array1::zeros(num_features)),
@@ -475,7 +606,7 @@ impl Layer for BatchNorm2D {
 
     fn num_parameters(&self) -> usize {
         // gamma and beta are learned
-        self.num_features * 2
+        self.num_features as usize * 2
     }
 
     fn output_shape(&self, input_shape: TensorShape) -> TensorShape {
@@ -583,8 +714,8 @@ impl BatchNorm2D {
             None
         };
 
-        // Compute (scale, shift, channel_data, batch_mean, batch_var) per channel in parallel
-        let channel_params: Vec<(usize, Float, Float, Vec<Float>, Option<(Float, Float)>)> =
+        // Compute (scale, shift, batch_stats) per channel in parallel — no Vec<Float> per channel
+        let channel_params: Vec<(usize, Float, Float, Option<(Float, Float)>)> =
             (0..shape.channels)
                 .into_par_iter()
                 .map(|c| {
@@ -612,23 +743,20 @@ impl BatchNorm2D {
                     let scale = self.gamma[c] * std_inv;
                     let shift = self.beta[c] - mean * scale;
 
-                    let transformed: Vec<Float> =
-                        channel_data.iter().map(|&x| x * scale + shift).collect();
-
-                    (c, scale, shift, transformed, batch_stats)
+                    (c, scale, shift, batch_stats)
                 })
                 .collect();
 
         // Rebuild output and update running stats sequentially
+        // Direct Zip write: avoids per-channel Vec<Float> alloc from the par_iter phase
         let mut output =
             ndarray::Array4::zeros((shape.batch, shape.channels, shape.height, shape.width));
 
         let m = self.momentum;
-        for (c, _scale, _shift, transformed, batch_stats) in channel_params {
-            let mut out_channel = output.slice_mut(ndarray::s![.., c, .., ..]);
-            for (out_val, &in_val) in out_channel.iter_mut().zip(transformed.iter()) {
-                *out_val = in_val;
-            }
+        for (c, scale, shift, batch_stats) in channel_params {
+            ndarray::Zip::from(output.slice_mut(ndarray::s![.., c, .., ..]))
+                .and(data.slice(ndarray::s![.., c, .., ..]))
+                .for_each(|o, &x| *o = x * scale + shift);
 
             // EMA update (sequential after par_iter)
             if let Some((batch_mean, batch_var)) = batch_stats {
@@ -740,20 +868,17 @@ impl Layer for Dropout2D {
 ///
 /// Used to connect CNN layers to fully-connected layers.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Flatten {
-    /// Input shape (for unflatten during backward pass)
-    input_shape: Option<TensorShape>,
-}
+pub struct Flatten;
 
 impl Flatten {
     pub fn new() -> Self {
-        Self { input_shape: None }
+        Self
     }
 }
 
 impl Default for Flatten {
     fn default() -> Self {
-        Self::new()
+        Self
     }
 }
 
@@ -889,46 +1014,10 @@ impl Layer for ActivationLayer {
     }
 }
 
-/// Applies an activation on a scalar
-/// Replicates cma_neural_network::Activation::apply logic for a single element
+/// Applies an activation on a scalar.
+/// Delegates to `cma_neural_network::Activation::apply_scalar` to avoid duplication.
 fn apply_activation_scalar(activation: cma_neural_network::Activation, x: Float) -> Float {
-    use cma_neural_network::Activation;
-    match activation {
-        Activation::Sigmoid => 1.0 / (1.0 + (-x).exp()),
-        Activation::Tanh => x.tanh(),
-        Activation::ReLU => x.max(0.0),
-        Activation::LeakyReLU => {
-            if x > 0.0 {
-                x
-            } else {
-                0.01 * x
-            }
-        }
-        Activation::ELU => {
-            if x > 0.0 {
-                x
-            } else {
-                x.exp() - 1.0
-            }
-        }
-        Activation::SELU => {
-            let lambda = 1.0507;
-            let alpha = 1.6733;
-            lambda * if x > 0.0 { x } else { alpha * (x.exp() - 1.0) }
-        }
-        Activation::Swish => x / (1.0 + (-x).exp()),
-        Activation::GELU => {
-            0.5 * x
-                * (1.0 + ((2.0 / std::f32::consts::PI).sqrt() * (x + 0.044715 * x.powi(3))).tanh())
-        }
-        Activation::Mish => x * ((1.0 + x.exp()).ln()).tanh(),
-        Activation::Softplus => (1.0 + x.exp()).ln(),
-        Activation::Softsign => x / (1.0 + x.abs()),
-        Activation::HardSigmoid => (0.2 * x + 0.5).clamp(0.0, 1.0),
-        Activation::HardTanh => x.clamp(-1.0, 1.0),
-        Activation::Softmax => x, // Softmax requires full context, identity here
-        Activation::Linear => x,
-    }
+    activation.apply_scalar(x)
 }
 
 #[cfg(test)]

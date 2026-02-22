@@ -1,15 +1,15 @@
 .error-card {
-  background-color: #fff3cd;
-  border: 1px solid #ffc107;
+  background-color: var(--badge-warning-bg);
+  border: 1px solid var(--warning);
 
   .error-content {
-    padding: 1rem;
+    padding: var(--space-md);
 
     code {
-      background-color: rgba(0, 0, 0, 0.1);
-      padding: 0.25rem 0.5rem;
+      background-color: var(--muted-surface);
+      padding: var(--space-xs) var(--space-sm);
       border-radius: 4px;
-      font-size: 0.875rem;
+      font-size: var(--text-sm);
     }
   }
 }

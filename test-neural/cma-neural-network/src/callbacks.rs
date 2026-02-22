@@ -617,6 +617,7 @@ impl Callback for LearningRateScheduler {
 #[derive(Debug, Clone)]
 pub struct ProgressBar {
     total_epochs: usize,
+    #[cfg(not(target_arch = "wasm32"))]
     start_time: Option<std::time::Instant>,
     verbose: bool,
 }
@@ -629,6 +630,7 @@ impl ProgressBar {
     pub fn new(total_epochs: usize) -> Self {
         ProgressBar {
             total_epochs,
+            #[cfg(not(target_arch = "wasm32"))]
             start_time: None,
             verbose: true,
         }
@@ -643,13 +645,15 @@ impl ProgressBar {
 
 impl Callback for ProgressBar {
     fn on_train_begin(&mut self, _network: &Network) {
-        self.start_time = Some(std::time::Instant::now());
+        #[cfg(not(target_arch = "wasm32"))]
+        { self.start_time = Some(std::time::Instant::now()); }
         if self.verbose {
             println!("🚀 Training started ({} epochs)", self.total_epochs);
         }
     }
 
     fn on_train_end(&mut self, _network: &Network) {
+        #[cfg(not(target_arch = "wasm32"))]
         if let Some(start) = self.start_time {
             let duration = start.elapsed();
             if self.verbose {
@@ -668,6 +672,9 @@ impl Callback for ProgressBar {
         if self.verbose {
             let progress = (epoch + 1) as Float / self.total_epochs as Float * 100.0;
 
+            let mut printed_with_eta = false;
+
+            #[cfg(not(target_arch = "wasm32"))]
             if let (Some(start), Some(val)) = (self.start_time, val_loss) {
                 let elapsed = start.elapsed().as_secs_f32();
                 let eta = elapsed / (epoch + 1) as Float * (self.total_epochs - epoch - 1) as Float;
@@ -681,14 +688,28 @@ impl Callback for ProgressBar {
                     val,
                     eta
                 );
-            } else {
-                print!(
-                    "\rEpoch {}/{} [{:.1}%] - train_loss: {:.6}   ",
-                    epoch + 1,
-                    self.total_epochs,
-                    progress,
-                    train_loss
-                );
+                printed_with_eta = true;
+            }
+
+            if !printed_with_eta {
+                if let Some(val) = val_loss {
+                    print!(
+                        "\rEpoch {}/{} [{:.1}%] - train_loss: {:.6} - val_loss: {:.6}   ",
+                        epoch + 1,
+                        self.total_epochs,
+                        progress,
+                        train_loss,
+                        val
+                    );
+                } else {
+                    print!(
+                        "\rEpoch {}/{} [{:.1}%] - train_loss: {:.6}   ",
+                        epoch + 1,
+                        self.total_epochs,
+                        progress,
+                        train_loss
+                    );
+                }
             }
 
             use std::io::Write;

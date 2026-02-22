@@ -34,7 +34,7 @@
 //! Instead of learning H(x), the network learns F(x) = H(x) - x
 //! It is easier to learn a small correction than the complete function.
 //!
-//! ## Variantes
+//! ## Variants
 //!
 //! | Model | Layers | Params | Top-1 Acc |
 //! |--------|---------|--------|-----------|
@@ -52,80 +52,8 @@
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{
-    ActivationLayer, BatchNorm2D, Conv2D, Flatten, GlobalAvgPool2D, MaxPool2D, Sequential, Tensor4D,
+    BatchNorm2D, Conv2D, Dim, Flatten, GlobalAvgPool2D, MaxPool2D, Tensor4D,
 };
-
-/// ResNet configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResNetConfig {
-    /// Number of classes
-    pub num_classes: usize,
-    /// Input size (224 for ImageNet)
-    pub input_size: usize,
-    /// Input channels (3 for RGB)
-    pub in_channels: usize,
-    /// Number of blocks per stage [stage1, stage2, stage3, stage4]
-    pub blocks_per_stage: Vec<usize>,
-    /// Use Bottleneck (true for ResNet-50+)
-    pub use_bottleneck: bool,
-}
-
-impl ResNetConfig {
-    /// ResNet-18: [2, 2, 2, 2] BasicBlocks
-    pub fn resnet18() -> Self {
-        Self {
-            num_classes: 1000,
-            input_size: 224,
-            in_channels: 3,
-            blocks_per_stage: vec![2, 2, 2, 2],
-            use_bottleneck: false,
-        }
-    }
-
-    /// ResNet-34: [3, 4, 6, 3] BasicBlocks
-    pub fn resnet34() -> Self {
-        Self {
-            num_classes: 1000,
-            input_size: 224,
-            in_channels: 3,
-            blocks_per_stage: vec![3, 4, 6, 3],
-            use_bottleneck: false,
-        }
-    }
-
-    /// ResNet-50: [3, 4, 6, 3] Bottleneck
-    pub fn resnet50() -> Self {
-        Self {
-            num_classes: 1000,
-            input_size: 224,
-            in_channels: 3,
-            blocks_per_stage: vec![3, 4, 6, 3],
-            use_bottleneck: true,
-        }
-    }
-
-    /// ResNet-101: [3, 4, 23, 3] Bottleneck
-    pub fn resnet101() -> Self {
-        Self {
-            num_classes: 1000,
-            input_size: 224,
-            in_channels: 3,
-            blocks_per_stage: vec![3, 4, 23, 3],
-            use_bottleneck: true,
-        }
-    }
-
-    /// Version for CIFAR-10 (32×32)
-    pub fn cifar10() -> Self {
-        Self {
-            num_classes: 10,
-            input_size: 32,
-            in_channels: 3,
-            blocks_per_stage: vec![2, 2, 2, 2], // 4 stages for ResNet-18
-            use_bottleneck: false,
-        }
-    }
-}
 
 /// Basic residual block (ResNet-18/34)
 ///
@@ -144,8 +72,8 @@ pub struct ResidualBlock {
     pub bn2: BatchNorm2D,
     /// Convolution for projection (when dimensions change)
     pub downsample: Option<(Conv2D, BatchNorm2D)>,
-    /// Stride (1 ou 2)
-    pub stride: usize,
+    /// Stride (1 or 2)
+    pub stride: Dim,
 }
 
 impl ResidualBlock {
@@ -178,7 +106,7 @@ impl ResidualBlock {
             conv2,
             bn2,
             downsample,
-            stride,
+            stride: stride as Dim,
         }
     }
 
@@ -408,7 +336,7 @@ pub struct ResNet {
     /// All stages (variable number)
     pub stages: Vec<Vec<ResidualBlock>>,
     /// Channel configuration for reference
-    pub stage_channels: Vec<usize>,
+    pub stage_channels: Vec<Dim>,
 }
 
 impl ResNet {
@@ -453,7 +381,7 @@ impl ResNet {
             stem_bn,
             has_stem_pool: builder.use_stem_pooling,
             stages,
-            stage_channels: builder.stage_channels,
+            stage_channels: builder.stage_channels.into_iter().map(|c| c as Dim).collect(),
         }
     }
 
@@ -485,7 +413,7 @@ impl ResNet {
 
     /// Number of output features (for FC layer sizing)
     pub fn output_features(&self) -> usize {
-        *self.stage_channels.last().unwrap_or(&64)
+        *self.stage_channels.last().unwrap_or(&64) as usize
     }
 
     /// Total number of parameters
@@ -545,365 +473,6 @@ impl ResNet {
         }
     }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Legacy ResNet-18/34/50 (unchanged for backward compatibility)
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// ResNet-18: 18 layers
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResNet18 {
-    /// Stem: Initial conv
-    pub stem: Sequential,
-    /// Stage 1: 2 blocks, 64 channels
-    pub layer1: Vec<ResidualBlock>,
-    /// Stage 2: 2 blocks, 128 channels
-    pub layer2: Vec<ResidualBlock>,
-    /// Stage 3: 2 blocks, 256 channels
-    pub layer3: Vec<ResidualBlock>,
-    /// Stage 4: 2 blocks, 512 channels
-    pub layer4: Vec<ResidualBlock>,
-    /// Configuration
-    pub config: ResNetConfig,
-}
-
-impl ResNet18 {
-    /// Creates ResNet-18 for ImageNet
-    pub fn new(num_classes: usize) -> Self {
-        let mut config = ResNetConfig::resnet18();
-        config.num_classes = num_classes;
-        Self::with_config(config)
-    }
-
-    /// Creates ResNet-18 with configuration
-    pub fn with_config(config: ResNetConfig) -> Self {
-        // Stem: Conv7×7 stride 2 + MaxPool
-        let stem = if config.input_size >= 200 {
-            // ImageNet: 7×7 conv + maxpool
-            Sequential::named("ResNet-Stem")
-                .add_conv2d(Conv2D::new(config.in_channels, 64, 7, 2, 3).without_bias())
-                .add_batchnorm(BatchNorm2D::new(64))
-                .add_activation(ActivationLayer::relu())
-                .add_maxpool(MaxPool2D::new(3, 2))
-        } else {
-            // CIFAR: 3×3 conv only
-            Sequential::named("ResNet-Stem")
-                .add_conv2d(Conv2D::new(config.in_channels, 64, 3, 1, 1).without_bias())
-                .add_batchnorm(BatchNorm2D::new(64))
-                .add_activation(ActivationLayer::relu())
-        };
-
-        // Layer 1: 64 channels, stride 1
-        let layer1 = Self::make_layer(64, 64, config.blocks_per_stage[0], 1);
-
-        // Layer 2: 128 channels, stride 2
-        let layer2 = Self::make_layer(64, 128, config.blocks_per_stage[1], 2);
-
-        // Layer 3: 256 channels, stride 2
-        let layer3 = Self::make_layer(128, 256, config.blocks_per_stage[2], 2);
-
-        // Layer 4: 512 channels, stride 2
-        let layer4 = Self::make_layer(256, 512, config.blocks_per_stage[3], 2);
-
-        Self {
-            stem,
-            layer1,
-            layer2,
-            layer3,
-            layer4,
-            config,
-        }
-    }
-
-    fn make_layer(
-        in_channels: usize,
-        out_channels: usize,
-        num_blocks: usize,
-        stride: usize,
-    ) -> Vec<ResidualBlock> {
-        let mut blocks = Vec::new();
-
-        // First block with stride (potentially downsample)
-        blocks.push(ResidualBlock::new(in_channels, out_channels, stride));
-
-        // Subsequent blocks stride 1
-        for _ in 1..num_blocks {
-            blocks.push(ResidualBlock::new(out_channels, out_channels, 1));
-        }
-
-        blocks
-    }
-
-    /// Forward pass
-    pub fn forward(&self, input: &Tensor4D) -> Tensor4D {
-        // Stem
-        let mut x = self.stem.forward(input);
-
-        // Layer 1
-        for block in &self.layer1 {
-            x = block.forward(&x);
-        }
-
-        // Layer 2
-        for block in &self.layer2 {
-            x = block.forward(&x);
-        }
-
-        // Layer 3
-        for block in &self.layer3 {
-            x = block.forward(&x);
-        }
-
-        // Layer 4
-        for block in &self.layer4 {
-            x = block.forward(&x);
-        }
-
-        // Global Average Pooling
-        let gap = GlobalAvgPool2D::new();
-        let x = gap.forward(&x);
-
-        // Flatten
-        let flatten = Flatten::new();
-        flatten.forward(&x)
-    }
-
-    /// Number of parameters
-    pub fn num_parameters(&self) -> usize {
-        let mut params = self.stem.num_parameters();
-
-        for block in &self.layer1 {
-            params += block.num_parameters();
-        }
-        for block in &self.layer2 {
-            params += block.num_parameters();
-        }
-        for block in &self.layer3 {
-            params += block.num_parameters();
-        }
-        for block in &self.layer4 {
-            params += block.num_parameters();
-        }
-
-        params
-    }
-
-    /// Prints the summary
-    pub fn summary(&self) {
-        println!("ResNet-18");
-        println!("{}", "=".repeat(50));
-        println!("Stem: {} params", self.stem.num_parameters());
-        println!(
-            "Layer1: {} blocks, {} params",
-            self.layer1.len(),
-            self.layer1
-                .iter()
-                .map(|b| b.num_parameters())
-                .sum::<usize>()
-        );
-        println!(
-            "Layer2: {} blocks, {} params",
-            self.layer2.len(),
-            self.layer2
-                .iter()
-                .map(|b| b.num_parameters())
-                .sum::<usize>()
-        );
-        println!(
-            "Layer3: {} blocks, {} params",
-            self.layer3.len(),
-            self.layer3
-                .iter()
-                .map(|b| b.num_parameters())
-                .sum::<usize>()
-        );
-        println!(
-            "Layer4: {} blocks, {} params",
-            self.layer4.len(),
-            self.layer4
-                .iter()
-                .map(|b| b.num_parameters())
-                .sum::<usize>()
-        );
-        println!("{}", "=".repeat(50));
-        println!("Total params: {}", self.num_parameters());
-    }
-}
-
-/// ResNet-34: 34 layers
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResNet34 {
-    pub stem: Sequential,
-    pub layer1: Vec<ResidualBlock>,
-    pub layer2: Vec<ResidualBlock>,
-    pub layer3: Vec<ResidualBlock>,
-    pub layer4: Vec<ResidualBlock>,
-    pub config: ResNetConfig,
-}
-
-impl ResNet34 {
-    /// Creates ResNet-34 for ImageNet
-    pub fn new(num_classes: usize) -> Self {
-        let mut config = ResNetConfig::resnet34();
-        config.num_classes = num_classes;
-        Self::with_config(config)
-    }
-
-    pub fn with_config(config: ResNetConfig) -> Self {
-        let stem = if config.input_size >= 200 {
-            Sequential::named("ResNet-Stem")
-                .add_conv2d(Conv2D::new(config.in_channels, 64, 7, 2, 3).without_bias())
-                .add_batchnorm(BatchNorm2D::new(64))
-                .add_activation(ActivationLayer::relu())
-                .add_maxpool(MaxPool2D::new(3, 2))
-        } else {
-            Sequential::named("ResNet-Stem")
-                .add_conv2d(Conv2D::new(config.in_channels, 64, 3, 1, 1).without_bias())
-                .add_batchnorm(BatchNorm2D::new(64))
-                .add_activation(ActivationLayer::relu())
-        };
-
-        let layer1 = ResNet18::make_layer(64, 64, config.blocks_per_stage[0], 1);
-        let layer2 = ResNet18::make_layer(64, 128, config.blocks_per_stage[1], 2);
-        let layer3 = ResNet18::make_layer(128, 256, config.blocks_per_stage[2], 2);
-        let layer4 = ResNet18::make_layer(256, 512, config.blocks_per_stage[3], 2);
-
-        Self {
-            stem,
-            layer1,
-            layer2,
-            layer3,
-            layer4,
-            config,
-        }
-    }
-
-    pub fn forward(&self, input: &Tensor4D) -> Tensor4D {
-        let mut x = self.stem.forward(input);
-        for block in &self.layer1 {
-            x = block.forward(&x);
-        }
-        for block in &self.layer2 {
-            x = block.forward(&x);
-        }
-        for block in &self.layer3 {
-            x = block.forward(&x);
-        }
-        for block in &self.layer4 {
-            x = block.forward(&x);
-        }
-
-        let gap = GlobalAvgPool2D::new();
-        let x = gap.forward(&x);
-        let flatten = Flatten::new();
-        flatten.forward(&x)
-    }
-
-    pub fn num_parameters(&self) -> usize {
-        let mut params = self.stem.num_parameters();
-        for block in &self.layer1 {
-            params += block.num_parameters();
-        }
-        for block in &self.layer2 {
-            params += block.num_parameters();
-        }
-        for block in &self.layer3 {
-            params += block.num_parameters();
-        }
-        for block in &self.layer4 {
-            params += block.num_parameters();
-        }
-        params
-    }
-}
-
-/// ResNet-50: 50 layers with Bottleneck
-///
-/// Note: This implementation uses BasicBlock for simplicity.
-/// A real ResNet-50 would use Bottleneck blocks (1×1 → 3×3 → 1×1).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ResNet50 {
-    pub stem: Sequential,
-    pub layer1: Vec<ResidualBlock>,
-    pub layer2: Vec<ResidualBlock>,
-    pub layer3: Vec<ResidualBlock>,
-    pub layer4: Vec<ResidualBlock>,
-    pub config: ResNetConfig,
-}
-
-impl ResNet50 {
-    /// Creates ResNet-50 for ImageNet
-    pub fn new(num_classes: usize) -> Self {
-        let mut config = ResNetConfig::resnet50();
-        config.num_classes = num_classes;
-        Self::with_config(config)
-    }
-
-    pub fn with_config(config: ResNetConfig) -> Self {
-        // Note: Real ResNet-50 uses Bottleneck with expansion=4
-        // Here we use BasicBlock for simplicity
-        let stem = Sequential::named("ResNet-Stem")
-            .add_conv2d(Conv2D::new(config.in_channels, 64, 7, 2, 3).without_bias())
-            .add_batchnorm(BatchNorm2D::new(64))
-            .add_activation(ActivationLayer::relu())
-            .add_maxpool(MaxPool2D::new(3, 2));
-
-        // For a real ResNet-50, channels would be 256, 512, 1024, 2048
-        // with expansion=4 in Bottleneck
-        let layer1 = ResNet18::make_layer(64, 64, config.blocks_per_stage[0], 1);
-        let layer2 = ResNet18::make_layer(64, 128, config.blocks_per_stage[1], 2);
-        let layer3 = ResNet18::make_layer(128, 256, config.blocks_per_stage[2], 2);
-        let layer4 = ResNet18::make_layer(256, 512, config.blocks_per_stage[3], 2);
-
-        Self {
-            stem,
-            layer1,
-            layer2,
-            layer3,
-            layer4,
-            config,
-        }
-    }
-
-    pub fn forward(&self, input: &Tensor4D) -> Tensor4D {
-        let mut x = self.stem.forward(input);
-        for block in &self.layer1 {
-            x = block.forward(&x);
-        }
-        for block in &self.layer2 {
-            x = block.forward(&x);
-        }
-        for block in &self.layer3 {
-            x = block.forward(&x);
-        }
-        for block in &self.layer4 {
-            x = block.forward(&x);
-        }
-
-        let gap = GlobalAvgPool2D::new();
-        let x = gap.forward(&x);
-        let flatten = Flatten::new();
-        flatten.forward(&x)
-    }
-
-    pub fn num_parameters(&self) -> usize {
-        let mut params = self.stem.num_parameters();
-        for block in &self.layer1 {
-            params += block.num_parameters();
-        }
-        for block in &self.layer2 {
-            params += block.num_parameters();
-        }
-        for block in &self.layer3 {
-            params += block.num_parameters();
-        }
-        for block in &self.layer4 {
-            params += block.num_parameters();
-        }
-        params
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -933,24 +502,25 @@ mod tests {
 
     #[test]
     fn test_resnet18_cifar() {
-        let mut config = ResNetConfig::resnet18();
-        config.input_size = 32;
-        config.num_classes = 10;
-        config.blocks_per_stage = vec![2, 2, 2, 2];
-
-        let model = ResNet18::with_config(config);
+        // ResNet-18 equivalent: 4 stages (64, 128, 256, 512) for CIFAR-10
+        let model = ResNetBuilder::new()
+            .input_channels(3)
+            .input_size(32)
+            .channels(&[64, 128, 256, 512])
+            .blocks(&[2, 2, 2, 2])
+            .stem_channels(64)
+            .stem_pooling(false)
+            .build();
         let input = Tensor4D::random(TensorShape::new(1, 3, 32, 32));
         let output = model.forward(&input);
 
-        // Global avg pool + flatten → 512
+        // Global avg pool + flatten → 512 features
         assert_eq!(output.shape().width, 512);
     }
 
     #[test]
     fn test_resnet_params() {
-        // ResNet-18 ≈ 11.7M params (sans FC final)
-        // Our version is lighter because it only has the conv layers
-        let model = ResNet18::with_config(ResNetConfig::cifar10());
+        let model = ResNetBuilder::cifar().build();
         assert!(model.num_parameters() > 0);
     }
 

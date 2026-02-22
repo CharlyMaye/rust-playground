@@ -37,6 +37,37 @@ use crate::layers::{
 use crate::module::{Conv2D, Linear};
 use crate::sequential::Sequential;
 
+/// Configuration for a Conv2D → BatchNorm → ReLU → MaxPool2D block.
+///
+/// Used with [`CnnBuilder::conv_bn_relu_pool`] to group the seven
+/// layer parameters into a named, readable struct.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use cma_autograd::builder::{CnnBuilder, ConvPoolBlock};
+///
+/// let model = CnnBuilder::new()
+///     .conv_bn_relu_pool(ConvPoolBlock { in_ch: 1, out_ch: 64, kernel: 3, stride: 1, padding: 1, pool_size: 2, pool_stride: 2 })
+///     .build();
+/// ```
+pub struct ConvPoolBlock {
+    /// Input channels
+    pub in_ch: usize,
+    /// Output channels
+    pub out_ch: usize,
+    /// Convolution kernel size
+    pub kernel: usize,
+    /// Convolution stride
+    pub stride: usize,
+    /// Convolution padding
+    pub padding: usize,
+    /// Pooling window size
+    pub pool_size: usize,
+    /// Pooling stride
+    pub pool_stride: usize,
+}
+
 /// Builder for constructing autograd CNN models with a fluent API.
 ///
 /// Supports both custom architectures via chained method calls and
@@ -165,18 +196,9 @@ impl CnnBuilder {
     }
 
     /// Add a Conv2D + BatchNorm2D + ReLU + MaxPool2D block.
-    pub fn conv_bn_relu_pool(
-        self,
-        in_ch: usize,
-        out_ch: usize,
-        kernel: usize,
-        stride: usize,
-        padding: usize,
-        pool_size: usize,
-        pool_stride: usize,
-    ) -> Self {
-        self.conv_bn_relu(in_ch, out_ch, kernel, stride, padding)
-            .maxpool(pool_size, pool_stride)
+    pub fn conv_bn_relu_pool(self, cfg: ConvPoolBlock) -> Self {
+        self.conv_bn_relu(cfg.in_ch, cfg.out_ch, cfg.kernel, cfg.stride, cfg.padding)
+            .maxpool(cfg.pool_size, cfg.pool_stride)
     }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -225,8 +247,8 @@ impl CnnBuilder {
     /// - Flatten → Linear(2304→num_classes)
     pub fn alexnet_mnist(num_classes: usize) -> Sequential {
         CnnBuilder::new()
-            .conv_bn_relu_pool(1, 64, 3, 1, 1, 2, 2)    // 28→14
-            .conv_bn_relu_pool(64, 128, 3, 1, 1, 2, 2)   // 14→7
+            .conv_bn_relu_pool(ConvPoolBlock { in_ch: 1, out_ch: 64, kernel: 3, stride: 1, padding: 1, pool_size: 2, pool_stride: 2 })    // 28→14
+            .conv_bn_relu_pool(ConvPoolBlock { in_ch: 64, out_ch: 128, kernel: 3, stride: 1, padding: 1, pool_size: 2, pool_stride: 2 })  // 14→7
             .conv_bn_relu(128, 256, 3, 1, 1)              // 7
             .conv_bn_relu(256, 256, 3, 1, 1)              // 7
             .maxpool(2, 2)                                 // 7→3
