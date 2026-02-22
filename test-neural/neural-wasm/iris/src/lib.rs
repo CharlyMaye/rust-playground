@@ -41,7 +41,7 @@ impl IrisClassifier {
             network: model.network,
             classes,
             accuracy: model.metadata.accuracy,
-            test_samples: model.metadata.test_samples,
+            test_samples: model.metadata.test_samples as usize,
             trained_at: model.metadata.trained_at,
             normalization: model.metadata.normalization,
         })

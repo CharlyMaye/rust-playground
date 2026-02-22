@@ -68,7 +68,7 @@
 //!
 //! This implementation also provides a reduced version for CIFAR-10 (32x32).
 
-use cma_cnn::Float;
+use cma_cnn::{Dim, Float};
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, MaxPool2D, Sequential, Tensor4D, TensorShape};
@@ -77,11 +77,11 @@ use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, MaxPool2D, Sequential, Tenso
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AlexNetConfig {
     /// Number of output classes (1000 for ImageNet)
-    pub num_classes: usize,
+    pub num_classes: Dim,
     /// Input image size (227 for ImageNet)
-    pub input_size: usize,
+    pub input_size: Dim,
     /// Number of channels (3 for RGB)
-    pub in_channels: usize,
+    pub in_channels: Dim,
     /// Use BatchNorm instead of LRN
     pub use_batch_norm: bool,
     /// Dropout rate
@@ -121,7 +121,7 @@ impl AlexNetConfig {
     /// Config for 64x64 images
     pub fn small(num_classes: usize) -> Self {
         Self {
-            num_classes,
+            num_classes: num_classes as Dim,
             input_size: 64,
             in_channels: 3,
             use_batch_norm: true,
@@ -160,7 +160,7 @@ impl AlexNet {
     /// Creates AlexNet for ImageNet (1000 classes)
     pub fn new(num_classes: usize) -> Self {
         let mut config = AlexNetConfig::imagenet();
-        config.num_classes = num_classes;
+        config.num_classes = num_classes as Dim;
         Self::with_config(config)
     }
 
@@ -180,7 +180,7 @@ impl AlexNet {
         let mut features = Sequential::named("AlexNet");
 
         // Conv1: 11x11, stride 4
-        features = features.add_conv2d(Conv2D::new(config.in_channels, 96, 11, 4, 0));
+        features = features.add_conv2d(Conv2D::new(config.in_channels as usize, 96, 11, 4, 0));
         if config.use_batch_norm {
             features = features.add_batchnorm(BatchNorm2D::new(96));
         }
@@ -228,7 +228,7 @@ impl AlexNet {
         let mut features = Sequential::named("AlexNet-Medium");
 
         // Adapted for 64x64
-        features = features.add_conv2d(Conv2D::new(config.in_channels, 64, 5, 1, 2));
+        features = features.add_conv2d(Conv2D::new(config.in_channels as usize, 64, 5, 1, 2));
         if config.use_batch_norm {
             features = features.add_batchnorm(BatchNorm2D::new(64));
         }
@@ -266,7 +266,7 @@ impl AlexNet {
 
         // Adapted for 32x32
         // Block 1
-        features = features.add_conv2d(Conv2D::new(config.in_channels, 64, 3, 1, 1));
+        features = features.add_conv2d(Conv2D::new(config.in_channels as usize, 64, 3, 1, 1));
         if config.use_batch_norm {
             features = features.add_batchnorm(BatchNorm2D::new(64));
         }
@@ -315,9 +315,9 @@ impl AlexNet {
     pub fn summary(&self) {
         let input_shape = TensorShape::new(
             1,
-            self.config.in_channels,
-            self.config.input_size,
-            self.config.input_size,
+            self.config.in_channels as usize,
+            self.config.input_size as usize,
+            self.config.input_size as usize,
         );
         self.features.summary(input_shape);
     }
@@ -326,9 +326,9 @@ impl AlexNet {
     pub fn output_size(&self) -> usize {
         let input_shape = TensorShape::new(
             1,
-            self.config.in_channels,
-            self.config.input_size,
-            self.config.input_size,
+            self.config.in_channels as usize,
+            self.config.input_size as usize,
+            self.config.input_size as usize,
         );
         let output = self.features.output_shape(input_shape);
         output.width

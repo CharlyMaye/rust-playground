@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 /**
  * About section component.
@@ -11,5 +11,6 @@ import { Component } from '@angular/core';
   host: {
     class: 'card',
   },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class About {}

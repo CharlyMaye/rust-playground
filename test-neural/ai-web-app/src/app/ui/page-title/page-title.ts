@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
 /**
  * Configuration options for the page title.
@@ -17,9 +17,10 @@ export type PageTitleOptions = {
  * Used at the top of pages to provide context and branding.
  */
 @Component({
-  selector: 'header',
+  selector: 'app-page-title',
   imports: [],
   templateUrl: './page-title.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PageTitle {
   /** Title configuration options */

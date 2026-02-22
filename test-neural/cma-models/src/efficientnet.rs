@@ -83,17 +83,17 @@
 use cma_cnn::Float;
 use serde::{Deserialize, Serialize};
 
-use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, DepthwiseConv2D, GlobalAvgPool2D, Layer, Sequential, Tensor4D};
+use cma_cnn::{ActivationLayer, BatchNorm2D, Conv2D, Dim, DepthwiseConv2D, GlobalAvgPool2D, Layer, Sequential, Tensor4D};
 
 /// EfficientNet configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EfficientNetConfig {
     /// Number of classes
-    pub num_classes: usize,
+    pub num_classes: Dim,
     /// Input resolution
-    pub input_size: usize,
+    pub input_size: Dim,
     /// Input channels
-    pub in_channels: usize,
+    pub in_channels: Dim,
     /// Width coefficient (width multiplier)
     pub width_mult: Float,
     /// Depth coefficient (depth multiplier)
@@ -186,10 +186,10 @@ pub struct MBConvBlock {
     /// Skip connection?
     pub use_skip: bool,
     /// Configuration
-    pub in_channels: usize,
-    pub out_channels: usize,
-    pub expand_ratio: usize,
-    pub stride: usize,
+    pub in_channels: Dim,
+    pub out_channels: Dim,
+    pub expand_ratio: Dim,
+    pub stride: Dim,
 }
 
 /// Builder for [`MBConvBlock`].
@@ -300,10 +300,10 @@ impl MBConvBlockBuilder {
             se,
             project_conv,
             use_skip,
-            in_channels,
-            out_channels,
-            expand_ratio,
-            stride,
+            in_channels: in_channels as Dim,
+            out_channels: out_channels as Dim,
+            expand_ratio: expand_ratio as Dim,
+            stride: stride as Dim,
         }
     }
 }
@@ -378,8 +378,8 @@ pub struct SqueezeExcitation {
     pub fc1: Conv2D, // Implemented as Conv 1×1
     /// FC for expansion
     pub fc2: Conv2D,
-    pub channels: usize,
-    pub reduction: usize,
+    pub channels: Dim,
+    pub reduction: Dim,
 }
 
 impl SqueezeExcitation {
@@ -391,8 +391,8 @@ impl SqueezeExcitation {
         Self {
             fc1,
             fc2,
-            channels,
-            reduction: reduced_channels,
+            channels: channels as Dim,
+            reduction: reduced_channels as Dim,
         }
     }
 
@@ -450,7 +450,7 @@ impl EfficientNetB0 {
     /// Creates EfficientNet-B0 for ImageNet
     pub fn new(num_classes: usize) -> Self {
         let mut config = EfficientNetConfig::b0();
-        config.num_classes = num_classes;
+        config.num_classes = num_classes as Dim;
         Self::with_config(config)
     }
 
@@ -459,7 +459,7 @@ impl EfficientNetB0 {
         // Stem: Conv3×3, stride 2
         let stem_channels = config.scale_width(32);
         let stem = Sequential::named("EfficientNet-Stem")
-            .add_conv2d(Conv2D::new(config.in_channels, stem_channels, 3, 2, 1).without_bias())
+            .add_conv2d(Conv2D::new(config.in_channels as usize, stem_channels, 3, 2, 1).without_bias())
             .add_batchnorm(BatchNorm2D::new(stem_channels))
             .add_activation(ActivationLayer::swish());
 

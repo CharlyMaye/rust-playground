@@ -64,21 +64,21 @@
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Sequential, Tensor4D, TensorShape};
-use cma_neural_network::Activation;
+use cma_neural_network::{Activation, Dim};
 
 /// LeNet-5 configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LeNet5Config {
     /// Number of output classes (10 for MNIST)
-    pub num_classes: usize,
+    pub num_classes: Dim,
     /// Input image size (28 for MNIST, 32 for original)
-    pub input_size: usize,
+    pub input_size: Dim,
     /// Use BatchNorm (modernization, not in original paper)
     pub use_batch_norm: bool,
     /// Activation function (default: `Tanh` for original, `ReLU` for modern)
     pub activation: Activation,
     /// Number of input channels (1 for grayscale)
-    pub in_channels: usize,
+    pub in_channels: Dim,
 }
 
 impl Default for LeNet5Config {
@@ -159,7 +159,7 @@ impl LeNet5 {
     /// ```
     pub fn new(num_classes: usize) -> Self {
         let mut config = LeNet5Config::mnist();
-        config.num_classes = num_classes;
+        config.num_classes = num_classes as Dim;
         Self::with_config(config)
     }
 
@@ -181,7 +181,7 @@ impl LeNet5 {
         let mut conv_layers = Sequential::named("LeNet-5");
 
         // C1: Convolution Layer (6 feature maps, 5x5 kernel)
-        conv_layers = conv_layers.add_conv2d(Conv2D::new(config.in_channels, 6, 5, 1, 0));
+        conv_layers = conv_layers.add_conv2d(Conv2D::new(config.in_channels as usize, 6, 5, 1, 0));
         if config.use_batch_norm {
             conv_layers = conv_layers.add_batchnorm(BatchNorm2D::new(6));
         }
@@ -235,9 +235,9 @@ impl LeNet5 {
     pub fn summary(&self) {
         let input_shape = TensorShape::new(
             1,
-            self.config.in_channels,
-            self.config.input_size,
-            self.config.input_size,
+            self.config.in_channels as usize,
+            self.config.input_size as usize,
+            self.config.input_size as usize,
         );
         self.conv_layers.summary(input_shape);
     }
@@ -246,9 +246,9 @@ impl LeNet5 {
     pub fn output_size(&self) -> usize {
         let input_shape = TensorShape::new(
             1,
-            self.config.in_channels,
-            self.config.input_size,
-            self.config.input_size,
+            self.config.in_channels as usize,
+            self.config.input_size as usize,
+            self.config.input_size as usize,
         );
         let output = self.conv_layers.output_shape(input_shape);
         output.width // After flatten

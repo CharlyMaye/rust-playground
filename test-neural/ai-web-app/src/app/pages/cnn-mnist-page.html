@@ -1,0 +1,90 @@
+@if (hasError()) {
+  <!-- Error card: model binary not found / not trained yet -->
+  <div class="card error-card">
+    <div class="card-header">
+      <h2 class="card-title">⚠️ {{ pageConfig.errorTitle }}</h2>
+    </div>
+    <div class="error-content">
+      <p>{{ pageConfig.errorMessage }}</p>
+      <p>
+        Run training with:
+        <code>{{ pageConfig.trainingCommand }}</code>
+      </p>
+    </div>
+  </div>
+} @else if (isLoading()) {
+  <app-loader [message]="pageConfig.loadingMessage" />
+} @else {
+  <!-- Interactive Predictor -->
+  <div class="card">
+    <div class="card-header">
+      <h2 class="card-title">{{ pageConfig.cardTitle }}</h2>
+      <p class="card-subtitle">{{ pageConfig.cardSubtitle }}</p>
+    </div>
+
+    <div class="predictor-container">
+      <app-canvas-draw
+        [gridSize]="{ rows: 28, cols: 28 }"
+        (dataChanged)="onDrawingChanged($event)"
+        (drawingComplete)="onDrawingComplete($event)"
+      />
+
+      <div class="prediction-result">
+        <div class="prediction-value">{{ predictionDisplay() }}</div>
+        <div class="prediction-confidence">{{ confidenceDisplay() }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CNN Architecture -->
+  <div class="card cnn-card">
+    <div class="card-header">
+      <h2 class="card-title">CNN Architecture ({{ pageConfig.architectureLabel }})</h2>
+      <p class="card-subtitle">{{ pageConfig.architectureSubtitle }}</p>
+    </div>
+    <pre class="cnn-summary">{{ architectureSummaryDisplay() }}</pre>
+  </div>
+
+  <!-- CNN Feature Maps -->
+  @if (cnnLayers().length > 0) {
+    <div class="card cnn-card">
+      <div class="card-header">
+        <h2 class="card-title">CNN Feature Maps</h2>
+        <p class="card-subtitle">
+          Intermediate activations at each convolutional layer for the drawn digit
+        </p>
+      </div>
+      <div class="cnn-layers">
+        @for (layer of cnnLayers(); track $index) {
+          <div class="cnn-layer">
+            <h3 class="cnn-layer-label">{{ layer.label }}</h3>
+            <app-configurable-network
+              [architecture]="layer.architecture"
+              [weights]="layer.weights"
+              [config]="layer.config"
+            />
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- FC Classifier Network Visualization -->
+  @if (fcNetworkArchitecture()) {
+    <div class="card visualization-card">
+      <div class="card-header">
+        <h2 class="card-title">FC Classifier Network</h2>
+        <p class="card-subtitle">Fully connected classifier after CNN feature extraction</p>
+      </div>
+      <app-configurable-network
+        [architecture]="fcNetworkArchitecture()"
+        [weights]="fcNetworkWeights()"
+        preset="mnist"
+        [debug]="false"
+      />
+    </div>
+  }
+
+  <!-- Model Info -->
+  <app-model-info [modelInfo]="modelInfo()" [activations]="activationFunctions()" />
+}

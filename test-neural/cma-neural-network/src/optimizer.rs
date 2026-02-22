@@ -3,7 +3,7 @@
 //! This module provides different optimization algorithms to update
 //! network weights during training.
 
-use crate::Float;
+use crate::{Dim, Float};
 use ndarray::{Array1, Array2};
 use serde::{Deserialize, Serialize};
 
@@ -99,7 +99,7 @@ pub struct OptimizerState2D {
     pub v: Option<Array2<Float>>,
     
     /// Number of iterations (for bias correction in Adam)
-    pub t: usize,
+    pub t: Dim,
 }
 
 /// Optimizer state for a bias vector.
@@ -112,7 +112,7 @@ pub struct OptimizerState1D {
     pub v: Option<Array1<Float>>,
     
     /// Number of iterations
-    pub t: usize,
+    pub t: Dim,
 }
 
 /// Element-wise optimizer step on raw slices.
@@ -250,7 +250,7 @@ impl OptimizerState2D {
             grad_cow.as_slice().expect("gradient not contiguous after layout fix"),
             self.m.as_mut().map(|a| a.as_slice_mut().expect("m not contiguous")),
             self.v.as_mut().map(|a| a.as_slice_mut().expect("v not contiguous")),
-            self.t,
+            self.t as usize,
             optimizer,
         );
     }
@@ -280,7 +280,7 @@ impl OptimizerState1D {
             grad_cow.as_slice().expect("gradient not contiguous after layout fix"),
             self.m.as_mut().map(|a| a.as_slice_mut().expect("m not contiguous")),
             self.v.as_mut().map(|a| a.as_slice_mut().expect("v not contiguous")),
-            self.t,
+            self.t as usize,
             optimizer,
         );
     }

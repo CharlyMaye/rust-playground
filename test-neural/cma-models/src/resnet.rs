@@ -52,7 +52,7 @@
 use serde::{Deserialize, Serialize};
 
 use cma_cnn::{
-    BatchNorm2D, Conv2D, Flatten, GlobalAvgPool2D, MaxPool2D, Tensor4D,
+    BatchNorm2D, Conv2D, Dim, Flatten, GlobalAvgPool2D, MaxPool2D, Tensor4D,
 };
 
 /// Basic residual block (ResNet-18/34)
@@ -73,7 +73,7 @@ pub struct ResidualBlock {
     /// Convolution for projection (when dimensions change)
     pub downsample: Option<(Conv2D, BatchNorm2D)>,
     /// Stride (1 or 2)
-    pub stride: usize,
+    pub stride: Dim,
 }
 
 impl ResidualBlock {
@@ -106,7 +106,7 @@ impl ResidualBlock {
             conv2,
             bn2,
             downsample,
-            stride,
+            stride: stride as Dim,
         }
     }
 
@@ -336,7 +336,7 @@ pub struct ResNet {
     /// All stages (variable number)
     pub stages: Vec<Vec<ResidualBlock>>,
     /// Channel configuration for reference
-    pub stage_channels: Vec<usize>,
+    pub stage_channels: Vec<Dim>,
 }
 
 impl ResNet {
@@ -381,7 +381,7 @@ impl ResNet {
             stem_bn,
             has_stem_pool: builder.use_stem_pooling,
             stages,
-            stage_channels: builder.stage_channels,
+            stage_channels: builder.stage_channels.into_iter().map(|c| c as Dim).collect(),
         }
     }
 
@@ -413,7 +413,7 @@ impl ResNet {
 
     /// Number of output features (for FC layer sizing)
     pub fn output_features(&self) -> usize {
-        *self.stage_channels.last().unwrap_or(&64)
+        *self.stage_channels.last().unwrap_or(&64) as usize
     }
 
     /// Total number of parameters

@@ -1,4 +1,4 @@
-use crate::Float;
+use crate::{Dim, Float};
 use crate::callbacks::Callback;
 use crate::optimizer::{OptimizerState1D, OptimizerState2D, OptimizerType};
 use ndarray::{Array1, Array2, Zip};
@@ -557,7 +557,7 @@ pub struct Network {
     /// All layers (hidden + output)
     pub(crate) layers: Vec<Layer>,
     /// Input size for reference
-    pub(crate) input_size: usize,
+    pub(crate) input_size: Dim,
     /// Loss function for training
     pub(crate) loss_function: LossFunction,
     /// Optimizer type
@@ -667,7 +667,7 @@ impl Network {
 
         Network {
             layers,
-            input_size,
+            input_size: input_size as Dim,
             loss_function,
             optimizer,
             optimizer_states_weights,
@@ -1033,7 +1033,7 @@ impl Network {
 
     /// Returns the input size of the network.
     pub fn input_size(&self) -> usize {
-        self.input_size
+        self.input_size as usize
     }
 
     /// Returns the output size of the network.

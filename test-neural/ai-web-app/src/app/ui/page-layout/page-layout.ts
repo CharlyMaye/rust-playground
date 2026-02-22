@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { NavigationBack } from '../navigation-back/navigation-back';
 import { PageFooter } from '../page-footer/page-footer';
@@ -12,6 +12,7 @@ import { PageTitle, PageTitleOptions } from '../page-title/page-title';
   selector: 'app-page-layout',
   imports: [RouterOutlet, PageTitle, NavigationBack, PageFooter],
   templateUrl: './page-layout.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PageLayout {
   /** Configuration options for the page title */

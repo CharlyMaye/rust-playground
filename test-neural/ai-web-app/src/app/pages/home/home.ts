@@ -1,4 +1,4 @@
-import { Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { WasmFacade } from '@cma/wasm/shared';
 import { About } from '../../ui/about/about';
 import { DemoCard } from '../../ui/demo-card/demo-card';
@@ -45,6 +45,7 @@ interface DemoConfig {
   templateUrl: './home.html',
   styleUrl: './home.scss',
   host: { class: 'page container' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Home {
   private readonly wasmService = inject(WasmFacade);

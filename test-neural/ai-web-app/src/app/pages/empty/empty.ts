@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 /**
  * MNIST digit classifier demo page.
@@ -10,5 +10,6 @@ import { Component } from '@angular/core';
   templateUrl: './empty.html',
   styleUrl: './empty.scss',
   host: { class: 'page container' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Empty {}

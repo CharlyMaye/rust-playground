@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
  * Loading indicator component with optional message.
@@ -13,6 +13,7 @@ import { Component, input } from '@angular/core';
     role: 'status',
     'aria-live': 'polite',
   },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class Loader {
   /** Optional message to display during loading */

@@ -20,22 +20,21 @@ warning: profiles for the non root package will be ignored, specify profiles at 
 package:   /workspace/test-neural/neural-wasm/iris/Cargo.toml
 workspace: /workspace/test-neural/Cargo.toml
 warning: unused variable: `weight_dims`
-   --> cma-neural-network/src/trainer.rs:226:13
+   --> cma-neural-network/src/trainer.rs:214:13
     |
-226 |         let weight_dims: Vec<_> = self
+214 |         let weight_dims: Vec<_> = self
     |             ^^^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_weight_dims`
     |
     = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default
 
 warning: unused variable: `bias_dims`
-   --> cma-neural-network/src/trainer.rs:232:13
+   --> cma-neural-network/src/trainer.rs:220:13
     |
-232 |         let bias_dims: Vec<_> = self.network.layers.iter().map(|l|...
+220 |         let bias_dims: Vec<_> = self.network.la...
     |             ^^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_bias_dims`
 
 warning: `cma-neural-network` (lib) generated 2 warnings (run `cargo fix --lib -p cma-neural-network` to apply 2 suggestions)
-   Compiling neural-wasm-mnist-alexnet v0.1.0 (/workspace/test-neural/neural-wasm/mnist-alexnet)
-    Finished `release` profile [optimized] target(s) in 1.77s
+    Finished `release` profile [optimized] target(s) in 0.10s
      Running `/workspace/test-neural/target/release/train_alexnet`
 ╔══════════════════════════════════════════════════════════════╗
 ║   AlexNet-Mini: End-to-End CNN Training with Autograd        ║
@@ -74,19 +73,20 @@ Total parameters: 984202
 
 🏋️  Training end-to-end with autograd backprop...
 
-Epoch   1/10: train_loss=0.1331, train_acc=96.09%, val_loss=0.0541, val_acc=98.39%
-Epoch   2/10: train_loss=0.0422, train_acc=98.72%, val_loss=0.0391, val_acc=98.81%
-Epoch   3/10: train_loss=0.0272, train_acc=99.10%, val_loss=0.0537, val_acc=98.51%
-Epoch   4/10: train_loss=0.0204, train_acc=99.36%, val_loss=0.0297, val_acc=99.11%
-Epoch   5/10: train_loss=0.0150, train_acc=99.51%, val_loss=0.0293, val_acc=99.21%
-Epoch   6/10: train_loss=0.0141, train_acc=99.58%, val_loss=0.0345, val_acc=99.01%
-Epoch   7/10: train_loss=0.0134, train_acc=99.57%, val_loss=0.0358, val_acc=98.94%
-Epoch   8/10: train_loss=0.0104, train_acc=99.64%, val_loss=0.0388, val_acc=99.00%
-Early stopping at epoch 8 (patience=3)
+Epoch   1/10: train_loss=0.1261, train_acc=96.18%, val_loss=0.0493, val_acc=98.54%
+Epoch   2/10: train_loss=0.0416, train_acc=98.72%, val_loss=0.0374, val_acc=98.88%
+Epoch   3/10: train_loss=0.0258, train_acc=99.17%, val_loss=0.0420, val_acc=98.74%
+Epoch   4/10: train_loss=0.0204, train_acc=99.34%, val_loss=0.0407, val_acc=98.89%
+Epoch   5/10: train_loss=0.0165, train_acc=99.47%, val_loss=0.0367, val_acc=98.94%
+Epoch   6/10: train_loss=0.0148, train_acc=99.54%, val_loss=0.0262, val_acc=99.34%
+Epoch   7/10: train_loss=0.0099, train_acc=99.66%, val_loss=0.0527, val_acc=98.60%
+Epoch   8/10: train_loss=0.0114, train_acc=99.62%, val_loss=0.0338, val_acc=99.19%
+Epoch   9/10: train_loss=0.0090, train_acc=99.67%, val_loss=0.0326, val_acc=99.26%
+Early stopping at epoch 9 (patience=3)
 
-   ✅ Autograd training done — 8 epochs
-   Train loss: 0.0104 | Val loss: 0.0388
-   Val accuracy: 99.00%
+   ✅ Autograd training done — 9 epochs
+   Train loss: 0.0090 | Val loss: 0.0326
+   Val accuracy: 99.26%
 
 🔄 Exporting trained CNN to cma-cnn format...
 
@@ -99,24 +99,24 @@ Early stopping at epoch 8 (patience=3)
 🎯 Training FC classifier on trained CNN features...
 
 🚀 Training started (500 epochs)
-Epoch 1/500 [0.2%] - train_loss: 0.029937 - val_loss: 0.053699 - ETA: 128548s   Epoch 2/500 [0.4%] - train_loss: 0.027360 - val_loss: 0.052975 - ETA: 128449s   Epoch 3/500 [0.6%] - train_loss: 0.010368 - val_loss: 0.041240 - ETA: 128129s   Epoch 4/500 [0.8%] - train_loss: 0.007414 - val_loss: 0.042610 - ETA: 127977s   Epoch 5/500 [1.0%] - train_loss: 0.010464 - val_loss: 0.056692 - ETA: 127820s   Epoch 6/500 [1.2%] - train_loss: 0.007278 - val_loss: 0.046742 - ETA: 127624s   Epoch 7/500 [1.4%] - train_loss: 0.007312 - val_loss: 0.040807 - ETA: 127335s   Epoch 8/500 [1.6%] - train_loss: 0.005125 - val_loss: 0.048271 - ETA: 126814s   Epoch 9/500 [1.8%] - train_loss: 0.003195 - val_loss: 0.055816 - ETA: 126010s   Epoch 10/500 [2.0%] - train_loss: 0.005946 - val_loss: 0.049728 - ETA: 125222s   
-Epoch 11/500 [2.2%] - train_loss: 0.005126 - val_loss: 0.058894 - ETA: 124506s   Epoch 12/500 [2.4%] - train_loss: 0.002232 - val_loss: 0.054580 - ETA: 123836s   Epoch 13/500 [2.6%] - train_loss: 0.005038 - val_loss: 0.071331 - ETA: 123219s   Epoch 14/500 [2.8%] - train_loss: 0.005398 - val_loss: 0.067569 - ETA: 122646s   Epoch 15/500 [3.0%] - train_loss: 0.003580 - val_loss: 0.063812 - ETA: 122113s   Epoch 16/500 [3.2%] - train_loss: 0.002975 - val_loss: 0.060120 - ETA: 121589s   Epoch 17/500 [3.4%] - train_loss: 0.002610 - val_loss: 0.074904 - ETA: 121090s   Epoch 18/500 [3.6%] - train_loss: 0.005801 - val_loss: 0.063981 - ETA: 120614s   Epoch 19/500 [3.8%] - train_loss: 0.002372 - val_loss: 0.058617 - ETA: 120171s   Epoch 20/500 [4.0%] - train_loss: 0.001456 - val_loss: 0.061136 - ETA: 119750s   
-Epoch 21/500 [4.2%] - train_loss: 0.003020 - val_loss: 0.059435 - ETA: 119338s   Epoch 22/500 [4.4%] - train_loss: 0.001154 - val_loss: 0.065478 - ETA: 118949s   Epoch 23/500 [4.6%] - train_loss: 0.008710 - val_loss: 0.090591 - ETA: 118587s   Epoch 24/500 [4.8%] - train_loss: 0.001754 - val_loss: 0.069638 - ETA: 118227s   Epoch 25/500 [5.0%] - train_loss: 0.008709 - val_loss: 0.068556 - ETA: 117869s   Epoch 26/500 [5.2%] - train_loss: 0.002583 - val_loss: 0.076281 - ETA: 117524s   Epoch 27/500 [5.4%] - train_loss: 0.000610 - val_loss: 0.075043 - ETA: 117186s   
-📉 LR Scheduler: Epoch 27 - Plateau detected, reducing LR 0.001000 → 0.000500
-Epoch 28/500 [5.6%] - train_loss: 0.000755 - val_loss: 0.068573 - ETA: 116847s   Epoch 29/500 [5.8%] - train_loss: 0.000214 - val_loss: 0.065307 - ETA: 116516s   Epoch 30/500 [6.0%] - train_loss: 0.000743 - val_loss: 0.067860 - ETA: 116192s   
-Epoch 31/500 [6.2%] - train_loss: 0.000181 - val_loss: 0.070333 - ETA: 115866s   Epoch 32/500 [6.4%] - train_loss: 0.000148 - val_loss: 0.076611 - ETA: 115548s   Epoch 33/500 [6.6%] - train_loss: 0.000028 - val_loss: 0.075664 - ETA: 115240s   Epoch 34/500 [6.8%] - train_loss: 0.000029 - val_loss: 0.081077 - ETA: 114930s   Epoch 35/500 [7.0%] - train_loss: 0.000117 - val_loss: 0.079780 - ETA: 114633s   Epoch 36/500 [7.2%] - train_loss: 0.000935 - val_loss: 0.087185 - ETA: 114332s   Epoch 37/500 [7.4%] - train_loss: 0.000019 - val_loss: 0.083917 - ETA: 114031s   Epoch 38/500 [7.6%] - train_loss: 0.000173 - val_loss: 0.079703 - ETA: 113738s   Epoch 39/500 [7.8%] - train_loss: 0.000203 - val_loss: 0.095003 - ETA: 113439s   Epoch 40/500 [8.0%] - train_loss: 0.000040 - val_loss: 0.086514 - ETA: 113149s   
-Epoch 41/500 [8.2%] - train_loss: 0.000160 - val_loss: 0.083327 - ETA: 112853s   Epoch 42/500 [8.4%] - train_loss: 0.000016 - val_loss: 0.085207 - ETA: 112566s   Epoch 43/500 [8.6%] - train_loss: 0.000108 - val_loss: 0.092094 - ETA: 112284s   Epoch 44/500 [8.8%] - train_loss: 0.000164 - val_loss: 0.093168 - ETA: 111996s   Epoch 45/500 [9.0%] - train_loss: 0.000652 - val_loss: 0.100705 - ETA: 111718s   Epoch 46/500 [9.2%] - train_loss: 0.000082 - val_loss: 0.099896 - ETA: 111440s   Epoch 47/500 [9.4%] - train_loss: 0.000125 - val_loss: 0.096932 - ETA: 111158s   Epoch 48/500 [9.6%] - train_loss: 0.000103 - val_loss: 0.097944 - ETA: 110880s   Epoch 49/500 [9.8%] - train_loss: 0.000312 - val_loss: 0.101424 - ETA: 110606s   Epoch 50/500 [10.0%] - train_loss: 0.000084 - val_loss: 0.095336 - ETA: 110339s   
-Epoch 51/500 [10.2%] - train_loss: 0.000020 - val_loss: 0.100074 - ETA: 110075s   Epoch 52/500 [10.4%] - train_loss: 0.000002 - val_loss: 0.097017 - ETA: 109807s   
-📉 LR Scheduler: Epoch 52 - Plateau detected, reducing LR 0.000500 → 0.000250
-Epoch 53/500 [10.6%] - train_loss: 0.000000 - val_loss: 0.100846 - ETA: 109538s   Epoch 54/500 [10.8%] - train_loss: 0.000002 - val_loss: 0.096730 - ETA: 109273s   Epoch 55/500 [11.0%] - train_loss: 0.000002 - val_loss: 0.094084 - ETA: 109009s   Epoch 56/500 [11.2%] - train_loss: 0.000000 - val_loss: 0.099588 - ETA: 108748s   
-⚠️ EarlyStopping: Stopped at epoch 56 (best epoch: 6, loss: 0.040807)
-✅ Training completed in 13958.07s
+Epoch 1/500 [0.2%] - train_loss: 0.012817 - val_loss: 0.043087 - ETA: 135287s   Epoch 2/500 [0.4%] - train_loss: 0.015362 - val_loss: 0.048913 - ETA: 134669s   Epoch 3/500 [0.6%] - train_loss: 0.008006 - val_loss: 0.044918 - ETA: 134364s   Epoch 4/500 [0.8%] - train_loss: 0.004967 - val_loss: 0.038614 - ETA: 134006s   Epoch 5/500 [1.0%] - train_loss: 0.006192 - val_loss: 0.053342 - ETA: 133653s   Epoch 6/500 [1.2%] - train_loss: 0.006464 - val_loss: 0.041690 - ETA: 133347s   Epoch 7/500 [1.4%] - train_loss: 0.003655 - val_loss: 0.039935 - ETA: 133151s   Epoch 8/500 [1.6%] - train_loss: 0.008718 - val_loss: 0.059541 - ETA: 132928s   Epoch 9/500 [1.8%] - train_loss: 0.003558 - val_loss: 0.057805 - ETA: 132724s   Epoch 10/500 [2.0%] - train_loss: 0.003473 - val_loss: 0.050475 - ETA: 132525s   
+Epoch 11/500 [2.2%] - train_loss: 0.002620 - val_loss: 0.058978 - ETA: 132323s   Epoch 12/500 [2.4%] - train_loss: 0.005343 - val_loss: 0.058886 - ETA: 132068s   Epoch 13/500 [2.6%] - train_loss: 0.001221 - val_loss: 0.055744 - ETA: 131852s   Epoch 14/500 [2.8%] - train_loss: 0.006173 - val_loss: 0.097651 - ETA: 131609s   Epoch 15/500 [3.0%] - train_loss: 0.000754 - val_loss: 0.059977 - ETA: 131339s   Epoch 16/500 [3.2%] - train_loss: 0.001926 - val_loss: 0.064568 - ETA: 131076s   Epoch 17/500 [3.4%] - train_loss: 0.001695 - val_loss: 0.065032 - ETA: 130861s   Epoch 18/500 [3.6%] - train_loss: 0.000659 - val_loss: 0.060168 - ETA: 130616s   Epoch 19/500 [3.8%] - train_loss: 0.001249 - val_loss: 0.081381 - ETA: 130371s   Epoch 20/500 [4.0%] - train_loss: 0.002355 - val_loss: 0.075444 - ETA: 130127s   
+Epoch 21/500 [4.2%] - train_loss: 0.000629 - val_loss: 0.068692 - ETA: 129878s   Epoch 22/500 [4.4%] - train_loss: 0.001547 - val_loss: 0.082898 - ETA: 129623s   Epoch 23/500 [4.6%] - train_loss: 0.002045 - val_loss: 0.083884 - ETA: 129385s   Epoch 24/500 [4.8%] - train_loss: 0.000930 - val_loss: 0.070218 - ETA: 129128s   Epoch 25/500 [5.0%] - train_loss: 0.000777 - val_loss: 0.078754 - ETA: 128884s   Epoch 26/500 [5.2%] - train_loss: 0.000244 - val_loss: 0.078527 - ETA: 128634s   Epoch 27/500 [5.4%] - train_loss: 0.001062 - val_loss: 0.095034 - ETA: 128382s   Epoch 28/500 [5.6%] - train_loss: 0.001705 - val_loss: 0.069966 - ETA: 128142s   
+📉 LR Scheduler: Epoch 28 - Plateau detected, reducing LR 0.001000 → 0.000500
+Epoch 29/500 [5.8%] - train_loss: 0.001069 - val_loss: 0.077194 - ETA: 127872s   Epoch 30/500 [6.0%] - train_loss: 0.000041 - val_loss: 0.077870 - ETA: 127602s   
+Epoch 31/500 [6.2%] - train_loss: 0.000050 - val_loss: 0.074306 - ETA: 127331s   Epoch 32/500 [6.4%] - train_loss: 0.000015 - val_loss: 0.089979 - ETA: 127059s   Epoch 33/500 [6.6%] - train_loss: 0.000013 - val_loss: 0.087639 - ETA: 126782s   Epoch 34/500 [6.8%] - train_loss: 0.000014 - val_loss: 0.082830 - ETA: 126523s   Epoch 35/500 [7.0%] - train_loss: 0.000023 - val_loss: 0.088564 - ETA: 126250s   Epoch 36/500 [7.2%] - train_loss: 0.000002 - val_loss: 0.087132 - ETA: 125980s   Epoch 37/500 [7.4%] - train_loss: 0.000006 - val_loss: 0.080705 - ETA: 125735s   Epoch 38/500 [7.6%] - train_loss: 0.000058 - val_loss: 0.094116 - ETA: 125496s   Epoch 39/500 [7.8%] - train_loss: 0.000122 - val_loss: 0.092175 - ETA: 125282s   Epoch 40/500 [8.0%] - train_loss: 0.000089 - val_loss: 0.085128 - ETA: 125058s   
+Epoch 41/500 [8.2%] - train_loss: 0.000020 - val_loss: 0.085750 - ETA: 124797s   Epoch 42/500 [8.4%] - train_loss: 0.000015 - val_loss: 0.089704 - ETA: 124526s   Epoch 43/500 [8.6%] - train_loss: 0.000055 - val_loss: 0.089748 - ETA: 124254s   Epoch 44/500 [8.8%] - train_loss: 0.000003 - val_loss: 0.093904 - ETA: 123973s   Epoch 45/500 [9.0%] - train_loss: 0.000298 - val_loss: 0.104458 - ETA: 123697s   Epoch 46/500 [9.2%] - train_loss: 0.000002 - val_loss: 0.092293 - ETA: 123411s   Epoch 47/500 [9.4%] - train_loss: 0.000000 - val_loss: 0.092797 - ETA: 123131s   Epoch 48/500 [9.6%] - train_loss: 0.000001 - val_loss: 0.089792 - ETA: 122849s   Epoch 49/500 [9.8%] - train_loss: 0.000001 - val_loss: 0.085328 - ETA: 122571s   Epoch 50/500 [10.0%] - train_loss: 0.000001 - val_loss: 0.091473 - ETA: 122290s   
+Epoch 51/500 [10.2%] - train_loss: 0.000013 - val_loss: 0.093774 - ETA: 122007s   Epoch 52/500 [10.4%] - train_loss: 0.000028 - val_loss: 0.087061 - ETA: 121741s   Epoch 53/500 [10.6%] - train_loss: 0.000075 - val_loss: 0.108375 - ETA: 121472s   
+📉 LR Scheduler: Epoch 53 - Plateau detected, reducing LR 0.000500 → 0.000250
 
-   ✅ FC training completed in 57 epochs
+⚠️ EarlyStopping: Stopped at epoch 53 (best epoch: 3, loss: 0.038614)
+✅ Training completed in 14672.95s
 
-   AlexNet-Mini: 13915/14000 correct (99.39%)
+   ✅ FC training completed in 54 epochs
+
+   AlexNet-Mini: 13910/14000 correct (99.36%)
 
 💾 Saving model...
 
-Saved CNN model to src/alexnet_model.bin (19166.7 KB, accuracy=99.4%)
-   ✅ Model saved to src/alexnet_model.bin — accuracy 99.39%
+Saved CNN model to src/alexnet_model.bin (19166.5 KB, accuracy=99.4%)
+   ✅ Model saved to src/alexnet_model.bin — accuracy 99.36%

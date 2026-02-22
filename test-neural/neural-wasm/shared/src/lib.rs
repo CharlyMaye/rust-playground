@@ -1,7 +1,7 @@
 use chrono;
 use cma_cnn::sequential::Sequential as CnnSequential;
 use cma_neural_network::network::Network;
-use cma_neural_network::Float;
+use cma_neural_network::{Dim, Float};
 use ndarray;
 use serde::{Deserialize, Serialize};
 
@@ -31,7 +31,7 @@ impl NormalizationStats {
 #[derive(Serialize, Deserialize)]
 pub struct ModelMetadata {
     pub accuracy: Float,
-    pub test_samples: usize,
+    pub test_samples: Dim,
     pub trained_at: String,
     #[serde(default)]
     pub normalization: Option<NormalizationStats>,
@@ -72,7 +72,7 @@ pub fn save_cnn_model_binary(
         classifier,
         metadata: ModelMetadata {
             accuracy,
-            test_samples,
+            test_samples: test_samples as Dim,
             trained_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
             normalization,
         },
@@ -429,7 +429,7 @@ pub fn save_model_with_normalization(
         network,
         metadata: ModelMetadata {
             accuracy,
-            test_samples,
+            test_samples: test_samples as Dim,
             trained_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
             normalization,
         },
@@ -452,7 +452,7 @@ pub fn save_model_binary(
         network,
         metadata: ModelMetadata {
             accuracy,
-            test_samples,
+            test_samples: test_samples as Dim,
             trained_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
             normalization,
         },
@@ -745,7 +745,7 @@ macro_rules! define_cnn_mnist_network {
                     cnn: model.cnn,
                     classifier: model.classifier,
                     accuracy: model.metadata.accuracy,
-                    test_samples: model.metadata.test_samples,
+                    test_samples: model.metadata.test_samples as usize,
                     trained_at: model.metadata.trained_at,
                     normalization: model.metadata.normalization,
                 })
