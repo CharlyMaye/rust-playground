@@ -117,7 +117,7 @@ fn main() {
     println!();
 
     // MBConv demonstration
-    let mbconv = MBConvBlock::new(32, 16, 3, 1, 6, true); // use_se = true
+    let mbconv = MBConvBlock::builder(32, 16).kernel_size(3).stride(1).expand_ratio(6).with_squeeze_excitation().build(); // use_se = true
     let input = Tensor4D::random(TensorShape::new(1, 32, 56, 56));
     let output = mbconv.forward(&input);
 
@@ -321,8 +321,8 @@ fn main() {
     println!("The baseline architecture (B0) was found by NAS:");
     println!();
     println!("1. SEARCH SPACE:");
-    println!("   • Type de bloc: MBConv3 ou MBConv6");
-    println!("   • Kernel size: 3×3 ou 5×5");
+    println!("   • Block type: MBConv3 or MBConv6");
+    println!("   • Kernel size: 3×3 or 5×5");
     println!("   • Channels: 16, 24, 40, 80, 112, 192, 320");
     println!("   • Layers per stage: 1-7");
     println!();
@@ -342,7 +342,7 @@ fn main() {
 
     println!();
     println!("┌─────────────────────────────────────────────────────────────────┐");
-    println!("│ Classifieur FC (cma-neural-network)                             │");
+    println!("│ FC Classifier (cma-neural-network)                               │");
     println!("└─────────────────────────────────────────────────────────────────┘");
     println!();
     println!("```rust");
@@ -402,7 +402,7 @@ mod tests {
 
     #[test]
     fn test_mbconv_block() {
-        let block = MBConvBlock::new(32, 16, 3, 1, 6);
+        let block = MBConvBlock::builder(32, 16).kernel_size(3).stride(1).expand_ratio(6).build();
         let input = Tensor4D::random(TensorShape::new(1, 32, 28, 28));
         let output = block.forward(&input);
         assert_eq!(output.shape().channels, 16);

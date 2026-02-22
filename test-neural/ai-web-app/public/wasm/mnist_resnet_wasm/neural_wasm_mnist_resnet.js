@@ -12,7 +12,7 @@ export class MnistResNetNetwork {
         wasm.__wbg_mnistresnetnetwork_free(ptr, 0);
     }
     /**
-     * Get FC classifier activations for visualization (same API as MNIST FC-only)
+     * Get FC classifier activations for visualization.
      * @param {Float32Array} pixels
      * @returns {string}
      */
@@ -61,7 +61,7 @@ export class MnistResNetNetwork {
         }
     }
     /**
-     * Get CNN intermediate activations for visualization
+     * Get CNN intermediate activations for visualization.
      * @param {Float32Array} pixels
      * @returns {string}
      */

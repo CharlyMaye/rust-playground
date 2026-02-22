@@ -7,9 +7,9 @@ use cma_neural_network::network::Network;
 use cma_neural_network::Float;
 use ndarray::Array1;
 use neural_wasm_shared::{
-    build_prediction_result, build_test_result, load_model_from_bytes, ActivationsResponse,
-    ArchitectureSummary, LayerActivation, LayerInfo, LayerSummary, ModelInfo, NormalizationStats,
-    TestResult, WeightsInfo,
+    build_prediction_result, build_test_result, get_mnist_test_samples, load_model_from_bytes,
+    ActivationsResponse, ArchitectureSummary, LayerActivation, LayerInfo, LayerSummary, ModelInfo,
+    NormalizationStats, TestResult, WeightsInfo,
 };
 use wasm_bindgen::prelude::*;
 
@@ -42,7 +42,7 @@ impl MnistNetwork {
         Ok(MnistNetwork {
             network: model.network,
             accuracy: model.metadata.accuracy,
-            test_samples: model.metadata.test_samples,
+            test_samples: model.metadata.test_samples as usize,
             trained_at: model.metadata.trained_at,
             normalization: model.metadata.normalization,
         })
@@ -238,28 +238,4 @@ impl MnistNetwork {
 pub fn main() {
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
-}
-
-/// Sample MNIST test data (10 digits with normalized pixel values)
-/// These are simplified representations - real MNIST pixels would be 0-255
-fn get_mnist_test_samples() -> Vec<(Vec<Float>, u8)> {
-    vec![
-        (vec_with_first_n(vec![0.5; 784], 5), 0),
-        (vec_with_first_n(vec![0.3; 784], 5), 1),
-        (vec_with_first_n(vec![0.7; 784], 5), 2),
-        (vec_with_first_n(vec![0.4; 784], 5), 3),
-        (vec_with_first_n(vec![0.6; 784], 5), 4),
-        (vec_with_first_n(vec![0.2; 784], 5), 5),
-        (vec_with_first_n(vec![0.8; 784], 5), 6),
-        (vec_with_first_n(vec![0.45; 784], 5), 7),
-        (vec_with_first_n(vec![0.55; 784], 5), 8),
-        (vec_with_first_n(vec![0.65; 784], 5), 9),
-    ]
-}
-
-fn vec_with_first_n(mut v: Vec<Float>, n: usize) -> Vec<Float> {
-    for i in 0..n.min(v.len()) {
-        v[i] = v[i] * 2.0;
-    }
-    v
 }

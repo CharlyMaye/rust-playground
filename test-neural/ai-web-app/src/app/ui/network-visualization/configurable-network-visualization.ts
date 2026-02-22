@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   computed,
   effect,
@@ -67,6 +68,7 @@ import { ConfigurableWebGLRenderer } from './renderers/configurable-webgl-render
   templateUrl: './configurable-network-visualization.html',
   styleUrl: './configurable-network-visualization.scss',
   host: { class: 'card visualization-container' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ConfigurableNetworkVisualization implements OnDestroy {
   // ============================================================================

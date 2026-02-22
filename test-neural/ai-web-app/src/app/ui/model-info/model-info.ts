@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { ModelInfo } from '@cma/wasm/shared';
 
 /**
@@ -12,6 +12,7 @@ import { ModelInfo } from '@cma/wasm/shared';
   templateUrl: './model-info.html',
   styleUrl: './model-info.scss',
   host: { class: 'card' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ModelInfoComponent {
   /** Model metadata to display */

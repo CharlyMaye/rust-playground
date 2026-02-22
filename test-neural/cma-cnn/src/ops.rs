@@ -15,7 +15,7 @@ use rayon::prelude::*;
 
 use crate::tensor::{Tensor4D, TensorShape};
 
-/// Mode de padding pour les convolutions
+/// Padding mode for convolutions
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Padding {
     /// No padding (smaller output)
@@ -39,7 +39,7 @@ impl Padding {
 
 /// Im2Col: Transforms an image into a column matrix for efficient convolution
 ///
-/// # Principe (LeCun et al., 1998)
+/// # Principle (LeCun et al., 1998)
 ///
 /// Instead of using nested loops for convolution, we reorganize
 /// the image patches into columns, then perform a matrix multiplication.
@@ -128,7 +128,7 @@ pub fn im2col_single(
                     for oh in 0..out_h {
                         let ih = oh * stride + kh;
                         let ih_valid = ih >= padding && ih < h_max;
-                        let ih_real = ih.wrapping_sub(padding); // Safe car on check ih_valid
+                        let ih_real = ih.wrapping_sub(padding); // Safe because we check ih_valid
                         
                         for ow in 0..out_w {
                             let iw = ow * stride + kw;
@@ -149,20 +149,6 @@ pub fn im2col_single(
     }
 
     cols
-}
-
-/// Im2Col for the entire batch (returns Vec of matrices for each image)
-#[allow(dead_code)]
-pub fn im2col(
-    input: &Tensor4D,
-    kernel_size: usize,
-    stride: usize,
-    padding: usize,
-) -> Vec<Array2<Float>> {
-    let shape = input.shape();
-    (0..shape.batch)
-        .map(|b| im2col_single(input, kernel_size, stride, padding, b))
-        .collect()
 }
 
 /// Col2Im: Inverse of im2col, used for the backward pass
@@ -355,7 +341,7 @@ fn conv2d_im2col_sequential(
 
     // Process each image in the batch
     for b in 0..in_shape.batch {
-        // Im2col pour cette image: [K²×C, H'×W']
+        // Im2col for this image: [K²×C, H'×W']
         let cols = im2col_single(input, kernel_h, stride, padding, b);
 
         // GEMM: [out_channels, K²×C] × [K²×C, H'×W'] = [out_channels, H'×W']

@@ -188,8 +188,10 @@ impl Tensor4D {
         // Optimization: use a contiguous view and direct reshape if possible
         // Avoids scalar iterations
         if let Some(slice) = self.data.as_slice() {
-            // Contiguous data in memory: direct reshape without copy
-            Array2::from_shape_vec((shape.batch, flat_size), slice.to_vec()).unwrap()
+            // Contiguous: reshape via ArrayView2 — avoids intermediate Vec<Float> allocation
+            ndarray::ArrayView2::from_shape((shape.batch, flat_size), slice)
+                .unwrap()
+                .to_owned()
         } else {
             // Fallback: non-contiguous data, copy required
             let mut result = Array2::zeros((shape.batch, flat_size));
@@ -209,11 +211,13 @@ impl Tensor4D {
     pub fn unflatten(flat: &Array2<Float>, shape: TensorShape) -> Self {
         // Optimization: direct reshape if data is contiguous
         if let Some(slice) = flat.as_slice() {
-            let data = Array4::from_shape_vec(
+            // Contiguous: reshape via ArrayView — avoids intermediate Vec<Float> allocation
+            let data = ndarray::ArrayView4::from_shape(
                 (shape.batch, shape.channels, shape.height, shape.width),
-                slice.to_vec(),
+                slice,
             )
-            .unwrap();
+            .unwrap()
+            .to_owned();
             Self { data }
         } else {
             // Fallback for non-contiguous data

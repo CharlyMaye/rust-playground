@@ -75,13 +75,13 @@ impl Dataset {
         self.inputs.is_empty()
     }
 
-    /// Returns a reference to the input vectors.
-    pub fn inputs(&self) -> &Vec<Array1<Float>> {
+    /// Returns a slice of the input vectors.
+    pub fn inputs(&self) -> &[Array1<Float>] {
         &self.inputs
     }
 
-    /// Returns a reference to the target vectors.
-    pub fn targets(&self) -> &Vec<Array1<Float>> {
+    /// Returns a slice of the target vectors.
+    pub fn targets(&self) -> &[Array1<Float>] {
         &self.targets
     }
 
@@ -128,21 +128,15 @@ impl Dataset {
             "Indices length must match dataset length"
         );
 
-        // Create temporary storage
-        let mut temp_inputs: Vec<Array1<Float>> = indices
-            .iter()
-            .map(|&idx| self.inputs[idx].clone())
-            .collect();
-        let mut temp_targets: Vec<Array1<Float>> = indices
-            .iter()
-            .map(|&idx| self.targets[idx].clone())
-            .collect();
+        // Wrap elements in Option so we can move them out by index without cloning.
+        // Avoids allocating two full Vec<Array1<Float>> copies of the dataset.
+        let mut opt_inputs: Vec<Option<Array1<Float>>> =
+            std::mem::take(&mut self.inputs).into_iter().map(Some).collect();
+        let mut opt_targets: Vec<Option<Array1<Float>>> =
+            std::mem::take(&mut self.targets).into_iter().map(Some).collect();
 
-        // Swap back
-        self.inputs.clear();
-        self.targets.clear();
-        self.inputs.append(&mut temp_inputs);
-        self.targets.append(&mut temp_targets);
+        self.inputs = indices.iter().map(|&idx| opt_inputs[idx].take().unwrap()).collect();
+        self.targets = indices.iter().map(|&idx| opt_targets[idx].take().unwrap()).collect();
     }
 
     /// Splits the dataset into training and test sets.

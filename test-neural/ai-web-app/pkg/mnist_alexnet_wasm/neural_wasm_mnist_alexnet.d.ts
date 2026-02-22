@@ -1,20 +1,17 @@
 /* tslint:disable */
 /* eslint-disable */
 
-/**
- * AlexNet-Mini MNIST Neural Network exposed to JavaScript
- */
 export class MnistAlexNetNetwork {
     free(): void;
     [Symbol.dispose](): void;
     /**
-     * Get FC classifier activations for visualization (same API as MNIST FC-only)
+     * Get FC classifier activations for visualization.
      */
     get_activations(pixels: Float32Array): string;
     get_architecture(): string;
     get_class_names(): string;
     /**
-     * Get CNN intermediate activations for visualization
+     * Get CNN intermediate activations for visualization.
      */
     get_cnn_activations(pixels: Float32Array): string;
     get_probabilities(pixels: Float32Array): string;

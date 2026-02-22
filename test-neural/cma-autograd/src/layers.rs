@@ -7,7 +7,7 @@
 use crate::Float;
 use crate::ops;
 use crate::tensor::Tensor;
-use ndarray::{ArrayD, IxDyn};
+use ndarray::{s, ArrayD, IxDyn, Zip};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ReLU
@@ -264,6 +264,10 @@ impl Softmax {
     }
 
     pub fn forward(&self, input: &Tensor) -> Tensor {
+        use crate::grad_fn::SoftmaxBackward;
+        use crate::tensor::is_grad_enabled;
+        use std::sync::Arc;
+
         // Numerically stable softmax: subtract max before exp
         let data = input.data();
         let shape = data.shape().to_vec();
@@ -274,14 +278,21 @@ impl Softmax {
             let shifted = data.mapv(|x| (x - max_val).exp());
             let sum: Float = shifted.iter().sum();
             let result = shifted.mapv(|x| x / sum);
-            // For autograd tracking of softmax, we'd need a dedicated SoftmaxBackward.
-            // For now, return as a non-tracked tensor.
-            Tensor::new(result, false)
+            if is_grad_enabled() && input.requires_grad() {
+                let grad_fn = Arc::new(SoftmaxBackward {
+                    a: input.clone(),
+                    output_data: result.clone(),
+                });
+                Tensor::from_op(result, grad_fn)
+            } else {
+                Tensor::new(result, false)
+            }
         } else if ndim == 2 {
             // Softmax along axis 1 (last axis for 2D)
             let rows = shape[0];
             let cols = shape[1];
-            let mut result = data.clone();
+            // zeros instead of clone: every element is overwritten so clone is wasted work
+            let mut result = ArrayD::zeros(data.raw_dim());
             for i in 0..rows {
                 let row_slice = data.slice(ndarray::s![i, ..]);
                 let max_val: Float = row_slice
@@ -298,7 +309,15 @@ impl Softmax {
                     result[[i, j]] /= sum;
                 }
             }
-            Tensor::new(result, false)
+            if is_grad_enabled() && input.requires_grad() {
+                let grad_fn = Arc::new(SoftmaxBackward {
+                    a: input.clone(),
+                    output_data: result.clone(),
+                });
+                Tensor::from_op(result, grad_fn)
+            } else {
+                Tensor::new(result, false)
+            }
         } else {
             panic!("Softmax only supports 1D and 2D tensors for now");
         }
@@ -373,54 +392,38 @@ impl BatchNorm2D {
         let mut output = ArrayD::zeros(IxDyn(&shape));
 
         if self.training {
-            let m = (batch * h * w) as Float;
             let mut x_hat = ArrayD::zeros(IxDyn(&shape));
             let mut std_inv_vec = vec![0.0; channels];
 
             for c in 0..channels {
-                // Compute batch mean and variance for this channel
-                let mut sum: Float = 0.0;
-                for b in 0..batch {
-                    for i in 0..h {
-                        for j in 0..w {
-                            sum += data[[b, c, i, j]];
-                        }
-                    }
-                }
-                let mean = sum / m;
-
-                let mut var_sum: Float = 0.0;
-                for b in 0..batch {
-                    for i in 0..h {
-                        for j in 0..w {
-                            let diff = data[[b, c, i, j]] - mean;
-                            var_sum += diff * diff;
-                        }
-                    }
-                }
-                let var = var_sum / m;
+                let ch = data.slice(s![.., c, .., ..]);
+                let n_f = (batch * h * w) as Float;
+                let n_inv = 1.0 / n_f;
+                let mean = ch.iter().copied().sum::<Float>() * n_inv;
+                // Single-pass variance: avoids allocating channel-sized array of squared deviations
+                let var = ch.iter().map(|&x| { let d = x - mean; d * d }).sum::<Float>() * n_inv;
                 let std_inv = 1.0 / (var + self.epsilon).sqrt();
                 std_inv_vec[c] = std_inv;
 
-                // Normalize and apply gamma/beta
                 let gamma_c = self.gamma.tensor().data_ref(|d| d[[c]]);
                 let beta_c = self.beta.tensor().data_ref(|d| d[[c]]);
 
-                for b in 0..batch {
-                    for i in 0..h {
-                        for j in 0..w {
-                            let xh = (data[[b, c, i, j]] - mean) * std_inv;
-                            x_hat[[b, c, i, j]] = xh;
-                            output[[b, c, i, j]] = gamma_c * xh + beta_c;
-                        }
-                    }
-                }
+                // Single Zip pass writes x_hat and output simultaneously — was 2 mapv allocs
+                Zip::from(output.slice_mut(s![.., c, .., ..]))
+                    .and(x_hat.slice_mut(s![.., c, .., ..]))
+                    .and(&ch)
+                    .for_each(|o, xh, &x| {
+                        let xh_val = (x - mean) * std_inv;
+                        *xh = xh_val;
+                        *o = xh_val * gamma_c + beta_c;
+                    });
 
-                // Update running stats
                 let mut rm = self.running_mean.borrow_mut();
                 let mut rv = self.running_var.borrow_mut();
                 rm[c] = (1.0 - self.momentum) * rm[c] + self.momentum * mean;
                 rv[c] = (1.0 - self.momentum) * rv[c] + self.momentum * var;
+                drop(rm);
+                drop(rv);
             }
 
             // Attach backward
@@ -449,19 +452,14 @@ impl BatchNorm2D {
 
             for c in 0..channels {
                 let mean = rm[c];
-                let var = rv[c];
-                let std_inv = 1.0 / (var + self.epsilon).sqrt();
+                let std_inv = 1.0 / (rv[c] + self.epsilon).sqrt();
                 let gamma_c = self.gamma.tensor().data_ref(|d| d[[c]]);
                 let beta_c = self.beta.tensor().data_ref(|d| d[[c]]);
 
-                for b in 0..batch {
-                    for i in 0..h {
-                        for j in 0..w {
-                            let xh = (data[[b, c, i, j]] - mean) * std_inv;
-                            output[[b, c, i, j]] = gamma_c * xh + beta_c;
-                        }
-                    }
-                }
+                // Direct write via Zip: avoids per-channel temp array from mapv+assign
+                Zip::from(output.slice_mut(s![.., c, .., ..]))
+                    .and(data.slice(s![.., c, .., ..]))
+                    .for_each(|o, &x| *o = gamma_c * (x - mean) * std_inv + beta_c);
             }
 
             Tensor::new(output, false)

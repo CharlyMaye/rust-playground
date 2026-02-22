@@ -63,6 +63,7 @@ pub mod builder;
 pub mod callbacks;
 pub mod compute;
 pub mod dataset;
+pub mod init;
 pub mod io;
 pub mod metrics;
 pub mod network;
@@ -88,6 +89,14 @@ pub(crate) mod trainer;
 /// - `f64`: Double precision (for research/debugging only)
 /// - `f16`: Half precision (requires additional support, future)
 pub type Float = f32;
+
+/// Integer type used for dimensions and counts in serialized structs.
+///
+/// Using `u32` instead of `usize` ensures consistent 4-byte serialization on
+/// all platforms (x86_64 and WASM32), avoiding bincode deserialization errors
+/// when models are saved on 64-bit and loaded on 32-bit (WASM).
+/// All dimension values (channels ≤ 4096, kernel sizes ≤ 11, etc.) fit comfortably in u32.
+pub type Dim = u32;
 
 // Re-exports for convenience
 pub use builder::{NetworkBuilder, NetworkTrainer, TrainingBuilder};

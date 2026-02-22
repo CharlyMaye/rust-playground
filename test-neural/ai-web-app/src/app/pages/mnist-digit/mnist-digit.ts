@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { PredictionResult, WasmFacade } from '@cma/wasm/shared';
 import { CanvasDraw } from 'src/app/ui/canvas-draw/canvas-draw';
 import { Loader } from '../../ui/loader/loader';
@@ -19,6 +19,7 @@ import { ConfigurableNetworkVisualization } from '../../ui/network-visualization
   templateUrl: './mnist-digit.html',
   styleUrl: './mnist-digit.scss',
   host: { class: 'page container' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class MnistDigit {
   private readonly wasmService = inject(WasmFacade);

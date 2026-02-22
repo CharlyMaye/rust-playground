@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { ComingSoon as ComingSoonCmp } from 'src/app/ui/coming-soon/coming-soon';
 
 /**
@@ -11,5 +11,6 @@ import { ComingSoon as ComingSoonCmp } from 'src/app/ui/coming-soon/coming-soon'
   templateUrl: './coming-soon.html',
   styleUrl: './coming-soon.scss',
   host: { class: 'page container' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class ComingSoon {}

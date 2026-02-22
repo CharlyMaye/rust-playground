@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Activation, PredictionResult, WasmFacade } from '@cma/wasm/shared';
 import { Loader } from '../../ui/loader/loader';
 import { ModelInfoComponent } from '../../ui/model-info/model-info';
@@ -19,6 +19,7 @@ import { ConfigurableNetworkVisualization } from '../../ui/network-visualization
   templateUrl: './xor-logic-gate.html',
   styleUrl: './xor-logic-gate.scss',
   host: { class: 'page container' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class XorLogicGate {
   private readonly wasmService = inject(WasmFacade);

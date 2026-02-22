@@ -52,15 +52,13 @@ pub mod vgg;
 
 // Re-exports
 pub use alexnet::{AlexNet, AlexNetConfig};
-pub use efficientnet::{EfficientNetB0, EfficientNetConfig, MBConvBlock};
+pub use efficientnet::{EfficientNetB0, EfficientNetConfig, MBConvBlock, MBConvBlockBuilder};
 pub use lenet::{LeNet5, LeNet5Config};
-pub use resnet::{
-    ResNet, ResNet18, ResNet34, ResNet50, ResNetBuilder, ResNetConfig, ResidualBlock,
-};
+pub use resnet::{ResNet, ResNetBuilder, ResidualBlock};
 pub use vgg::{VGG16, VGG19, VGGConfig};
 
 // Re-exports from cma-cnn
 pub use cma_cnn::{
-    ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Dropout2D, Flatten, GlobalAvgPool2D, Layer,
-    MaxPool2D, Sequential, Tensor4D, TensorShape,
+    ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, DepthwiseConv2D, Dropout2D, Flatten,
+    GlobalAvgPool2D, Layer, MaxPool2D, Sequential, Tensor4D, TensorShape,
 };

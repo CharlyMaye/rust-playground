@@ -1,8 +1,5 @@
 /* @ts-self-types="./neural_wasm_mnist_lenet.d.ts" */
 
-/**
- * LeNet-5 MNIST Neural Network exposed to JavaScript
- */
 export class MnistLeNetNetwork {
     __destroy_into_raw() {
         const ptr = this.__wbg_ptr;
@@ -15,7 +12,7 @@ export class MnistLeNetNetwork {
         wasm.__wbg_mnistlenetnetwork_free(ptr, 0);
     }
     /**
-     * Get FC classifier activations for visualization (same API as MNIST FC-only)
+     * Get FC classifier activations for visualization.
      * @param {Float32Array} pixels
      * @returns {string}
      */
@@ -64,7 +61,7 @@ export class MnistLeNetNetwork {
         }
     }
     /**
-     * Get CNN intermediate activations for visualization
+     * Get CNN intermediate activations for visualization.
      * @param {Float32Array} pixels
      * @returns {string}
      */
@@ -130,9 +127,6 @@ export class MnistLeNetNetwork {
             wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
         }
     }
-    /**
-     * Create a new LeNet-5 MNIST network by loading the embedded model
-     */
     constructor() {
         const ret = wasm.mnistlenetnetwork_new();
         if (ret[2]) {

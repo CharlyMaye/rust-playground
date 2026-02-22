@@ -312,6 +312,26 @@ pub fn tanh_act(a: &Tensor) -> Tensor {
     }
 }
 
+/// Element-wise clamp: c = clamp(a, min, max).
+///
+/// Gradient passes through where `min < a < max`, zero elsewhere.
+pub fn clamp(a: &Tensor, min_val: Float, max_val: Float) -> Tensor {
+    let a_data = a.data();
+    let result = a_data.mapv(|x| x.clamp(min_val, max_val));
+
+    if is_grad_enabled() && a.requires_grad() {
+        let grad_fn = Arc::new(ClampBackward {
+            a: a.clone(),
+            a_data,
+            min_val,
+            max_val,
+        });
+        Tensor::from_op(result, grad_fn)
+    } else {
+        Tensor::new(result, false)
+    }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Shape operations
 // ═══════════════════════════════════════════════════════════════════════════

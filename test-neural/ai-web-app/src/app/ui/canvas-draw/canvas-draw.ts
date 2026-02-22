@@ -1,10 +1,11 @@
-import { Component, ElementRef, afterNextRender, input, output, viewChild } from '@angular/core';
+import { ChangeDetectionStrategy, Component, ElementRef, afterNextRender, input, output, viewChild } from '@angular/core';
 
 @Component({
   selector: 'app-canvas-draw',
   imports: [],
   templateUrl: './canvas-draw.html',
   host: { class: 'canvas-draw' },
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class CanvasDraw {
   public readonly gridSize = input<{ rows: number; cols: number }>({

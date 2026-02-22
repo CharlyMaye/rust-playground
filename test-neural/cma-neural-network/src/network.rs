@@ -1,7 +1,7 @@
-use crate::Float;
+use crate::{Dim, Float};
 use crate::callbacks::Callback;
 use crate::optimizer::{OptimizerState1D, OptimizerState2D, OptimizerType};
-use ndarray::{Array1, Array2};
+use ndarray::{Array1, Array2, Zip};
 use rand::Rng;
 use rand::SeedableRng;
 use rand::rng;
@@ -41,11 +41,17 @@ impl RegularizationType {
     pub fn penalty(&self, weights: &Array2<Float>) -> Float {
         match self {
             RegularizationType::None => 0.0,
-            RegularizationType::L1 { lambda } => lambda * weights.mapv(|w| w.abs()).sum(),
-            RegularizationType::L2 { lambda } => 0.5 * lambda * weights.mapv(|w| w * w).sum(),
+            // iter().map().sum(): single pass, no intermediate array (avoids mapv alloc)
+            RegularizationType::L1 { lambda } => {
+                lambda * weights.iter().map(|&w| w.abs()).sum::<Float>()
+            }
+            RegularizationType::L2 { lambda } => {
+                0.5 * lambda * weights.iter().map(|&w| w * w).sum::<Float>()
+            }
             RegularizationType::ElasticNet { l1_ratio, lambda } => {
-                let l1_part = l1_ratio * weights.mapv(|w| w.abs()).sum();
-                let l2_part = 0.5 * (1.0 - l1_ratio) * weights.mapv(|w| w * w).sum();
+                let l1_part = l1_ratio * weights.iter().map(|&w| w.abs()).sum::<Float>();
+                let l2_part =
+                    0.5 * (1.0 - l1_ratio) * weights.iter().map(|&w| w * w).sum::<Float>();
                 lambda * (l1_part + l2_part)
             }
         }
@@ -113,44 +119,19 @@ impl WeightInit {
     /// # Returns
     /// Initialized weight matrix
     fn initialize_weights(&self, rows: usize, cols: usize, rng: &mut impl Rng) -> Array2<Float> {
-        match self {
+        let std = match self {
             WeightInit::Uniform => {
-                Array2::from_shape_fn((rows, cols), |_| rng.random_range(-1.0..1.0))
+                return Array2::from_shape_fn((rows, cols), |_| rng.random_range(-1.0..1.0));
             }
-            WeightInit::Xavier => {
-                // Xavier: std = sqrt(2 / (input_size + output_size))
-                let std = (2.0 / (rows + cols) as Float).sqrt();
-                Array2::from_shape_fn((rows, cols), |_| {
-                    // Box-Muller transform for Gaussian distribution
-                    let u1: Float = rng.random();
-                    let u2: Float = rng.random();
-                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-                    z * std
-                })
-            }
-            WeightInit::He => {
-                // He: std = sqrt(2 / input_size)
-                let std = (2.0 / cols as Float).sqrt();
-                Array2::from_shape_fn((rows, cols), |_| {
-                    // Box-Muller transform for Gaussian distribution
-                    let u1: Float = rng.random();
-                    let u2: Float = rng.random();
-                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-                    z * std
-                })
-            }
-            WeightInit::LeCun => {
-                // LeCun: std = sqrt(1 / input_size)
-                let std = (1.0 / cols as Float).sqrt();
-                Array2::from_shape_fn((rows, cols), |_| {
-                    // Box-Muller transform for Gaussian distribution
-                    let u1: Float = rng.random();
-                    let u2: Float = rng.random();
-                    let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f32::consts::PI * u2).cos();
-                    z * std
-                })
-            }
-        }
+            // Xavier: std = sqrt(2 / (fan_in + fan_out))
+            WeightInit::Xavier => (2.0 / (rows + cols) as Float).sqrt(),
+            // He: std = sqrt(2 / fan_in)
+            WeightInit::He => (2.0 / cols as Float).sqrt(),
+            // LeCun: std = sqrt(1 / fan_in)
+            WeightInit::LeCun => (1.0 / cols as Float).sqrt(),
+        };
+        let data = crate::init::randn_vec(rows * cols, std, rng);
+        Array2::from_shape_vec((rows, cols), data).unwrap()
     }
 
     /// Get recommended initialization method for an activation function.
@@ -219,39 +200,44 @@ impl LossFunction {
                 (&diff * &diff).sum() / predictions.len() as Float
             }
             LossFunction::MAE => {
-                (predictions - targets).mapv(|x| x.abs()).sum() / predictions.len() as Float
+                // Zip fold: avoids allocating (predictions - targets) + second mapv for abs
+                Zip::from(predictions)
+                    .and(targets)
+                    .fold(0.0, |acc, &p, &t| acc + (p - t).abs())
+                    / predictions.len() as Float
             }
             LossFunction::BinaryCrossEntropy => {
-                let epsilon = 1e-15;
-                let mut sum = 0.0;
-                for (p, t) in predictions.iter().zip(targets.iter()) {
-                    let p_clamped = p.max(epsilon).min(1.0 - epsilon);
-                    sum += -(t * p_clamped.ln() + (1.0 - t) * (1.0 - p_clamped).ln());
-                }
-                sum / predictions.len() as Float
+                let epsilon: Float = 1e-15;
+                let n = predictions.len() as Float;
+                Zip::from(predictions)
+                    .and(targets)
+                    .fold(0.0, |acc, &p, &t| {
+                        let pc = p.max(epsilon).min(1.0 - epsilon);
+                        acc - (t * pc.ln() + (1.0 - t) * (1.0 - pc).ln())
+                    })
+                    / n
             }
             LossFunction::CategoricalCrossEntropy => {
-                let epsilon = 1e-15;
-                let mut sum = 0.0;
-                for (p, t) in predictions.iter().zip(targets.iter()) {
-                    let p_clamped = p.max(epsilon);
-                    sum += -t * p_clamped.ln();
-                }
-                sum
+                let epsilon: Float = 1e-15;
+                Zip::from(predictions)
+                    .and(targets)
+                    .fold(0.0, |acc, &p, &t| acc - t * p.max(epsilon).ln())
             }
             LossFunction::Huber => {
-                let delta = 1.0;
-                let diff = predictions - targets;
-                let mut sum = 0.0;
-                for &d in diff.iter() {
-                    let abs_d = d.abs();
-                    if abs_d <= delta {
-                        sum += 0.5 * d * d;
-                    } else {
-                        sum += delta * (abs_d - 0.5 * delta);
-                    }
-                }
-                sum / predictions.len() as Float
+                let delta: Float = 1.0;
+                let n = predictions.len() as Float;
+                // Zip fold: avoids allocating `diff` then mapv then sum (3 passes → 1)
+                Zip::from(predictions)
+                    .and(targets)
+                    .fold(0.0, |acc, &p, &t| {
+                        let d = p - t;
+                        acc + if d.abs() <= delta {
+                            0.5 * d * d
+                        } else {
+                            delta * (d.abs() - 0.5 * delta)
+                        }
+                    })
+                    / n
             }
         }
     }
@@ -282,37 +268,32 @@ impl LossFunction {
                 })
             }
             LossFunction::BinaryCrossEntropy => {
-                // d/dx[-y*ln(x) - (1-y)*ln(1-x)] = -y/x + (1-y)/(1-x) = (x - y) / (x(1-x))
-                // Simplified when used with sigmoid: (x - y)
-                let epsilon = 1e-15;
-                let mut result = Array1::zeros(predictions.len());
-                for (i, (p, t)) in predictions.iter().zip(targets.iter()).enumerate() {
-                    let p_clamped = p.max(epsilon).min(1.0 - epsilon);
-                    result[i] = (p_clamped - t) / (p_clamped * (1.0 - p_clamped));
-                }
-                result
+                // d/dx[-y*ln(x) - (1-y)*ln(1-x)] = (x - y) / (x(1-x))
+                let epsilon: Float = 1e-15;
+                // Fused Zip: clamp and derivative in one pass — avoids intermediate p_clamped array
+                Zip::from(predictions)
+                    .and(targets)
+                    .map_collect(|&p, &t| {
+                        let pc = p.max(epsilon).min(1.0 - epsilon);
+                        (pc - t) / (pc * (1.0 - pc))
+                    })
             }
             LossFunction::CategoricalCrossEntropy => {
                 // d/dx[-y*ln(x)] = -y/x
-                // Simplified when used with softmax: (x - y)
-                let epsilon = 1e-15;
-                let mut result = Array1::zeros(predictions.len());
-                for (i, (p, t)) in predictions.iter().zip(targets.iter()).enumerate() {
-                    let p_clamped = p.max(epsilon);
-                    result[i] = -t / p_clamped;
-                }
-                result
+                let epsilon: Float = 1e-15;
+                Zip::from(predictions)
+                    .and(targets)
+                    .map_collect(|&p, &t| -t / p.max(epsilon))
             }
             LossFunction::Huber => {
                 let delta = 1.0;
-                let diff = predictions - targets;
-                diff.mapv(|d| {
-                    if d.abs() <= delta {
-                        d
-                    } else {
-                        delta * d.signum()
-                    }
-                })
+                // Fused Zip: avoids allocating `diff` then `mapv(...)` (2 allocs → 1)
+                Zip::from(predictions)
+                    .and(targets)
+                    .map_collect(|&p, &t| {
+                        let d = p - t;
+                        if d.abs() <= delta { d } else { delta * d.signum() }
+                    })
             }
         }
     }
@@ -340,38 +321,48 @@ impl Activation {
         }
     }
 
-    /// Apply the activation function to an array.
-    pub fn apply(&self, x: &Array1<Float>) -> Array1<Float> {
+    /// Apply the activation function to a single scalar value.
+    pub fn apply_scalar(&self, x: Float) -> Float {
         match self {
-            Activation::Sigmoid => x.mapv(|x| 1.0 / (1.0 + (-x).exp())),
-            Activation::Tanh => x.mapv(|x| x.tanh()),
-            Activation::ReLU => x.mapv(|x| x.max(0.0)),
-            Activation::LeakyReLU => x.mapv(|x| if x > 0.0 { x } else { 0.01 * x }),
-            Activation::ELU => x.mapv(|x| if x > 0.0 { x } else { 1.0 * (x.exp() - 1.0) }),
+            Activation::Sigmoid => 1.0 / (1.0 + (-x).exp()),
+            Activation::Tanh => x.tanh(),
+            Activation::ReLU => x.max(0.0),
+            Activation::LeakyReLU => if x > 0.0 { x } else { 0.01 * x },
+            Activation::ELU => if x > 0.0 { x } else { x.exp() - 1.0 },
             Activation::SELU => {
                 let lambda = 1.0507;
                 let alpha = 1.6733;
-                x.mapv(|x| lambda * if x > 0.0 { x } else { alpha * (x.exp() - 1.0) })
+                lambda * if x > 0.0 { x } else { alpha * (x.exp() - 1.0) }
             }
-            Activation::Swish => x.mapv(|x| x / (1.0 + (-x).exp())),
-            Activation::GELU => x.mapv(|x| {
+            Activation::Swish => x / (1.0 + (-x).exp()),
+            Activation::GELU => {
                 0.5 * x
                     * (1.0
                         + ((2.0 / std::f32::consts::PI).sqrt() * (x + 0.044715 * x.powi(3))).tanh())
-            }),
-            Activation::Mish => x.mapv(|x| x * ((1.0 + x.exp()).ln()).tanh()),
-            Activation::Softplus => x.mapv(|x| (1.0 + x.exp()).ln()),
-            Activation::Softsign => x.mapv(|x| x / (1.0 + x.abs())),
-            Activation::HardSigmoid => x.mapv(|x| (0.2 * x + 0.5).clamp(0.0, 1.0)),
-            Activation::HardTanh => x.mapv(|x| x.clamp(-1.0, 1.0)),
+            }
+            Activation::Mish => x * ((1.0 + x.exp()).ln()).tanh(),
+            Activation::Softplus => (1.0 + x.exp()).ln(),
+            Activation::Softsign => x / (1.0 + x.abs()),
+            Activation::HardSigmoid => (0.2 * x + 0.5).clamp(0.0, 1.0),
+            Activation::HardTanh => x.clamp(-1.0, 1.0),
+            Activation::Softmax => x, // Softmax requires full context; identity for scalar
+            Activation::Linear => x,
+        }
+    }
+
+    /// Apply the activation function to an array.
+    pub fn apply(&self, x: &Array1<Float>) -> Array1<Float> {
+        match self {
             Activation::Softmax => {
-                // Numerical stability: subtract max before exp
+                // Softmax with numerical stability
                 let max = x.fold(Float::NEG_INFINITY, |a, &b| a.max(b));
-                let exp_x = x.mapv(|v| (v - max).exp());
-                let sum = exp_x.sum();
-                exp_x / sum
+                // mapv once + in-place /= — avoids the second allocation from `exp_x / sum`
+                let mut exp_x = x.mapv(|v| (v - max).exp());
+                exp_x /= exp_x.sum();
+                exp_x
             }
             Activation::Linear => x.clone(),
+            _ => x.mapv(|v| self.apply_scalar(v)),
         }
     }
 
@@ -409,8 +400,8 @@ impl Activation {
     pub fn derivative_from_preactivation(&self, z: &Array1<Float>) -> Array1<Float> {
         match self {
             Activation::Sigmoid => {
-                let sig = z.mapv(|x| 1.0 / (1.0 + (-x).exp()));
-                &sig * &(1.0 - &sig)
+                // Single mapv: fuses σ(x) and σ(x)*(1-σ(x)) — was 3 allocs (sig, 1-sig, multiply)
+                z.mapv(|x| { let s = 1.0 / (1.0 + (-x).exp()); s * (1.0 - s) })
             }
             Activation::Tanh => z.mapv(|x| 1.0 - x.tanh().powi(2)),
             Activation::ReLU => z.mapv(|x| if x > 0.0 { 1.0 } else { 0.0 }),
@@ -566,7 +557,7 @@ pub struct Network {
     /// All layers (hidden + output)
     pub(crate) layers: Vec<Layer>,
     /// Input size for reference
-    pub(crate) input_size: usize,
+    pub(crate) input_size: Dim,
     /// Loss function for training
     pub(crate) loss_function: LossFunction,
     /// Optimizer type
@@ -604,6 +595,7 @@ impl Network {
     /// - `loss_function`: Loss function for training
     ///
     /// **Internal method**: Use `NetworkBuilder` for construction.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn new_deep_with_init(
         input_size: usize,
         hidden_sizes: Vec<usize>,
@@ -675,7 +667,7 @@ impl Network {
 
         Network {
             layers,
-            input_size,
+            input_size: input_size as Dim,
             loss_function,
             optimizer,
             optimizer_states_weights,
@@ -731,23 +723,6 @@ impl Network {
 }
 
 impl Network {
-    /// Performs a forward pass through the network.
-    ///
-    /// # Arguments
-    /// - `input`: Input vector
-    ///
-    /// # Returns
-    /// Vector of all layer activations (including input and final output).
-    /// Index 0 is the input, last index is the final output.
-    #[allow(dead_code)]
-    fn forward(&self, input: &Array1<Float>) -> Vec<Array1<Float>> {
-        if self.training_mode {
-            self.forward_full(input, &mut rng()).activations
-        } else {
-            self.forward_eval(input)
-        }
-    }
-
     /// Forward pass for evaluation (no dropout, no RNG needed).
     /// Always runs in "eval mode" regardless of training_mode flag.
     fn forward_eval(&self, input: &Array1<Float>) -> Vec<Array1<Float>> {
@@ -761,25 +736,6 @@ impl Network {
         }
 
         activations
-    }
-
-    /// Forward pass using the stored RNG (for reproducibility) or system entropy.
-    #[allow(dead_code)]
-    fn forward_with_stored_rng(&mut self, input: &Array1<Float>) -> ForwardResult {
-        // Take ownership of stored RNG temporarily to avoid borrow issues
-        if let Some(mut stored_rng) = self.rng.take() {
-            let result = self.forward_full_internal(input, &mut stored_rng);
-            self.rng = Some(stored_rng); // Put it back
-            result
-        } else {
-            self.forward_full_internal(input, &mut rng())
-        }
-    }
-
-    /// Forward pass returning full result with pre-activations and dropout masks.
-    #[allow(dead_code)]
-    fn forward_full(&self, input: &Array1<Float>, rng: &mut impl Rng) -> ForwardResult {
-        self.forward_full_internal(input, rng)
     }
 
     /// Internal forward pass implementation.
@@ -901,7 +857,7 @@ impl Network {
     ///
     /// # Returns
     /// Average loss value
-    pub fn evaluate(&self, inputs: &Vec<Array1<Float>>, targets: &Vec<Array1<Float>>) -> Float {
+    pub fn evaluate(&self, inputs: &[Array1<Float>], targets: &[Array1<Float>]) -> Float {
         let mut total_loss = 0.0;
 
         for (input, target) in inputs.iter().zip(targets.iter()) {
@@ -942,6 +898,7 @@ impl Network {
     /// Trains the network with support for callbacks and optional learning rate scheduler.
     ///
     /// **Internal method**: Use `network.trainer().fit()` instead.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn fit(
         &mut self,
         train_dataset: &mut crate::dataset::Dataset,
@@ -1076,7 +1033,7 @@ impl Network {
 
     /// Returns the input size of the network.
     pub fn input_size(&self) -> usize {
-        self.input_size
+        self.input_size as usize
     }
 
     /// Returns the output size of the network.

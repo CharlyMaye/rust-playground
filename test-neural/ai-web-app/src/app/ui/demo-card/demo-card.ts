@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLinkWithHref } from '@angular/router';
 import { Loader } from '../loader/loader';
 
@@ -11,6 +11,7 @@ import { Loader } from '../loader/loader';
   selector: 'app-demo-card',
   imports: [DecimalPipe, RouterLinkWithHref, Loader],
   templateUrl: './demo-card.html',
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class DemoCard {
   /** Route path for navigation */

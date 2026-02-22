@@ -442,7 +442,32 @@ fn test_tanh_backward() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Reshape
+// Softmax
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_softmax_backward() {
+    let a_data = vec![1.0, 2.0, 3.0, 4.0];
+    let layer = Softmax::new();
+
+    let a = Tensor::from_vec(a_data.clone(), &[4], true);
+    let c = layer.forward(&a);
+    // Scalar loss: weighted sum so gradient is non-trivial
+    let weights = Tensor::from_vec(vec![0.1, 0.2, 0.3, 0.4], &[4], false);
+    let loss = (&c * &weights).sum();
+    loss.backward();
+
+    let grad_a: Vec<Float> = a.grad().unwrap().iter().copied().collect();
+
+    let num_grad = numerical_gradient(&a_data, &[4], |x| {
+        let l = Softmax::new();
+        let out = l.forward(x);
+        let w = Tensor::from_vec(vec![0.1, 0.2, 0.3, 0.4], &[4], false);
+        (&out * &w).sum()
+    });
+    assert_grads_close(&grad_a, &num_grad, "softmax");
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 
 #[test]

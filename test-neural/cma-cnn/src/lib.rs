@@ -44,17 +44,16 @@ pub mod layers;
 pub mod ops;
 pub mod sequential;
 pub mod tensor;
-
-// Re-export Float type from cma-neural-network for consistency
-pub use cma_neural_network::Float;
+// Re-export Float and Dim types from cma-neural-network for consistency
+pub use cma_neural_network::{Dim, Float};
 
 // Re-exports
 pub use layers::{
-    ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, Dropout2D, Flatten, GlobalAvgPool2D, Layer,
-    LayerType, MaxPool2D,
+    ActivationLayer, AvgPool2D, BatchNorm2D, Conv2D, DepthwiseConv2D, Dropout2D, Flatten,
+    GlobalAvgPool2D, Layer, LayerType, MaxPool2D,
 };
 pub use ops::{
-    Padding, col2im, conv2d_im2col, im2col, im2col_single,
+    Padding, col2im, conv2d_im2col, im2col_single,
     maxpool2d, avgpool2d, global_avgpool2d,
 };
 pub use sequential::Sequential;
