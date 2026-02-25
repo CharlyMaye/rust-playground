@@ -1,59 +1,47 @@
-//! Demonstration of mini-batch training
+//! Mini-batch training demonstration
 //!
-//! This example shows:
-//! - How to use the Dataset structure
-//! - Comparison between single-sample and mini-batch training
-//! - Impact of different batch sizes on training speed and convergence
-//! - Benefits of shuffling data between epochs
+//! Compares three training approaches:
+//!   1. Sample-by-sample  — network.train() per example
+//!   2. Manual batches    — network.train_batch() with Dataset::batches()
+//!   3. TrainingBuilder   — .batch_size(N).fit() (the recommended high-level API)
+//!
+//! Run: cargo run --example minibatch_demo
 
-use cma_neural_network::Float;
-use cma_neural_network::builder::NetworkBuilder;
+use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
 use cma_neural_network::dataset::Dataset;
 use cma_neural_network::network::{Activation, LossFunction};
 use cma_neural_network::optimizer::OptimizerType;
+use cma_neural_network::Float;
 use ndarray::array;
 use std::time::Instant;
 
 fn main() {
     println!("=== Mini-Batch Training Demonstration ===\n");
 
-    // Create a synthetic dataset (larger than XOR for demonstrating batch benefits)
-    println!("📊 Creating dataset...");
-    let mut inputs = Vec::new();
+    // Build a 1000-sample XOR-like dataset with small noise
+    println!("📊 Building dataset...");
+    let mut inputs  = Vec::new();
     let mut targets = Vec::new();
 
-    // Generate 1000 XOR-like examples with variations
     for _ in 0..250 {
-        // XOR: 00 -> 0
-        inputs.push(array![
-            0.0 + rand::random::<Float>() * 0.1,
-            0.0 + rand::random::<Float>() * 0.1
-        ]);
-        targets.push(array![0.0]);
+        inputs.push(array![0.0_f32 + rand::random::<Float>() * 0.1,
+                            0.0_f32 + rand::random::<Float>() * 0.1]);
+        targets.push(array![0.0_f32]);
 
-        // XOR: 01 -> 1
-        inputs.push(array![
-            0.0 + rand::random::<Float>() * 0.1,
-            1.0 - rand::random::<Float>() * 0.1
-        ]);
-        targets.push(array![1.0]);
+        inputs.push(array![0.0_f32 + rand::random::<Float>() * 0.1,
+                            1.0_f32 - rand::random::<Float>() * 0.1]);
+        targets.push(array![1.0_f32]);
 
-        // XOR: 10 -> 1
-        inputs.push(array![
-            1.0 - rand::random::<Float>() * 0.1,
-            0.0 + rand::random::<Float>() * 0.1
-        ]);
-        targets.push(array![1.0]);
+        inputs.push(array![1.0_f32 - rand::random::<Float>() * 0.1,
+                            0.0_f32 + rand::random::<Float>() * 0.1]);
+        targets.push(array![1.0_f32]);
 
-        // XOR: 11 -> 0
-        inputs.push(array![
-            1.0 - rand::random::<Float>() * 0.1,
-            1.0 - rand::random::<Float>() * 0.1
-        ]);
-        targets.push(array![0.0]);
+        inputs.push(array![1.0_f32 - rand::random::<Float>() * 0.1,
+                            1.0_f32 - rand::random::<Float>() * 0.1]);
+        targets.push(array![0.0_f32]);
     }
 
-    println!("Dataset created: {} samples\n", inputs.len());
+    println!("Dataset: {} samples\n", inputs.len());
 
     // Create dataset and split
     let dataset = Dataset::new(inputs, targets);
@@ -214,25 +202,60 @@ fn main() {
         duration_single.as_secs_f64() / duration_batch128.as_secs_f64()
     );
 
+    // ===== 5. TrainingBuilder (recommended high-level API) =====
+    println!("--- 5. TrainingBuilder (high-level, batch_size=32) ---");
+    let mut network_builder = NetworkBuilder::new(2, 1)
+        .hidden_layer(8, Activation::Tanh)
+        .output_activation(Activation::Sigmoid)
+        .loss(LossFunction::BinaryCrossEntropy)
+        .optimizer(OptimizerType::adam(0.01))
+        .build();
+    network_builder.set_seed(42);
+
+    let mut train_for_builder = train_dataset.clone();
+    let start = Instant::now();
+    network_builder
+        .trainer()
+        .train_data(&mut train_for_builder)
+        .epochs(epochs)
+        .batch_size(32)
+        .verbose(0)
+        .fit();
+    let duration_builder = start.elapsed();
+    let test_loss_builder = network_builder.evaluate(test_dataset.inputs(), test_dataset.targets());
+
+    println!("✓ Time: {:.2}s", duration_builder.as_secs_f64());
+    println!("✓ Final loss (test): {:.6}", test_loss_builder);
+    println!(
+        "✓ Speedup: {:.2}x faster (vs single-sample)\n",
+        duration_single.as_secs_f64() / duration_builder.as_secs_f64()
+    );
+
     // ===== Summary =====
     println!("\n=== Performance Summary ===");
     println!(
-        "  • Single sample:               {:.2}s (baseline)",
+        "  • 1. Sample-by-sample:       {:.2}s (baseline)",
         duration_single.as_secs_f64()
     );
     println!(
-        "  • Mini-batch (32):             {:.2}s ({:.1}x speedup)",
+        "  • 2. train_batch (size=32):  {:.2}s ({:.1}x speedup)",
         duration_batch32.as_secs_f64(),
         duration_single.as_secs_f64() / duration_batch32.as_secs_f64()
     );
     println!(
-        "  • Mini-batch (64):             {:.2}s ({:.1}x speedup)",
+        "  • 3. train_batch (size=64):  {:.2}s ({:.1}x speedup)",
         duration_batch64.as_secs_f64(),
         duration_single.as_secs_f64() / duration_batch64.as_secs_f64()
     );
     println!(
-        "  • Mini-batch (128):            {:.2}s ({:.1}x speedup)",
+        "  • 4. train_batch (size=128): {:.2}s ({:.1}x speedup)",
         duration_batch128.as_secs_f64(),
         duration_single.as_secs_f64() / duration_batch128.as_secs_f64()
     );
+    println!(
+        "  • 5. TrainingBuilder (32):   {:.2}s ({:.1}x speedup) ← recommended",
+        duration_builder.as_secs_f64(),
+        duration_single.as_secs_f64() / duration_builder.as_secs_f64()
+    );
+    println!("\nSee docs/guides/02-dense-network.md §3 for TrainingBuilder API reference.");
 }
