@@ -132,15 +132,16 @@ python3 -m http.server 8080
 ## Quickstart (Rust)
 
 ```rust
-use cma_neural_network::NetworkBuilder;
+use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
+use cma_neural_network::network::{Activation, LossFunction};
+use cma_neural_network::optimizer::OptimizerType;
 
-let mut model = NetworkBuilder::new()
-    .input(4)
-    .dense(16, "relu")
-    .dense(8, "relu")
-    .dense(3, "softmax")
-    .loss("categorical_crossentropy")
-    .optimizer("adam", 0.001)
+let mut net = NetworkBuilder::new(4, 3)  // input_size=4, output_size=3
+    .hidden_layer(16, Activation::ReLU)
+    .hidden_layer(8, Activation::ReLU)
+    .output_activation(Activation::Softmax)
+    .loss(LossFunction::CategoricalCrossEntropy)
+    .optimizer(OptimizerType::adam(0.001))
     .build();
 
 model.fit(&x_train, &y_train, epochs: 50, batch_size: 32);

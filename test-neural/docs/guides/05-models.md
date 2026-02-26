@@ -54,7 +54,7 @@ let config = LeNet5Config::original();  // 32×32, Tanh, no BN — faithful to p
 let config = LeNet5Config::modern();    // 28×28, ReLU + BatchNorm
 
 // Build
-let lenet = LeNet5::new(num_classes: 10);                    // uses mnist() config
+let lenet = LeNet5::new(10);                    // uses mnist() config
 let lenet = LeNet5::with_config(LeNet5Config::modern());
 
 lenet.summary();
@@ -175,7 +175,7 @@ let config = VGGConfig::vgg11();    // 224×224, 3ch, 8 conv
 let config = VGGConfig::cifar10();  // 32×32, 3ch, 8 conv — viable on CPU
 
 // Build with default config
-let mut vgg16 = VGG16::new(num_classes: 1000);
+let mut vgg16 = VGG16::new(1000);
 let mut vgg19 = VGG19::new(1000);
 
 // Build with custom config
@@ -206,10 +206,10 @@ use cma_models::alexnet::{AlexNet, AlexNetConfig};
 // Preset configs
 let config = AlexNetConfig::imagenet();           // 227×227, 3ch, BN, dropout=0.5
 let config = AlexNetConfig::cifar10();            // 32×32, 3ch
-let config = AlexNetConfig::small(num_classes: 10); // 64×64 — intermediate
+let config = AlexNetConfig::small(10); // 64×64 — intermediate
 
 // Build
-let mut alex = AlexNet::new(num_classes: 1000);
+let mut alex = AlexNet::new(1000);
 let mut alex = AlexNet::with_config(AlexNetConfig::cifar10());
 
 alex.summary();
@@ -235,7 +235,7 @@ Build variant is selected automatically based on `config.input_size`:
 **Parameters**: ~5.3 M (B0) — Pareto-optimal on accuracy / FLOPs
 
 ```rust
-use cma_models::efficientnet::{EfficientNetB0, EfficientNetConfig, MBConvBlock, MBConvBlockBuilder};
+use cma_models::efficientnet::{EfficientNetB0, EfficientNetConfig, MBConvBlock};
 
 // Preset configs
 let config = EfficientNetConfig::b0();      // 224×224, width=1.0, depth=1.0
@@ -244,7 +244,7 @@ let config = EfficientNetConfig::b2();      // 260×260, width=1.1, depth=1.2
 let config = EfficientNetConfig::cifar10(); // 32×32, width=0.5, depth=0.5
 
 // Build
-let mut eff = EfficientNetB0::new(num_classes: 10);
+let mut eff = EfficientNetB0::new(10);
 let mut eff = EfficientNetB0::with_config(EfficientNetConfig::cifar10());
 
 eff.summary();
@@ -260,11 +260,11 @@ println!("Feature shape: {}", feat.shape());
 
 ```rust
 // Build a single MBConv6 block (expand_ratio=6, SE enabled)
-let block = MBConvBlockBuilder::new(in_channels: 16, out_channels: 24)
+let block = MBConvBlock::builder(16, 24)  // (in_channels, out_channels)
     .expand_ratio(6)
     .kernel_size(3)
-    .stride(2)          // stride=2 → no skip connection
-    .has_se(true)       // Squeeze-and-Excitation
+    .stride(2)                    // stride=2 → no skip connection
+    .with_squeeze_excitation()    // enable Squeeze-and-Excitation
     .build();
 
 println!("Block parameters: {}", block.num_parameters());

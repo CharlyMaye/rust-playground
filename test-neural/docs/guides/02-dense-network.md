@@ -13,7 +13,7 @@
 ```toml
 [dependencies]
 cma-neural-network = { path = "../cma-neural-network" }
-ndarray = "0.16"
+ndarray = "0.17"
 ```
 
 ---
@@ -199,7 +199,7 @@ All callbacks implement the `Callback` trait and are passed to `.callback(Box::n
 ```rust
 use cma_neural_network::callbacks::{EarlyStopping, DeltaMode};
 
-let es = EarlyStopping::new(patience: usize, min_delta: Float)
+let es = EarlyStopping::new(10, 0.0001)   // patience=10, min_delta=0.0001
     .mode(DeltaMode::Absolute);   // or DeltaMode::Relative (percentage improvement)
 
 // After training:
@@ -218,7 +218,7 @@ use cma_neural_network::callbacks::ModelCheckpoint;
 // Saves best model automatically. Format inferred from extension:
 //   .json  → JSON (human-readable)
 //   other  → binary (compact)
-let checkpoint = ModelCheckpoint::new("checkpoints/best.json", save_best_only: true);
+let checkpoint = ModelCheckpoint::new("checkpoints/best.json", true);
 ```
 
 ### `LearningRateScheduler`
@@ -281,7 +281,7 @@ use cma_neural_network::metrics::{accuracy, binary_metrics, confusion_matrix_bin
 let preds: Vec<Array1<Float>> = inputs.iter().map(|x| net.predict(x)).collect();
 
 // Accuracy
-let acc: Float = accuracy(&preds, &targets, threshold: 0.5);
+let acc: Float = accuracy(&preds, &targets, 0.5);
 
 // Full precision / recall / F1
 let m = binary_metrics(&preds, &targets, 0.5);
@@ -305,7 +305,7 @@ let auc: Float = auc_roc(&preds, &targets);  // 1.0 = perfect, 0.5 = random
 ```rust
 use cma_neural_network::metrics::{confusion_matrix_multiclass, format_confusion_matrix};
 
-let cm = confusion_matrix_multiclass(&preds, &targets, num_classes: 10);
+let cm = confusion_matrix_multiclass(&preds, &targets, 10);
 println!("{}", format_confusion_matrix(&cm, Some(&["0","1","2","3","4","5","6","7","8","9"])));
 ```
 

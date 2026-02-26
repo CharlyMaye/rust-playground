@@ -16,7 +16,7 @@ It is the **only crate in this library that can compute gradients through convol
 ```toml
 [dependencies]
 cma-autograd = { path = "../cma-autograd" }
-ndarray = "0.16"
+ndarray = "0.17"
 ```
 
 ---
@@ -29,9 +29,9 @@ ndarray = "0.16"
 use cma_autograd::prelude::*;   // Tensor, Parameter, no_grad, etc.
 use cma_autograd::Float;
 
-let x = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3], requires_grad: false);
-let w = Tensor::randn(&[3, 4], requires_grad: true);   // will accumulate gradients
-let b = Tensor::zeros(&[4], requires_grad: true);
+let x = Tensor::from_vec(vec![1.0, 2.0, 3.0], &[3], false);
+let w = Tensor::randn(&[3, 4], true);   // requires_grad=true — will accumulate gradients
+let b = Tensor::zeros(&[4], true);
 
 let y = Tensor::zeros(&[2, 3], false);
 let s = Tensor::scalar(1.0_f32, false);
@@ -133,8 +133,7 @@ layer.zero_grad();
 ```rust
 use cma_autograd::module::Conv2D;
 
-let conv = Conv2D::new(in_channels: 3, out_channels: 32, kernel_size: 3,
-                       stride: 1, padding: 1);   // He init
+let conv = Conv2D::new(3, 32, 3, 1, 1);   // (in_channels, out_channels, kernel_size, stride, padding) — He init
 let conv = Conv2D::without_bias(3, 32, 3, 1, 1);
 
 let output = conv.forward(&input);   // input must be a 4-D tensor [N,C,H,W]
@@ -172,16 +171,16 @@ let model = CnnBuilder::new()
 
 ```rust
 // LeNet-5 adapted for 28×28 input (MNIST-compatible)
-let model = CnnBuilder::lenet5(num_classes: 10);
+let model = CnnBuilder::lenet5(10);
 
 // AlexNet simplified for smaller inputs
-let model = CnnBuilder::alexnet_mnist(num_classes: 10);
+let model = CnnBuilder::alexnet_mnist(10);
 
 // VGG-style for smaller inputs
-let model = CnnBuilder::vgg_mnist(num_classes: 10);
+let model = CnnBuilder::vgg_mnist(10);
 
 // Plain deep CNN (NOT a true ResNet — no skip connections)
-let model = CnnBuilder::resnet_mnist(num_classes: 10);
+let model = CnnBuilder::resnet_mnist(10);
 ```
 
 > **Warning**: `CnnBuilder::resnet_mnist` creates a deep plain network **without residual skip connections**, despite its name. For a real ResNet with skip connections, use `cma-models::ResNetBuilder` (Guide 05).

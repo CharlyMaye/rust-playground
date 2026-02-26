@@ -15,7 +15,7 @@ Solve the XOR problem — the canonical first test for any neural network librar
 ```toml
 [dependencies]
 cma-neural-network = { path = "../cma-neural-network" }
-ndarray = "0.16"
+ndarray = "0.17"
 ```
 
 ---

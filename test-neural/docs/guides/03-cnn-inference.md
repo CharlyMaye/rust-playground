@@ -16,7 +16,7 @@
 ```toml
 [dependencies]
 cma-cnn = { path = "../cma-cnn" }
-ndarray = "0.16"
+ndarray = "0.17"
 ```
 
 `cma-cnn` re-exports `Float`, `Activation`, `LossFunction`, `Network`, `NetworkBuilder`, and `OptimizerType` from `cma-neural-network`, so you usually only need `cma-cnn` as a dependency.
@@ -31,12 +31,12 @@ ndarray = "0.16"
 use cma_cnn::tensor::{Tensor4D, TensorShape};
 
 // Shape descriptor
-let shape = TensorShape::new(batch: 1, channels: 3, height: 32, width: 32);
+let shape = TensorShape::new(1, 3, 32, 32);
 println!("{}", shape);  // "[1, 3, 32, 32]"
 
 // Shape arithmetic (for manual sanity checks)
-let after_conv  = shape.after_conv(out_channels: 16, kernel_size: 3, stride: 1, padding: 1);
-let after_pool  = after_conv.after_pool(pool_size: 2, stride: 2);
+let after_conv  = shape.after_conv(16, 3, 1, 1);  // (out_channels, kernel_size, stride, padding)
+let after_pool  = after_conv.after_pool(2, 2);     // (pool_size, stride)
 let after_gap   = after_pool.after_global_pool();  // → [batch, channels, 1, 1]
 
 // Build tensors
@@ -74,7 +74,7 @@ He initialisation is applied automatically.
 use cma_cnn::DepthwiseConv2D;
 
 // Per-channel convolution — does NOT mix channels (see Guide 16 — theory)
-let dw = DepthwiseConv2D::new(channels: 32, kernel_size: 3, stride: 1, padding: 1);
+let dw = DepthwiseConv2D::new(32, 3, 1, 1);  // (channels, kernel_size, stride, padding)
 let dw = DepthwiseConv2D::new(32, 3, 1, 1).without_bias();
 ```
 
@@ -83,7 +83,7 @@ let dw = DepthwiseConv2D::new(32, 3, 1, 1).without_bias();
 ```rust
 use cma_cnn::{MaxPool2D, AvgPool2D, GlobalAvgPool2D};
 
-let maxpool = MaxPool2D::new(pool_size: 2, stride: 2);
+let maxpool = MaxPool2D::new(2, 2);  // (pool_size, stride)
 let avgpool = AvgPool2D::new(2, 2);
 let gap     = GlobalAvgPool2D::new();   // reduces H×W → 1×1 per channel
 ```
@@ -93,7 +93,7 @@ let gap     = GlobalAvgPool2D::new();   // reduces H×W → 1×1 per channel
 ```rust
 use cma_cnn::BatchNorm2D;
 
-let mut bn = BatchNorm2D::new(num_features: 64);
+let mut bn = BatchNorm2D::new(64);  // num_features
 bn.train_mode();   // uses batch statistics, updates running mean/var
 bn.eval_mode();    // uses frozen running statistics (for final inference)
 ```
@@ -116,7 +116,7 @@ let custom  = ActivationLayer::new(Activation::Swish);
 ```rust
 use cma_cnn::{Dropout2D, Flatten};
 
-let drop = Dropout2D::new(rate: 0.5);  // spatial dropout — drops entire channels
+let drop = Dropout2D::new(0.5);  // spatial dropout — drops entire channels; rate=0.5
 let flat = Flatten::new();             // [N, C, H, W] → [N, C*H*W, 1, 1]
 ```
 
