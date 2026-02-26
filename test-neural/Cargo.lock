@@ -631,6 +631,8 @@ dependencies = [
 name = "test-neural"
 version = "0.1.0"
 dependencies = [
+ "cma-autograd",
+ "cma-cnn",
  "cma-neural-network",
  "ndarray",
  "neural-wasm-shared",

@@ -1,11 +1,12 @@
-//! Getting Started - Complete library example
+//! Getting Started — complete library tour
 //!
-//! This example demonstrates all main features:
-//! - Building networks with the Builder Pattern
-//! - Different optimizers (SGD, Adam, etc.)
-//! - Regularization (Dropout, L2)
-//! - Callbacks (EarlyStopping, ModelCheckpoint, LR Scheduler)
-//! - Evaluation with metrics
+//! Covers:
+//! - NetworkBuilder: layers, activations, optimizers, regularization
+//! - TrainingBuilder: dataset, batch training, callbacks, LR scheduler
+//! - Evaluation: accuracy, precision/recall/F1, AUC
+//! - Serialization: save/load JSON
+//!
+//! Run: cargo run --example getting_started
 
 use cma_neural_network::builder::{NetworkBuilder, NetworkTrainer};
 use cma_neural_network::callbacks::{
@@ -62,7 +63,7 @@ fn main() {
     // ═══════════════════════════════════════════════════════════════════════
     println!("🔧 2. Building a network with the Builder Pattern\n");
 
-    let network = NetworkBuilder::new(2, 1) // 2 inputs, 1 output
+    let _network = NetworkBuilder::new(2, 1) // 2 inputs, 1 output
         .hidden_layer(8, Activation::Tanh) // Hidden layer
         .output_activation(Activation::Sigmoid) // Binary output
         .loss(LossFunction::BinaryCrossEntropy) // Binary classification
@@ -72,14 +73,13 @@ fn main() {
     println!("   ✓ Network created: 2 → [8] → 1");
     println!("   ✓ Activation: Tanh → Sigmoid");
     println!("   ✓ Optimizer: Adam (lr=0.01)\n");
-    drop(network);
 
     // ═══════════════════════════════════════════════════════════════════════
     // 3. NETWORK WITH REGULARIZATION
     // ═══════════════════════════════════════════════════════════════════════
     println!("🛡️  3. Network with regularization (Dropout + L2)\n");
 
-    let network_reg = NetworkBuilder::new(2, 1)
+    let _network_reg = NetworkBuilder::new(2, 1)
         .hidden_layer(16, Activation::ReLU)
         .hidden_layer(8, Activation::ReLU)
         .output_activation(Activation::Sigmoid)
@@ -92,7 +92,6 @@ fn main() {
     println!("   ✓ Architecture: 2 → [16, 8] → 1");
     println!("   ✓ Dropout: 0.2 (prevents overfitting)");
     println!("   ✓ L2: 0.001 (penalizes large weights)\n");
-    drop(network_reg);
 
     // ═══════════════════════════════════════════════════════════════════════
     // 4. OPTIMIZER COMPARISON
@@ -100,18 +99,16 @@ fn main() {
     println!("⚡ 4. Quick optimizer comparison\n");
 
     let optimizers = vec![
-        ("SGD", OptimizerType::sgd(0.5)),
+        ("SGD",      OptimizerType::sgd(0.5)),
         ("Momentum", OptimizerType::momentum(0.1)),
-        ("Adam", OptimizerType::adam(0.01)),
+        ("Adam",     OptimizerType::adam(0.01)),
     ];
 
-    let test_inputs = vec![
-        array![0.0, 0.0],
-        array![0.0, 1.0],
-        array![1.0, 0.0],
-        array![1.0, 1.0],
+    let test_inputs  = vec![
+        array![0.0f32, 0.0], array![0.0, 1.0],
+        array![1.0, 0.0],    array![1.0, 1.0],
     ];
-    let test_targets = vec![array![0.0], array![1.0], array![1.0], array![0.0]];
+    let test_targets = vec![array![0.0f32], array![1.0], array![1.0], array![0.0]];
 
     for (name, optimizer) in optimizers {
         let mut net = NetworkBuilder::new(2, 1)
@@ -120,15 +117,16 @@ fn main() {
             .loss(LossFunction::BinaryCrossEntropy)
             .optimizer(optimizer)
             .build();
+        net.set_seed(42);
 
-        net.set_seed(42); // Reproducible results
-
-        // Quick training
-        for _ in 0..1000 {
-            for (input, target) in test_inputs.iter().zip(test_targets.iter()) {
-                net.train(input, target);
-            }
-        }
+        // Quick training via TrainingBuilder (200 epochs, batch_size=4, silent)
+        let mut ds = Dataset::new(test_inputs.clone(), test_targets.clone());
+        net.trainer()
+            .train_data(&mut ds)
+            .epochs(200)
+            .batch_size(4)
+            .verbose(0)
+            .fit();
 
         let loss = net.evaluate(&test_inputs, &test_targets);
         println!("   {:<10} → Final loss: {:.6}", name, loss);

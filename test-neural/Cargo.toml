@@ -40,9 +40,19 @@ path = "examples/minibatch_demo.rs"
 name = "metrics_demo"
 path = "examples/metrics_demo.rs"
 
+[[example]]
+name = "cnn_inference"
+path = "examples/cnn_inference.rs"
+
+[[example]]
+name = "autograd_training"
+path = "examples/autograd_training.rs"
+
 [dependencies]
 cma-neural-network = { path = "cma-neural-network" }
-neural-wasm-shared = { path = "neural-wasm/shared" }
+cma-cnn             = { path = "cma-cnn" }
+cma-autograd        = { path = "cma-autograd" }
+neural-wasm-shared  = { path = "neural-wasm/shared" }
 ndarray = { version = "0.17.1", features = ["serde"] }
 rand = "0.9.2"
 serde_json = "1.0"
